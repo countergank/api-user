@@ -10,7 +10,7 @@ enum Environment {
 }
 
 enum DatabaseType {
-  MONGO = 'mongo',
+  MONGO = 'mongodb',
 }
 
 class EnvironmentVariables {
