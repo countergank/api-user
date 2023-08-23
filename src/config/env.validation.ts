@@ -10,7 +10,7 @@ enum Environment {
 }
 
 enum DatabaseType {
-  MONGO = 'mongodb',
+  MONGODB = 'mongodb',
 }
 
 class EnvironmentVariables {
@@ -27,13 +27,16 @@ class EnvironmentVariables {
   DATABASE_PORT: string;
 
   @IsString()
+  DATABASE_USER: string;
+
+  @IsString()
   DATABASE_PASSWORD: string;
 
   @IsString()
   DATABASE_NAME: string;
 
   @IsString()
-  HOST: string;
+  PORT: string;
 
   @IsString()
   @IsOptional()
