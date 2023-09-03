@@ -1,8 +1,7 @@
 version: '3.9'
 services:
   api-user:
-    build: .
-    image: leandrojaviercepeda/api-user:${TAG}
+    image: countergank/api-user:${TAG}
     container_name: api-user
     restart: always
     ports:
