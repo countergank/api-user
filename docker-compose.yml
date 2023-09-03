@@ -1,13 +1,11 @@
-version: '3.5'
+version: '3.9'
 services:
   api-user:
-    build:
-      args:
-      - PORT=${PORT}
+    build: .
     image: leandrojaviercepeda/api-user:${TAG}
     container_name: api-user
     restart: always
     ports:
     - ${PORT}:${PORT}
     env_file:
-    - .env.${NODE_APP_INSTANCE}
+    - .env.${NODE_ENV}
