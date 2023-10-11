@@ -2,19 +2,19 @@ version: '3.9'
 services:
   api-user:
     image: countergank/api-user:${TAG}
-    container_name: api-user
+    container_name: api-user-${TAG}
     restart: always
-    build:
-      dockerfile: Dockerfile
-      context: .
-      target: development
-    command: npm run start:debug
+    # build:
+    #   dockerfile: Dockerfile
+    #   context: .
+    #   target: development
+    # command: npm run start:debug
     ports:
       - ${PORT}:${PORT}
     env_file:
       - .env.${NODE_ENV}
-    volumes:
-      - .:/usr/src/app
+    # volumes:
+    #   - .:/usr/src/app
     networks:
       - api-user
 

@@ -9,7 +9,7 @@ export class AppService {
   getVersion(): string {
     try {
       const tag = this.configService.get('TAG');
-      return `User Manager API. v=${tag}`;
+      return `User Manager API v=${tag}`;
     } catch (error) {
       throw new VersionNotFoundError();
     }
