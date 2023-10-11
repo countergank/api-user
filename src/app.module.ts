@@ -14,9 +14,6 @@ import { isProd } from './common/utils';
       ignoreEnvFile: isProd() ? true : false,
       validate: validate,
     }),
-    // TypeOrmModule.forRootAsync({
-    //   useClass: TypeOrmConfigService,
-    // }),
   ],
   controllers: [AppController],
   providers: [AppService],
