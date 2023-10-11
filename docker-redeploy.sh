@@ -2,7 +2,7 @@
 # -V force install dependencies (si hubo cambios en el package.json)
 # --build rebuilds the image
 
-NODE_ENV=local
+NODE_ENV=development
 
 if command -v docker compose; then
 	docker compose --env-file .env.$NODE_ENV down
