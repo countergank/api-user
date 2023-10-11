@@ -48,5 +48,5 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ github.repository }}:${{ github.ref_name }}.${{ steps.read-version.outputs.TAG }},
-            ${{ github.repository }}:${{ github.ref_name }}.latest
+          tags: ${{ github.repository }}:${{ github.ref_name }}-${{ steps.read-version.outputs.TAG }},
+            ${{ github.repository }}:${{ github.ref_name }}-latest
