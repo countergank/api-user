@@ -3,7 +3,7 @@ on:
     branches: [develop]
   pull_request:
     branches: [develop, qa, master]
-name: ci
+name: release-docker-image
 jobs:
   build-push-image:
     name: Build & Push image
