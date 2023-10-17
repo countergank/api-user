@@ -10,17 +10,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Obtener el nombre de la rama
-        id: extract-branch-name
-        run: echo "::set-output name=branch_name::$(echo ${{ github.ref_name }} | sed 's#refs/heads/##')"
-      
       - name: Imprimir el nombre de la rama
-        run: echo "El nombre de la rama es ${{ steps.extract-branch-name.outputs.branch_name }}"
+        run: echo "El nombre de la rama es ${{ github.ref_name }}"
 
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
-          ref: ${{ steps.extract-branch-name.outputs.branch_name }}
+          ref: ${{ github.ref_name }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v2
