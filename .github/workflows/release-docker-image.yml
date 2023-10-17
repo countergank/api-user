@@ -1,6 +1,4 @@
 on:
-  push:
-    branches: [develop]
   pull_request:
     branches: [develop, qa, master]
 name: release-docker-image
@@ -12,12 +10,7 @@ jobs:
     steps:
       - name: Extract branch name
         id: extract-branch-name
-        run: |
-          if [[ "${{ github.event_name }}" == 'pull_request' ]]; then
-            echo "::set-output name=branch_name::${{ github.base_ref }}"
-          elif [[ "${{ github.event_name }}" == 'push' ]]; then
-            echo "::set-output name=branch_name::${{ github.ref_name }}"
-          fi
+        run: echo "::set-output name=branch_name::${{ github.ref_name }}"
 
       - name: Checkout
         uses: actions/checkout@v3
