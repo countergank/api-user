@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: Obtener el nombre de la rama
         id: extract-branch-name
-        run: echo "::set-output name=branch_name::$(echo ${{ github.ref }} | sed 's#refs/heads/##')"
+        run: echo "::set-output name=branch_name::$(echo ${{ github.ref_name }} | sed 's#refs/heads/##')"
       
       - name: Imprimir el nombre de la rama
         run: echo "El nombre de la rama es ${{ steps.extract-branch-name.outputs.branch_name }}"
