@@ -16,7 +16,7 @@ jobs:
           if [[ "${{ github.event_name }}" == 'pull_request' ]]; then
             echo "::set-output name=branch_name::${{ github.base_ref }}"
           elif [[ "${{ github.event_name }}" == 'push' ]]; then
-            echo "::set-output name=branch_name::${{ github.ref }}"
+            echo "::set-output name=branch_name::${{ github.ref_name }}"
           fi
 
       - name: Checkout
