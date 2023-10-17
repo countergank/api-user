@@ -1,8 +1,8 @@
 version: '3.9'
 services:
   api-user:
-    image: countergank/api-user:${TAG}
-    container_name: api-user-${TAG}
+    image: countergank/api-user:${NODE_ENV}-${VERSION}
+    container_name: api-user_${NODE_ENV}-${VERSION}
     restart: always
     build:
       dockerfile: Dockerfile
@@ -14,11 +14,11 @@ services:
     env_file:
       - .env.${NODE_ENV}
     volumes:
-      - .:/usr/src/app/${TAG}
+      - .:/usr/src/app
     networks:
       - api-user
 
 networks:
   api-user:
-    name: api-user-${TAG}
+    name: api-user_${NODE_ENV}-${VERSION}
     driver: bridge
