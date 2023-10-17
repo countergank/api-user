@@ -10,6 +10,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Show refname
+        run: echo "refname ${{ github.ref_name }}""
+
       - name: Checkout
         uses: actions/checkout@v2
         with:
