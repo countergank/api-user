@@ -3,17 +3,21 @@ on:
     branches: [develop]
   pull_request:
     branches: [develop, qa, master]
-name: ci
+name: release-docker-image
 jobs:
   build-push-image:
     name: Build & Push image
     runs-on: ubuntu-latest
 
     steps:
+      - name: Extract branch name
+        id: extract-branch-name
+        run: echo "::set-output name=branch_name::$(echo ${{ github.base_ref }})"
+
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
-          ref: ${{ github.ref_name }}
+          ref: ${{ steps.extract-branch-name.outputs.branch_name }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v2
@@ -48,5 +52,5 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ github.repository }}:${{ github.ref_name }}-${{ steps.read-version.outputs.TAG }},
-            ${{ github.repository }}:${{ github.ref_name }}-latest
+          tags: ${{ github.repository }}:${{ steps.extract-branch-name.outputs.branch_name }}-${{ steps.read-version.outputs.TAG }},
+            ${{ github.repository }}:${{ steps.extract-branch-name.outputs.branch_name }}-latest

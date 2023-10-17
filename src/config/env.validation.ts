@@ -17,6 +17,9 @@ class EnvironmentVariables {
   @IsEnum(Environment)
   NODE_ENV: Environment;
 
+  @IsString()
+  VERSION: string;
+
   @IsEnum(DatabaseType)
   DATABASE_TYPE: DatabaseType;
 
