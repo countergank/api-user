@@ -10,13 +10,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Show refname
-        run: echo "refname ${{ github.ref_name }}""
+      - name: Obtener el nombre de la rama
+        id: extract-branch-name
+        run: echo "::set-output name=branch_name::$(echo ${{ github.ref }} | sed 's#refs/heads/##')"
+      
+      - name: Imprimir el nombre de la rama
+        run: echo "El nombre de la rama es ${{ steps.extract-branch-name.outputs.branch_name }}"
 
       - name: Checkout
         uses: actions/checkout@v2
         with:
-          ref: ${{ github.ref_name }}
+          ref: ${{ steps.extract-branch-name.outputs.branch_name }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v2
@@ -51,5 +55,5 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ github.repository }}:${{ github.ref_name }}-${{ steps.read-version.outputs.TAG }},
-            ${{ github.repository }}:${{ github.ref_name }}-latest
+          tags: ${{ github.repository }}:${{ steps.extract-branch-name.outputs.branch_name }}-${{ steps.read-version.outputs.TAG }},
+            ${{ github.repository }}:${{ steps.extract-branch-name.outputs.branch_name }}-latest
