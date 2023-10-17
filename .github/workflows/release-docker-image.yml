@@ -10,12 +10,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Obtener el nombre de la rama
+      - name: Extract branch name
         id: extract-branch-name
         run: echo "::set-output name=branch_name::$(echo ${{ github.base_ref }})"
-      
-      - name: Imprimir el nombre de la rama
-        run: echo "El nombre de la rama es ${{ steps.extract-branch-name.outputs.branch_name }}"
 
       - name: Checkout
         uses: actions/checkout@v3
