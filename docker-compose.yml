@@ -1,5 +1,21 @@
 version: '3.9'
 services:
+  db-user:
+    image: mongo:6.0.3
+    container_name: db-user_${NODE_ENV}-${VERSION}
+    expose:
+      - 27017
+    restart: always
+    ports:
+      - ${DATABASE_PORT}:${DATABASE_PORT}
+    volumes:
+      - db-user-data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=${DATABASE_NAME}
+      - MONGO_INITDB_BIND_IP=0.0.0.0
+    networks:
+      - db-user-net
+
   api-user:
     image: countergank/api-user:${NODE_ENV}-${VERSION}
     container_name: api-user_${NODE_ENV}-${VERSION}
@@ -8,6 +24,10 @@ services:
       dockerfile: Dockerfile
       context: .
       target: development
+    depends_on:
+      - db-user
+    links:
+      - db-user
     command: npm run start:debug
     ports:
       - ${PORT}:${PORT}
@@ -16,9 +36,14 @@ services:
     volumes:
       - .:/usr/src/app
     networks:
-      - api-user
+      - api-user-net
+
+volumes:
+  db-user-data:
+    driver: local
 
 networks:
-  api-user:
-    name: api-user_${NODE_ENV}-${VERSION}
+  api-user-net:
+    driver: bridge
+  db-user-net:
     driver: bridge
