@@ -50,5 +50,6 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ github.repository }}:${{ steps.extract-branch-name.outputs.branch_name }}-${{ steps.read-version.outputs.TAG }},
+          tags:
+            ${{ github.repository }}:${{ steps.extract-branch-name.outputs.branch_name }}-${{ steps.read-version.outputs.TAG }},
             ${{ github.repository }}:${{ steps.extract-branch-name.outputs.branch_name }}-latest

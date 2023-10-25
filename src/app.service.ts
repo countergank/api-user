@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { VersionNotFoundError } from './common/errors/version-not-found.error';
+import { VersionNotFoundError } from './common/errors/root/version-not-found.error';
 
 @Injectable()
 export class AppService {

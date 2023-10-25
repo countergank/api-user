@@ -9,10 +9,6 @@ enum Environment {
   PRODUCTION = 'production',
 }
 
-enum DatabaseType {
-  MONGODB = 'mongodb',
-}
-
 class EnvironmentVariables {
   @IsEnum(Environment)
   NODE_ENV: Environment;
@@ -20,20 +16,17 @@ class EnvironmentVariables {
   @IsString()
   VERSION: string;
 
-  @IsEnum(DatabaseType)
-  DATABASE_TYPE: DatabaseType;
+  @IsString()
+  DATABASE_USER: string;
+
+  @IsString()
+  DATABASE_PASSWORD: string;
 
   @IsString()
   DATABASE_HOST: string;
 
   @IsString()
   DATABASE_PORT: string;
-
-  @IsString()
-  DATABASE_USER: string;
-
-  @IsString()
-  DATABASE_PASSWORD: string;
 
   @IsString()
   DATABASE_NAME: string;
