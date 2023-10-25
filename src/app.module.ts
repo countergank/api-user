@@ -1,20 +1,13 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { MongooseModule } from '@nestjs/mongoose';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { ConfigModule } from '@nestjs/config';
-import { validate } from './config/env.validation';
-import { isProd } from './common/utils';
+import { ConfigOptions } from './config/ConfigOptions';
+import { MongooseOptions } from './config/MongooseOptions';
 
 @Module({
-  imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-      cache: true,
-      envFilePath: `.env.${process.env.NODE_ENV || 'local'}`,
-      ignoreEnvFile: isProd() ? true : false,
-      validate: validate,
-    }),
-  ],
+  imports: [ConfigModule.forRoot(new ConfigOptions()), MongooseModule.forRootAsync({ useClass: MongooseOptions })],
   controllers: [AppController],
   providers: [AppService],
 })

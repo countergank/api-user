@@ -1,21 +1,12 @@
-import {
-  CreateDateColumn,
-  PrimaryGeneratedColumn,
-  UpdateDateColumn,
-} from 'typeorm';
+import { Prop } from '@nestjs/mongoose';
+import { Types } from 'mongoose';
 
 export abstract class BaseEntity {
-  @PrimaryGeneratedColumn({ type: 'bigint' })
-  id: number;
+  _id?: Types.ObjectId;
 
-  @CreateDateColumn({
-    type: 'timestamp',
-  })
-  created_at: Date;
+  @Prop({ required: true, default: Date.now })
+  created_at?: Date;
 
-  @UpdateDateColumn({
-    type: 'timestamp',
-    onUpdate: 'CURRENT_TIMESTAMP',
-  })
-  updated_at: Date;
+  @Prop({ required: true, default: Date.now })
+  updated_at?: Date;
 }

@@ -2,7 +2,7 @@ import { Controller, Get, InternalServerErrorException, VERSION_NEUTRAL } from '
 import { ApiTags } from '@nestjs/swagger';
 import { AppService } from './app.service';
 import { GetVersionDoc } from './common/decorators/swagger/app.decorator';
-import { VersionNotFoundError } from './common/errors/version-not-found.error';
+import { VersionNotFoundError } from './common/errors/root/version-not-found.error';
 import { CustomLogger } from './common/logger';
 
 @ApiTags('Root')
