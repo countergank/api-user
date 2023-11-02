@@ -7,8 +7,9 @@ import { User } from '../entities/user.entity';
 export class UserRepository {
   constructor(@InjectModel(User.name) private userModel: Model<User>) {}
 
-  async countByUserName(userName: string): Promise<number> {
-    return this.userModel.count({ userName });
+  async existsByUsername(userName: string): Promise<boolean> {
+    const exists = await this.userModel.exists({ userName }).exec();
+    return Boolean(exists);
   }
 
   async create(user: User): Promise<User> {
@@ -16,8 +17,8 @@ export class UserRepository {
     return createdCat.save();
   }
 
-  async findByUserName(userName: string): Promise<User> {
-    return this.userModel.findOne({ userName }).exec();
+  async findById(id: string): Promise<User> {
+    return this.userModel.findById(id).exec();
   }
 
   async findAll(): Promise<User[]> {

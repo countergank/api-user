@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { UserAlreadyExistsError } from '../../common/errors/user/user-already-exists.error';
+import { UserNotFoundError } from '../../common/errors/user/user-not-found.error';
 import { CreateUserDTO } from '../dto/create-user.dto';
 import { User } from '../entities/user.entity';
 import { UserRepository } from '../repository/user.repository';
@@ -10,7 +11,7 @@ export class UserService {
   constructor(private readonly userRepository: UserRepository) {}
 
   async create(createUserDTO: CreateUserDTO): Promise<User> {
-    const alreadyExists = (await this.userRepository.countByUserName(createUserDTO.userName)) > 0;
+    const alreadyExists = await this.userRepository.existsByUsername(createUserDTO.userName);
     if (alreadyExists) {
       throw new UserAlreadyExistsError();
     }
@@ -21,7 +22,15 @@ export class UserService {
   }
 
   async findAll(): Promise<User[]> {
-    const persons: User[] = await this.userRepository.findAll();
-    return persons;
+    const users: User[] = await this.userRepository.findAll();
+    return users;
+  }
+
+  async findById(id: string): Promise<User> {
+    const user: User = await this.userRepository.findById(id);
+    if (!user) {
+      throw new UserNotFoundError();
+    }
+    return user;
   }
 }

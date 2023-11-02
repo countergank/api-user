@@ -1,21 +1,27 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { BaseEntity } from '../../common/entities/base.entity';
+import { Base } from '../../common/entities/base.entity';
 
-@Schema()
-export class User extends BaseEntity {
-  @Prop()
+@Schema({
+  autoIndex: true,
+  timestamps: true,
+  versionKey: false,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true },
+})
+export class User extends Base {
+  @Prop({ required: true })
   name: string;
 
-  @Prop()
+  @Prop({ required: true })
   lastName: string;
 
-  @Prop({ unique: true })
+  @Prop({ unique: true, required: true })
   email: string;
 
-  @Prop({ unique: true })
+  @Prop({ unique: true, required: true })
   userName: string;
 
-  @Prop()
+  @Prop({ required: true })
   password: string;
 }
 
