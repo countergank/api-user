@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { User } from '../entities/user.entity';
+import { User } from './entities/user.entity';
 
 @Injectable()
 export class UserRepository {
@@ -9,6 +9,11 @@ export class UserRepository {
 
   async existsByUsername(userName: string): Promise<boolean> {
     const exists = await this.userModel.exists({ userName }).exec();
+    return Boolean(exists);
+  }
+
+  async existsByEmail(email: string): Promise<boolean> {
+    const exists = await this.userModel.exists({ email }).exec();
     return Boolean(exists);
   }
 

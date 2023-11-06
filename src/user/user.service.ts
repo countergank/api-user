@@ -1,18 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
-import { UserAlreadyExistsError } from '../../common/errors/user/user-already-exists.error';
-import { UserNotFoundError } from '../../common/errors/user/user-not-found.error';
-import { CreateUserDTO } from '../dto/create-user.dto';
-import { User } from '../entities/user.entity';
-import { UserRepository } from '../repository/user.repository';
+import { UserAlreadyExistsError } from '../common/errors/user/user-already-exists.error';
+import { UserNotFoundError } from '../common/errors/user/user-not-found.error';
+import { CreateUserDTO } from './dto/create-user.dto';
+import { User } from './entities/user.entity';
+import { UserRepository } from './user.repository';
 
 @Injectable()
 export class UserService {
   constructor(private readonly userRepository: UserRepository) {}
 
   async create(createUserDTO: CreateUserDTO): Promise<User> {
-    const alreadyExists = await this.userRepository.existsByUsername(createUserDTO.userName);
-    if (alreadyExists) {
+    const usernameAlreadyExists = await this.userRepository.existsByUsername(createUserDTO.userName);
+    const emailAlreadyExists = await this.userRepository.existsByEmail(createUserDTO.email);
+    if (usernameAlreadyExists || emailAlreadyExists) {
       throw new UserAlreadyExistsError();
     }
     createUserDTO = plainToInstance(CreateUserDTO, createUserDTO);
