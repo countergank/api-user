@@ -3,14 +3,14 @@ import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { ConfigOptions } from './config/ConfigOptions';
-import { MongooseOptions } from './config/MongooseOptions';
+import { ConfigModuleOptions } from './config/ConfigModuleOptions';
+import { MongooseConfigService } from './config/MongooseConfigService';
 import { UserModule } from './user/user.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot(new ConfigOptions()),
-    MongooseModule.forRootAsync({ useClass: MongooseOptions }),
+    ConfigModule.forRoot(new ConfigModuleOptions()),
+    MongooseModule.forRootAsync({ useClass: MongooseConfigService }),
     UserModule,
   ],
   controllers: [AppController],

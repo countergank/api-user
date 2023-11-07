@@ -3,7 +3,7 @@ import { isProd } from '../common/utils';
 import { validate } from './env.validation';
 
 @Injectable()
-export class ConfigOptions {
+export class ConfigModuleOptions {
   constructor() {
     return {
       isGlobal: true,
