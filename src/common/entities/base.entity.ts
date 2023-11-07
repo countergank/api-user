@@ -1,12 +1,9 @@
-import { Prop } from '@nestjs/mongoose';
-import { Types } from 'mongoose';
+import { Schema } from 'mongoose';
 
-export abstract class BaseEntity {
-  _id?: Types.ObjectId;
-
-  @Prop({ required: true, default: Date.now })
-  created_at?: Date;
-
-  @Prop({ required: true, default: Date.now })
-  updated_at?: Date;
+export abstract class Base {
+  _id?: Schema.Types.ObjectId;
+  id?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  __v?: any;
 }
