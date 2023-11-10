@@ -1,5 +1,5 @@
 import { BaseError } from '../base.error';
-import { VERSION_NOT_FOUND_ERROR } from '../root.dictionary';
+import { VERSION_NOT_FOUND_ERROR } from './root.dictionary';
 
 export class VersionNotFoundError extends BaseError {
   constructor(err: any = {}) {

@@ -3,12 +3,13 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { CustomLogger } from '../common/logger';
 import { isLocal } from '../common/utils';
+import { EncodeService } from '../encode/encode.service';
 import { User } from './entities/user.entity';
 
 @Injectable()
 export class UserRepository implements OnApplicationBootstrap {
   private readonly logger = new CustomLogger(UserRepository.name);
-  constructor(@InjectModel(User.name) private userModel: Model<User>) {}
+  constructor(@InjectModel(User.name) private userModel: Model<User>, private readonly encodeService: EncodeService) {}
 
   onApplicationBootstrap() {
     if (isLocal()) {
@@ -17,14 +18,13 @@ export class UserRepository implements OnApplicationBootstrap {
   }
 
   private async populateUsers(): Promise<User> {
-    const newUser = await new this.userModel({
-      name: 'countergank',
-      lastName: 'countergank',
+    return this.create({
+      name: 'User',
+      lastName: 'Root',
       email: 'countergank.ti@gmail.com',
-      userName: 'countergank',
-      password: 'administrator',
+      userName: 'root',
+      password: 'password',
     });
-    return newUser.save();
   }
 
   async existsByUsername(userName: string): Promise<boolean> {
@@ -38,6 +38,7 @@ export class UserRepository implements OnApplicationBootstrap {
   }
 
   async create(user: User): Promise<User> {
+    user.password = this.encodeService.hash(user.password);
     const newUser = new this.userModel(user);
     return newUser.save();
   }
