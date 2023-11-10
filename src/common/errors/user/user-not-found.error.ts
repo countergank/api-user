@@ -1,5 +1,5 @@
 import { BaseError } from '../base.error';
-import { USER_NOT_FOUND_ERROR } from '../user.dictionary';
+import { USER_NOT_FOUND_ERROR } from './user.dictionary';
 
 export class UserNotFoundError extends BaseError {
   constructor(err: any = {}) {

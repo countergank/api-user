@@ -1,5 +1,5 @@
 import { plainToInstance } from 'class-transformer';
-import { IsEnum, IsOptional, IsString, validateSync } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsOptional, IsString, validateSync } from 'class-validator';
 
 enum Environment {
   LOCAL = 'local',
@@ -29,6 +29,7 @@ class EnvironmentVariables {
   DATABASE_PORT: string;
 
   @IsString()
+  @IsNotEmpty()
   DATABASE_NAME: string;
 
   @IsString()
@@ -36,6 +37,10 @@ class EnvironmentVariables {
 
   @IsString()
   PORT: string;
+
+  @IsString()
+  @IsNotEmpty()
+  ENCRYPTION_PASSWORD: string;
 
   @IsString()
   @IsOptional()

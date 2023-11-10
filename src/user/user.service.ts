@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
-import { UserAlreadyExistsError } from '../common/errors/user/user-already-exists.error';
+import { UserEmailAlreadyExistsError } from '../common/errors/user/user-email-already-exists.error';
+import { UserNameAlreadyExistsError } from '../common/errors/user/user-name-already-exists.error';
 import { UserNotFoundError } from '../common/errors/user/user-not-found.error';
 import { CreateUserDTO } from './dto/create-user.dto';
 import { User } from './entities/user.entity';
@@ -13,8 +14,11 @@ export class UserService {
   async create(createUserDTO: CreateUserDTO): Promise<User> {
     const usernameAlreadyExists = await this.userRepository.existsByUsername(createUserDTO.userName);
     const emailAlreadyExists = await this.userRepository.existsByEmail(createUserDTO.email);
-    if (usernameAlreadyExists || emailAlreadyExists) {
-      throw new UserAlreadyExistsError();
+    if (usernameAlreadyExists) {
+      throw new UserNameAlreadyExistsError();
+    }
+    if (emailAlreadyExists) {
+      throw new UserEmailAlreadyExistsError();
     }
     createUserDTO = plainToInstance(CreateUserDTO, createUserDTO);
     const newUser = createUserDTO.toEntity();

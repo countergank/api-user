@@ -1,7 +1,8 @@
 import { BadRequestException, Body, Controller, Get, InternalServerErrorException, Param, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { CreateUserDoc, RetrieveByIdUserDoc, RetrieveUserDoc } from '../common/decorators/swagger/user.decorator';
-import { UserAlreadyExistsError } from '../common/errors/user/user-already-exists.error';
+import { UserEmailAlreadyExistsError } from '../common/errors/user/user-email-already-exists.error';
+import { UserNameAlreadyExistsError } from '../common/errors/user/user-name-already-exists.error';
 import { UserNotFoundError } from '../common/errors/user/user-not-found.error';
 import { CustomLogger } from '../common/logger';
 import { CreateUserResponseDTO } from './dto/create-user-response.dto';
@@ -23,7 +24,7 @@ export class UserController {
       const user: User = await this.userService.create(createUserDTO);
       return CreateUserResponseDTO.of(user);
     } catch (error) {
-      if (error instanceof UserAlreadyExistsError) {
+      if (error instanceof UserNameAlreadyExistsError || error instanceof UserEmailAlreadyExistsError) {
         throw new BadRequestException(error.fullMessage);
       }
       this.logger.error(error.message, error.stack);
@@ -33,7 +34,7 @@ export class UserController {
 
   @RetrieveByIdUserDoc()
   @Get('retrieve/:id')
-  async retrieveById(@Param() id: string): Promise<UserDTO> {
+  async retrieveById(@Param('id') id: string): Promise<UserDTO> {
     try {
       const user: User = await this.userService.findById(id);
       return UserDTO.of(user);
