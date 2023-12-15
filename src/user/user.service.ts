@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
-import { UserEmailAlreadyExistsError } from '../common/errors/user/user-email-already-exists.error';
-import { UserNameAlreadyExistsError } from '../common/errors/user/user-name-already-exists.error';
-import { UserNotFoundError } from '../common/errors/user/user-not-found.error';
 import { CreateUserDTO } from './dto/create-user.dto';
 import { User } from './entities/user.entity';
+import { UserEmailAlreadyExistsError } from './errors/user-email-already-exists.error';
+import { UserNameAlreadyExistsError } from './errors/user-name-already-exists.error';
+import { UserNotFoundError } from './errors/user-not-found.error';
 import { UserRepository } from './user.repository';
 
 @Injectable()

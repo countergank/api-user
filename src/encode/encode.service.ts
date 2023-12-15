@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import bcrypt from 'bcryptjs';
-import { GeneratingHashError } from '../common/errors/encode/generating-hash.error';
 import { CustomLogger } from '../common/logger';
+import { GeneratingHashError } from './errors/generating-hash.error';
 
 @Injectable()
 export class EncodeService {

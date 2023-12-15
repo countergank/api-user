@@ -1,6 +1,6 @@
 import { ApiBodyOptions, getSchemaPath } from '@nestjs/swagger';
-import { CreateUserMock } from '../../../mocks/user/create-user.mock';
-import { CreateUserDTO } from '../../../user/dto/create-user.dto';
+import { CreateUserDTO } from '../dto/create-user.dto';
+import { CreateUserMock } from '../mocks/create-user.mock';
 
 export const CREATE_USER_SWAGGER: ApiBodyOptions = {
   examples: {

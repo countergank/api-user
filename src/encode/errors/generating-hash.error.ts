@@ -1,4 +1,4 @@
-import { BaseError } from '../base.error';
+import { BaseError } from '../../common/virtual-objects/base.error';
 import { GENERATING_HASH_ERROR } from './encode.dictionary';
 
 export class GeneratingHashError extends BaseError {

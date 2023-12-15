@@ -1,4 +1,4 @@
-import { BaseError } from '../base.error';
+import { BaseError } from '../../common/virtual-objects/base.error';
 import { USER_NOT_FOUND_ERROR } from './user.dictionary';
 
 export class UserNotFoundError extends BaseError {
