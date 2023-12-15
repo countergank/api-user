@@ -1,14 +1,13 @@
 import { faker } from '@faker-js/faker';
-import { CreateUserDTO } from '../../user/dto/create-user.dto';
+import { UserDTO } from '../dto/user.dto';
 
-export class CreateUserMock extends CreateUserDTO {
+export class UserMock extends UserDTO {
   name = 'Leandro';
   lastName = 'Cepeda';
   email = 'leandrojaviercepeda@gmail.com';
   userName = 'leandrojaviercepeda';
-  password = 'secret';
 
-  randomize(): CreateUserMock {
+  randomize(): UserMock {
     this.name = faker.person.firstName();
     this.lastName = faker.person.lastName();
     this.email = `${faker.person.firstName()}${faker.person.lastName()}@example.com`;

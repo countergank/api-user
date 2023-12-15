@@ -11,21 +11,27 @@ enum Environment {
 
 class EnvironmentVariables {
   @IsEnum(Environment)
+  @IsNotEmpty()
   NODE_ENV: Environment;
 
   @IsString()
+  @IsNotEmpty()
   VERSION: string;
 
   @IsString()
+  @IsNotEmpty()
   DATABASE_USER: string;
 
   @IsString()
+  @IsNotEmpty()
   DATABASE_PASSWORD: string;
 
   @IsString()
+  @IsNotEmpty()
   DATABASE_HOST: string;
 
   @IsString()
+  @IsNotEmpty()
   DATABASE_PORT: string;
 
   @IsString()
@@ -33,9 +39,11 @@ class EnvironmentVariables {
   DATABASE_NAME: string;
 
   @IsString()
+  @IsNotEmpty()
   HOST: string;
 
   @IsString()
+  @IsNotEmpty()
   PORT: string;
 
   @IsString()

@@ -1,4 +1,4 @@
-import { BaseError } from '../base.error';
+import { BaseError } from '../../common/virtual-objects/base.error';
 import { USER_EMAIL_ALREADY_EXISTS_ERROR } from './user.dictionary';
 
 export class UserEmailAlreadyExistsError extends BaseError {

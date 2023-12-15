@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsNumber, IsString } from 'class-validator';
 
-export class InternalErrorResponseDTO {
+export class InternalErrorDTO {
   @ApiProperty({ example: 'INTERNAL_SERVER_ERR' })
   @IsString()
   code: string;

@@ -1,4 +1,4 @@
-import { BaseError } from '../base.error';
+import { BaseError } from '../virtual-objects/base.error';
 import { VERSION_NOT_FOUND_ERROR } from './root.dictionary';
 
 export class VersionNotFoundError extends BaseError {
