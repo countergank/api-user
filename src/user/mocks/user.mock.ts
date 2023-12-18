@@ -1,7 +1,8 @@
 import { faker } from '@faker-js/faker';
-import { UserDTO } from '../dto/user.dto';
+import { User } from '../entities/user.entity';
 
-export class UserMock extends UserDTO {
+export class UserMock extends User {
+  id = faker.string.uuid();
   name = 'Leandro';
   lastName = 'Cepeda';
   email = 'leandrojaviercepeda@gmail.com';
