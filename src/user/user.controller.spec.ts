@@ -42,21 +42,22 @@ describe(UserController.name, () => {
 
   describe(`${UserController.name}.${UserController.prototype.create.name}`, () => {
     const user = new UserMock();
+    const createUserDTO = new CreateUserDTOMock();
     it(`should be create a ${User.name}`, async () => {
       jest.spyOn(userService, 'create').mockResolvedValue(user);
-      await expect(controller.create(new CreateUserDTOMock())).resolves.toBeInstanceOf(CreateUserResponseDTO);
+      await expect(controller.create(createUserDTO)).resolves.toBeInstanceOf(CreateUserResponseDTO);
     });
     it(`should return a ${UserEmailAlreadyExistsError.name}`, async () => {
       jest.spyOn(userService, 'create').mockRejectedValueOnce(new UserEmailAlreadyExistsError());
-      await expect(controller.create(new CreateUserDTOMock())).rejects.toThrow(BadRequestException);
+      await expect(controller.create(createUserDTO)).rejects.toThrow(BadRequestException);
     });
     it(`should return a ${UserNameAlreadyExistsError.name}`, async () => {
       jest.spyOn(userService, 'create').mockRejectedValueOnce(new UserNameAlreadyExistsError());
-      await expect(controller.create(new CreateUserDTOMock())).rejects.toThrow(BadRequestException);
+      await expect(controller.create(createUserDTO)).rejects.toThrow(BadRequestException);
     });
     it(`should return a ${InternalServerErrorException.name}`, async () => {
       jest.spyOn(userService, 'create').mockRejectedValueOnce(new Error('Error from test'));
-      await expect(controller.create(new CreateUserDTOMock())).rejects.toThrow(InternalServerErrorException);
+      await expect(controller.create(createUserDTO)).rejects.toThrow(InternalServerErrorException);
     });
   });
 
