@@ -27,8 +27,8 @@ export class UserRepository implements OnApplicationBootstrap {
     });
   }
 
-  async existsByUsername(userName: string): Promise<boolean> {
-    const exists = await this.userModel.exists({ userName }).exec();
+  async existsByName(name: string): Promise<boolean> {
+    const exists = await this.userModel.exists({ name }).exec();
     return Boolean(exists);
   }
 

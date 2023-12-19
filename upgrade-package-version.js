@@ -33,7 +33,7 @@ fs.readFile(packageJsonPath, 'utf-8', (err, data) => {
       if (err) {
         console.error('Error al escribir el archivo package.json:', err);
       } else {
-        console.log(`Versión actualizada a ${packageJson.version}`);
+        console.warn(`Versión actualizada a ${packageJson.version}`);
       }
     });
   } catch (parseError) {

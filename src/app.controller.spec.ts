@@ -1,22 +1,44 @@
+import { InternalServerErrorException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { VersionNotFoundError } from './common/errors/version-not-found.error';
 
-describe('AppController', () => {
-  let appController: AppController;
+describe(AppController.name, () => {
+  let controller: AppController;
+  let appService: AppService;
 
   beforeEach(async () => {
-    const app: TestingModule = await Test.createTestingModule({
+    const module: TestingModule = await Test.createTestingModule({
       controllers: [AppController],
-      providers: [AppService],
+      providers: [AppService, ConfigService],
     }).compile();
 
-    appController = app.get<AppController>(AppController);
+    controller = module.get<AppController>(AppController);
+    appService = module.get<AppService>(AppService);
   });
 
-  describe('root', () => {
-    it('should return API version', () => {
-      expect(appController.getVersion()).toBeCalled();
+  it(`${AppController.name} should be defined`, () => {
+    expect(controller).toBeDefined();
+  });
+
+  describe(`${AppController.name}.${AppController.prototype.getVersion.name}`, () => {
+    const version = 'User Manager API v=local-0.0.1';
+
+    it('should return API version', async () => {
+      jest.spyOn(appService, 'getVersionV1').mockResolvedValue(version);
+      await expect(controller.getVersion()).not.toBeUndefined();
+    });
+
+    it(`should return ${VersionNotFoundError.name}`, async () => {
+      jest.spyOn(appService, 'getVersionV1').mockRejectedValueOnce(new VersionNotFoundError());
+      await expect(controller.getVersion()).rejects.toThrow(InternalServerErrorException);
+    });
+
+    it(`should return ${InternalServerErrorException.name}`, async () => {
+      jest.spyOn(appService, 'getVersionV1').mockRejectedValueOnce(new InternalServerErrorException());
+      await expect(controller.getVersion()).rejects.toThrow(InternalServerErrorException);
     });
   });
 });

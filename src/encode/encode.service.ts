@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import bcrypt from 'bcryptjs';
 import { CustomLogger } from '../common/logger';
-import { GeneratingHashError } from './errors/generating-hash.error';
 
 @Injectable()
 export class EncodeService {
@@ -11,9 +10,6 @@ export class EncodeService {
   hash(value: string): string {
     const salt = bcrypt.genSaltSync(this.SALT_ROUNDS);
     const hashedValue = bcrypt.hashSync(value, salt);
-    if (!hashedValue) {
-      throw new GeneratingHashError();
-    }
     return hashedValue;
   }
 

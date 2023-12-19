@@ -13,9 +13,9 @@ export class AppController {
 
   @GetVersionDoc()
   @Get()
-  getVersion(): string {
+  async getVersion(): Promise<string> {
     try {
-      return this.appService.getVersionV1();
+      return await this.appService.getVersionV1();
     } catch (error) {
       if (error instanceof VersionNotFoundError) {
         throw new InternalServerErrorException(error.fullMessage);

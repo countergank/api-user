@@ -12,8 +12,11 @@ export class UserService {
   constructor(private readonly userRepository: UserRepository) {}
 
   async create(createUserDTO: CreateUserDTO): Promise<User> {
-    const usernameAlreadyExists = await this.userRepository.existsByUsername(createUserDTO.userName);
-    const emailAlreadyExists = await this.userRepository.existsByEmail(createUserDTO.email);
+    const [usernameAlreadyExists, emailAlreadyExists] = await Promise.all([
+      this.userRepository.existsByName(createUserDTO.userName),
+      this.userRepository.existsByEmail(createUserDTO.email),
+    ]);
+
     if (usernameAlreadyExists) {
       throw new UserNameAlreadyExistsError();
     }
