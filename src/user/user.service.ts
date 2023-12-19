@@ -13,7 +13,7 @@ export class UserService {
 
   async create(createUserDTO: CreateUserDTO): Promise<User> {
     const [usernameAlreadyExists, emailAlreadyExists] = await Promise.all([
-      this.userRepository.existsByUsername(createUserDTO.userName),
+      this.userRepository.existsByName(createUserDTO.userName),
       this.userRepository.existsByEmail(createUserDTO.email),
     ]);
 

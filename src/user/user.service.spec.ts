@@ -12,7 +12,7 @@ import { UserService } from './user.service';
 describe(UserService.name, () => {
   let service: UserService;
   const userRepository = {
-    existsByUsername: jest.fn(),
+    existsByName: jest.fn(),
     existsByEmail: jest.fn(),
     create: jest.fn(),
     findById: jest.fn(),
@@ -42,19 +42,19 @@ describe(UserService.name, () => {
     const createDto = new CreateUserDTOMock();
     const user = new UserMock();
     it(`should be create a ${User.name}`, async () => {
-      jest.spyOn(userRepository, 'existsByUsername').mockResolvedValue(false);
+      jest.spyOn(userRepository, 'existsByName').mockResolvedValue(false);
       jest.spyOn(userRepository, 'existsByEmail').mockResolvedValue(false);
       jest.spyOn(userRepository, 'create').mockResolvedValue(user);
       await expect(service.create(createDto)).resolves.toBeInstanceOf(User);
     });
     it(`should return a ${UserEmailAlreadyExistsError.name}`, async () => {
+      jest.spyOn(userRepository, 'existsByName').mockResolvedValue(false);
       jest.spyOn(userRepository, 'existsByEmail').mockResolvedValue(true);
-      jest.spyOn(userRepository, 'existsByUsername').mockResolvedValue(false);
       await expect(service.create(createDto)).rejects.toThrow(UserEmailAlreadyExistsError);
     });
     it(`should return a ${UserNameAlreadyExistsError.name}`, async () => {
+      jest.spyOn(userRepository, 'existsByName').mockResolvedValue(true);
       jest.spyOn(userRepository, 'existsByEmail').mockResolvedValue(false);
-      jest.spyOn(userRepository, 'existsByUsername').mockResolvedValue(true);
       await expect(service.create(createDto)).rejects.toThrow(UserNameAlreadyExistsError);
     });
   });

@@ -57,11 +57,37 @@ describe(UserRepository.name, () => {
 
   describe(`${UserRepository.name}.${UserRepository.prototype.create.name}`, () => {
     const user = new UserMock();
-    delete user.id;
-
     it(`should be create a ${User.name}`, async () => {
       jest.spyOn(encodeService, 'hash').mockResolvedValue(new HashMock());
       await expect(repository.create(user)).resolves.toBeInstanceOf(Model<User>);
+    });
+  });
+
+  describe(`${UserRepository.name}.${UserRepository.prototype.existsByEmail.name}`, () => {
+    it(`should be return if ${User.name} exists by email`, async () => {
+      const user = await repository.create(new UserMock());
+      await expect(repository.existsByEmail(user.email)).resolves.toBe(true);
+    });
+  });
+
+  describe(`${UserRepository.name}.${UserRepository.prototype.existsByName.name}`, () => {
+    it(`should be return if ${User.name} exists by name`, async () => {
+      const user = await repository.create(new UserMock());
+      await expect(repository.existsByName(user.name)).resolves.toBe(true);
+    });
+  });
+
+  describe(`${UserRepository.name}.${UserRepository.prototype.findById.name}`, () => {
+    it(`should be return a ${User.name} by id`, async () => {
+      const user = await repository.create(new UserMock());
+      await expect(repository.findById(user.id)).resolves.toBeInstanceOf(Model<User>);
+    });
+  });
+
+  describe(`${UserRepository.name}.${UserRepository.prototype.findAll.name}`, () => {
+    it(`should be return array of ${User.name}`, async () => {
+      await repository.create(new UserMock());
+      await expect(repository.findAll()).resolves.toBeInstanceOf(Array<User[]>);
     });
   });
 });

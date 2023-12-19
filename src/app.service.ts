@@ -10,9 +10,6 @@ export class AppService {
     let tag = undefined;
     const version = this.configService.getOrThrow('VERSION');
     const node_env = this.configService.getOrThrow('NODE_ENV');
-
-    console.log({ version, node_env });
-
     if (!version || !node_env) {
       throw new VersionNotFoundError();
     }

@@ -35,8 +35,8 @@ describe(UserController.name, () => {
   });
 
   describe(`${UserController.name}.${UserController.prototype.create.name}`, () => {
-    const user = new UserMock();
-    const createUserDTO = new CreateUserDTOMock();
+    const user = new UserMock().randomize();
+    const createUserDTO = new CreateUserDTOMock().randomize();
     it(`should be create a ${User.name}`, async () => {
       jest.spyOn(userService, 'create').mockResolvedValue(user);
       await expect(controller.create(createUserDTO)).resolves.toBeInstanceOf(CreateUserResponseDTO);
