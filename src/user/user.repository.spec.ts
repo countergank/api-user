@@ -2,7 +2,7 @@ import { getModelToken } from '@nestjs/mongoose';
 import { Test, TestingModule } from '@nestjs/testing';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { Connection, Model } from 'mongoose';
-import { Mock, clearMongoCollection, clearMongoConnection, createConnection } from '../../test/helpers';
+import { clearMongoCollection, clearMongoConnection, createConnection } from '../../test/helpers';
 import { EncodeService } from '../encode/encode.service';
 import { HashMock } from '../encode/mocks/hash.mock';
 import { User, UserSchema } from './entities/user.entity';
@@ -33,10 +33,8 @@ describe(UserRepository.name, () => {
         },
       ],
     })
-      .useMocker((token) => {
-        if (token === EncodeService) return encodeService;
-        if (typeof token === 'function') return Mock(token);
-      })
+      .overrideProvider(Model<User>)
+      .useValue(userModel)
       .compile();
 
     userModel = newMongoConnection.model(User.name, UserSchema);

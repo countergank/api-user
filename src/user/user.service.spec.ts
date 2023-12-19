@@ -1,5 +1,4 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { Mock } from '../../test/helpers';
 import { User } from './entities/user.entity';
 import { UserEmailAlreadyExistsError } from './errors/user-email-already-exists.error';
 import { UserNameAlreadyExistsError } from './errors/user-name-already-exists.error';
@@ -21,14 +20,10 @@ describe(UserService.name, () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [UserService],
+      providers: [UserService, UserRepository],
     })
-      .useMocker((token) => {
-        if (token === UserRepository) {
-          return userRepository;
-        }
-        if (typeof token === 'function') return Mock(token);
-      })
+      .overrideProvider(UserRepository)
+      .useValue(userRepository)
       .compile();
 
     service = module.get<UserService>(UserService);

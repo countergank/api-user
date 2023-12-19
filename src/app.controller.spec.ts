@@ -1,6 +1,6 @@
 import { InternalServerErrorException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
-import { Mock } from '../test/helpers';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { VersionNotFoundError } from './common/errors/version-not-found.error';
@@ -12,15 +12,8 @@ describe(AppController.name, () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AppController],
-      providers: [AppService],
-    })
-      .useMocker((token) => {
-        if (token === AppService) {
-          return appService;
-        }
-        if (typeof token === 'function') return Mock(token);
-      })
-      .compile();
+      providers: [AppService, ConfigService],
+    }).compile();
 
     controller = module.get<AppController>(AppController);
     appService = module.get<AppService>(AppService);

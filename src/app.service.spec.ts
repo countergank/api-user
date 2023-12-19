@@ -1,6 +1,5 @@
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
-import { Mock } from '../test/helpers';
 import { AppService } from './app.service';
 import { VersionNotFoundError } from './common/errors/version-not-found.error';
 
@@ -14,11 +13,7 @@ describe(AppService.name, () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [AppService, ConfigService],
-    })
-      .useMocker((token) => {
-        if (typeof token === 'function') return Mock(token);
-      })
-      .compile();
+    }).compile();
 
     service = module.get<AppService>(AppService);
     configService = module.get<ConfigService>(ConfigService);
