@@ -1,6 +1,6 @@
 import { BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { MockFunctionMetadata, ModuleMocker } from 'jest-mock';
+import { Mock } from '../../test/helpers';
 import { CreateUserResponseDTO } from './dto/create-user-response.dto';
 import { UserDTO } from './dto/user.dto';
 import { User } from './entities/user.entity';
@@ -12,8 +12,6 @@ import { UserMock } from './mocks/user.mock';
 import { UserController } from './user.controller';
 import { UserService } from './user.service';
 
-const moduleMocker = new ModuleMocker(global);
-
 describe(UserController.name, () => {
   let controller: UserController;
   let userService: UserService;
@@ -24,11 +22,7 @@ describe(UserController.name, () => {
       providers: [UserService],
     })
       .useMocker((token) => {
-        if (typeof token === 'function') {
-          const mockMetadata = moduleMocker.getMetadata(token) as MockFunctionMetadata<any, any>;
-          const Mock = moduleMocker.generateFromMetadata(mockMetadata);
-          return new Mock();
-        }
+        if (typeof token === 'function') return Mock(token);
       })
       .compile();
 

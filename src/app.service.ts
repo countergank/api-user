@@ -6,14 +6,17 @@ import { VersionNotFoundError } from './common/errors/version-not-found.error';
 export class AppService {
   constructor(private readonly configService: ConfigService) {}
 
-  getVersionV1(): string {
+  async getVersionV1(): Promise<string> {
     let tag = undefined;
-    const version = this.configService.get('VERSION');
-    const node_env = this.configService.get('NODE_ENV');
+    const version = this.configService.getOrThrow('VERSION');
+    const node_env = this.configService.getOrThrow('NODE_ENV');
+
+    console.log({ version, node_env });
+
     if (!version || !node_env) {
       throw new VersionNotFoundError();
     }
     tag = `${node_env}-${version}`;
-    return `User Manager API v=${tag}`;
+    return `User Manager API v=${String(tag)}`;
   }
 }
