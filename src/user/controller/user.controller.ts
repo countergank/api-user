@@ -1,15 +1,15 @@
 import { BadRequestException, Body, Controller, Get, InternalServerErrorException, Param, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { CustomLogger } from '../common/logger';
-import { CreateUserResponseDTO } from './dto/create-user-response.dto';
-import { CreateUserDTO } from './dto/create-user.dto';
-import { UserDTO } from './dto/user.dto';
-import { User } from './entities/user.entity';
-import { UserEmailAlreadyExistsError } from './errors/user-email-already-exists.error';
-import { UserNameAlreadyExistsError } from './errors/user-name-already-exists.error';
-import { UserNotFoundError } from './errors/user-not-found.error';
-import { CreateUserDoc, FindAllUserDoc, FindByIdUserDoc } from './swagger/user.decorator';
-import { UserService } from './user.service';
+import { CustomLogger } from '../../common/logger';
+import { CreateUserResponseDTO } from '../dto/create-user-response.dto';
+import { CreateUserDTO } from '../dto/create-user.dto';
+import { UserDTO } from '../dto/user.dto';
+import { User } from '../entities/user.entity';
+import { UserEmailAlreadyExistsError } from '../errors/user-email-already-exists.error';
+import { UserNameAlreadyExistsError } from '../errors/user-name-already-exists.error';
+import { UserNotFoundError } from '../errors/user-not-found.error';
+import { UserService } from '../service/user.service';
+import { CreateUserDoc, FindAllUserDoc, FindByIdUserDoc } from '../swagger/user.decorator';
 
 @ApiTags('User')
 @Controller({ path: 'user', version: '1' })

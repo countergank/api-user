@@ -39,11 +39,9 @@ class EnvironmentVariables {
   DATABASE_NAME: string;
 
   @IsString()
-  @IsNotEmpty()
   HOST: string;
 
   @IsString()
-  @IsNotEmpty()
   PORT: string;
 
   @IsString()

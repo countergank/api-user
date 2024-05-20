@@ -2,11 +2,11 @@ import { BaseError } from '../../common/errors/base.error';
 import { ErrorAcronymIdentifier } from '../../common/errors/error-acronym-identifier.enum';
 import { UserErrorAlias, UserErrorMessage } from './user.dictionary';
 
-export class UserNameAlreadyExistsError extends BaseError {
+export class UserPopulateError extends BaseError {
   constructor(error: any = {}) {
     super(ErrorAcronymIdentifier.User, error);
-    this.setNumeration(UserErrorAlias.UserNameAlreadyExists);
-    this.setMessage(UserErrorMessage[UserErrorAlias.UserNameAlreadyExists]);
-    Object.setPrototypeOf(this, UserNameAlreadyExistsError.prototype);
+    this.setNumeration(UserErrorAlias.UserPopulate);
+    this.setMessage(UserErrorMessage[UserErrorAlias.UserPopulate]);
+    Object.setPrototypeOf(this, UserPopulateError.prototype);
   }
 }

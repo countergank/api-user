@@ -2,7 +2,7 @@ import { VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { AppModule } from './app.module';
+import { AppModule } from './app/app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -10,7 +10,8 @@ async function bootstrap() {
   app.enableCors();
   app.enableShutdownHooks();
   const configService = app.get(ConfigService);
-  const port = configService.get('PORT');
+  const port = configService.get('PORT') ?? 3000;
+  const host = configService.get('HOST') ?? '0.0.0.0';
 
   const config = new DocumentBuilder()
     .setTitle('User Manager API')
@@ -20,6 +21,6 @@ async function bootstrap() {
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
-  await app.listen(port ?? 3000);
+  await app.listen(port, host);
 }
 bootstrap();

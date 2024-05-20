@@ -1,9 +1,9 @@
 import { InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
+import { AppVersionNotFoundError } from '../errors/app-version-not-found.error';
+import { AppService } from '../service/app.service';
 import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { VersionNotFoundError } from './common/errors/version-not-found.error';
 
 describe(AppController.name, () => {
   let controller: AppController;
@@ -31,8 +31,8 @@ describe(AppController.name, () => {
       await expect(controller.getVersion()).not.toBeUndefined();
     });
 
-    it(`should return ${VersionNotFoundError.name}`, async () => {
-      jest.spyOn(appService, 'getVersionV1').mockRejectedValueOnce(new VersionNotFoundError());
+    it(`should return ${AppVersionNotFoundError.name}`, async () => {
+      jest.spyOn(appService, 'getVersionV1').mockRejectedValueOnce(new AppVersionNotFoundError());
       await expect(controller.getVersion()).rejects.toThrow(InternalServerErrorException);
     });
 

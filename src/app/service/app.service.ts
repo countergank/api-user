@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { VersionNotFoundError } from './common/errors/version-not-found.error';
+import { AppVersionNotFoundError } from '../errors/app-version-not-found.error';
 
 @Injectable()
 export class AppService {
@@ -11,7 +11,7 @@ export class AppService {
     const version = this.configService.getOrThrow('VERSION');
     const node_env = this.configService.getOrThrow('NODE_ENV');
     if (!version || !node_env) {
-      throw new VersionNotFoundError();
+      throw new AppVersionNotFoundError();
     }
     tag = `${node_env}-${version}`;
     return `User Manager API v=${String(tag)}`;
