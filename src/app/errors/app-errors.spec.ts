@@ -1,12 +1,12 @@
-import { ExampleInstanceError } from './app-version-not-found.error';
+import { AppVersionNotFoundError } from './app-version-not-found.error';
 import { AppErrorAlias, AppErrorMessage } from './app.dictionary';
 
-describe(ExampleInstanceError.name, () => {
-  it(`should create en instance of ${ExampleInstanceError.name}`, () => {
-    const error = new ExampleInstanceError('Custom error message');
+describe(AppVersionNotFoundError.name, () => {
+  it(`should create en instance of ${AppVersionNotFoundError.name}`, () => {
+    const error = new AppVersionNotFoundError('Custom error message');
 
-    expect(error).toBeInstanceOf(ExampleInstanceError);
-    expect(error.message).toBe(AppErrorMessage[AppErrorAlias.ExampleAlias]);
-    expect(error.code.includes(AppErrorAlias.ExampleAlias)).toBeTruthy();
+    expect(error).toBeInstanceOf(AppVersionNotFoundError);
+    expect(error.message).toBe(AppErrorMessage[AppErrorAlias.AppVersionNotFound]);
+    expect(error.code.includes(AppErrorAlias.AppVersionNotFound)).toBeTruthy();
   });
 });
