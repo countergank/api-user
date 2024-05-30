@@ -1,14 +1,13 @@
-export const USER_NOT_FOUND_ERROR = {
-  code: 'EUSR01',
-  msg: 'Usuario no encontrado',
-};
+export enum UserErrorAlias {
+  UserNotFound = '001',
+  UserNameAlreadyExists = '002',
+  UserEmailAlreadyExists = '003',
+  UserPopulate = '004',
+}
 
-export const USER_NAME_ALREADY_EXISTS_ERROR = {
-  code: 'EUSR02',
-  msg: 'El nombre de usuario ya existe',
-};
-
-export const USER_EMAIL_ALREADY_EXISTS_ERROR = {
-  code: 'EUSR03',
-  msg: 'El email de usuario ya existe',
-};
+export enum UserErrorMessage {
+  '001' = 'Usuario no encontrado.',
+  '002' = 'El nombre de usuario ya existe.',
+  '003' = 'El email de usuario ya existe.',
+  '004' = 'Error al poblar usuarios.',
+}

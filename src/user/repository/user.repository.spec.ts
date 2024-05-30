@@ -2,11 +2,11 @@ import { getModelToken } from '@nestjs/mongoose';
 import { Test, TestingModule } from '@nestjs/testing';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { Connection, Model } from 'mongoose';
-import { clearMongoCollection, clearMongoConnection, createConnection } from '../../test/helpers';
-import { EncodeService } from '../encode/encode.service';
-import { HashMock } from '../encode/mocks/hash.mock';
-import { User, UserSchema } from './entities/user.entity';
-import { UserMock } from './mocks/user.mock';
+import { clearMongoCollection, clearMongoConnection, createConnection } from '../../../test/helpers';
+import { EncodeService } from '../../encode/encode.service';
+import { HashMock } from '../../encode/mocks/hash.mock';
+import { User, UserSchema } from '../entities/user.entity';
+import { UserMock } from '../mocks/user.mock';
 import { UserRepository } from './user.repository';
 
 describe(UserRepository.name, () => {

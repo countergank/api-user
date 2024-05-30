@@ -1,11 +1,12 @@
-import { BaseError } from '../../common/virtual-objects/base.error';
-import { USER_EMAIL_ALREADY_EXISTS_ERROR } from './user.dictionary';
+import { BaseError } from '../../common/errors/base.error';
+import { ErrorAcronymIdentifier } from '../../common/errors/error-acronym-identifier.enum';
+import { UserErrorAlias, UserErrorMessage } from './user.dictionary';
 
 export class UserEmailAlreadyExistsError extends BaseError {
-  constructor(err: any = {}) {
-    super(err);
-    this.code = USER_EMAIL_ALREADY_EXISTS_ERROR.code;
-    this.message = USER_EMAIL_ALREADY_EXISTS_ERROR.msg;
+  constructor(error: any = {}) {
+    super(ErrorAcronymIdentifier.User, error);
+    this.setNumeration(UserErrorAlias.UserEmailAlreadyExists);
+    this.setMessage(UserErrorMessage[UserErrorAlias.UserEmailAlreadyExists]);
     Object.setPrototypeOf(this, UserEmailAlreadyExistsError.prototype);
   }
 }

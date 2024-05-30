@@ -1,17 +1,17 @@
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConfigModuleOptions } from './ConfigModuleOptions';
-import { MongooseModuleAsyncOptions } from './MongooseConfigService';
+import { ConfigModuleOption } from './custom-module-options/config-module-option';
+import { MongooseModuleOption } from './custom-module-options/mongoose-module-option';
 
 describe(ConfigService.name, () => {
-  let configOptions: ConfigModuleOptions;
-  let mongooseModuleAsyncOptions: MongooseModuleAsyncOptions;
+  let configOptions: ConfigModuleOption;
+  let mongooseModuleAsyncOptions: MongooseModuleOption;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        ConfigModuleOptions,
-        MongooseModuleAsyncOptions,
+        ConfigModuleOption,
+        MongooseModuleOption,
         {
           provide: ConfigService,
           useValue: {
@@ -22,22 +22,22 @@ describe(ConfigService.name, () => {
       ],
     }).compile();
 
-    configOptions = module.get<ConfigModuleOptions>(ConfigModuleOptions);
-    mongooseModuleAsyncOptions = module.get<MongooseModuleAsyncOptions>(MongooseModuleAsyncOptions);
+    configOptions = module.get<ConfigModuleOption>(ConfigModuleOption);
+    mongooseModuleAsyncOptions = module.get<MongooseModuleOption>(MongooseModuleOption);
   });
 
-  describe(ConfigModuleOptions.name, () => {
-    it(`${ConfigModuleOptions.name} should be defined`, () => {
+  describe(ConfigModuleOption.name, () => {
+    it(`${ConfigModuleOption.name} should be defined`, () => {
       expect(configOptions).toBeDefined();
     });
   });
 
-  describe(MongooseModuleAsyncOptions.name, () => {
-    it(`${MongooseModuleAsyncOptions.name} should be defined`, () => {
+  describe(MongooseModuleOption.name, () => {
+    it(`${MongooseModuleOption.name} should be defined`, () => {
       expect(mongooseModuleAsyncOptions).toBeDefined();
     });
 
-    it(`${MongooseModuleAsyncOptions.name}.${MongooseModuleAsyncOptions.prototype.createMongooseOptions.name} should be defined`, () => {
+    it(`${MongooseModuleOption.name}.${MongooseModuleOption.prototype.createMongooseOptions.name} should be defined`, () => {
       expect(mongooseModuleAsyncOptions.createMongooseOptions).toBeDefined();
     });
   });

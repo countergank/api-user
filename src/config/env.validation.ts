@@ -10,6 +10,18 @@ enum Environment {
 }
 
 class EnvironmentVariables {
+  @IsString()
+  @IsOptional()
+  HOST: string;
+
+  @IsString()
+  @IsOptional()
+  PORT: string;
+
+  @IsString()
+  @IsOptional()
+  DEBUG: string;
+
   @IsEnum(Environment)
   @IsNotEmpty()
   NODE_ENV: Environment;
@@ -40,19 +52,15 @@ class EnvironmentVariables {
 
   @IsString()
   @IsNotEmpty()
-  HOST: string;
-
-  @IsString()
-  @IsNotEmpty()
-  PORT: string;
-
-  @IsString()
-  @IsNotEmpty()
   ENCRYPTION_PASSWORD: string;
 
   @IsString()
-  @IsOptional()
-  DEBUG: string;
+  @IsNotEmpty()
+  EXAMPLE_MICROSERVICE_HOST: string;
+
+  @IsString()
+  @IsNotEmpty()
+  EXAMPLE_MICROSERVICE_PORT: string;
 }
 
 export function validate(config: Record<string, unknown>) {

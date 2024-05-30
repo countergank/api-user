@@ -1,16 +1,16 @@
 import { BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { Mock } from '../../test/helpers';
-import { CreateUserResponseDTO } from './dto/create-user-response.dto';
-import { UserDTO } from './dto/user.dto';
-import { User } from './entities/user.entity';
-import { UserEmailAlreadyExistsError } from './errors/user-email-already-exists.error';
-import { UserNameAlreadyExistsError } from './errors/user-name-already-exists.error';
-import { UserNotFoundError } from './errors/user-not-found.error';
-import { CreateUserDTOMock } from './mocks/create-user-dto.mock';
-import { UserMock } from './mocks/user.mock';
+import { Mock } from '../../../test/helpers';
+import { CreateUserResponseDTO } from '../dto/create-user-response.dto';
+import { UserDTO } from '../dto/user.dto';
+import { User } from '../entities/user.entity';
+import { UserEmailAlreadyExistsError } from '../errors/user-email-already-exists.error';
+import { UserNameAlreadyExistsError } from '../errors/user-name-already-exists.error';
+import { UserNotFoundError } from '../errors/user-not-found.error';
+import { CreateUserDTOMock } from '../mocks/create-user-dto.mock';
+import { UserMock } from '../mocks/user.mock';
+import { UserService } from '../service/user.service';
 import { UserController } from './user.controller';
-import { UserService } from './user.service';
 
 describe(UserController.name, () => {
   let controller: UserController;

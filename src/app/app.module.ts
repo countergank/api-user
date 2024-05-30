@@ -1,0 +1,20 @@
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { MongooseModule } from '@nestjs/mongoose';
+import { ConfigModuleOption } from '../config/custom-module-options/config-module-option';
+import { MongooseModuleOption } from '../config/custom-module-options/mongoose-module-option';
+import { ExampleMicroservice } from '../config/custom-providers/microservices';
+import { UserModule } from '../user/user.module';
+import { AppController } from './controller/app.controller';
+import { AppService } from './service/app.service';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot(new ConfigModuleOption()),
+    MongooseModule.forRootAsync({ useClass: MongooseModuleOption }),
+    UserModule,
+  ],
+  controllers: [AppController],
+  providers: [AppService, ExampleMicroservice],
+})
+export class AppModule {}

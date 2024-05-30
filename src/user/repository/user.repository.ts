@@ -1,10 +1,11 @@
 import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { CustomLogger } from '../common/logger';
-import { isLocal } from '../common/utils';
-import { EncodeService } from '../encode/encode.service';
-import { User } from './entities/user.entity';
+import { CustomLogger } from '../../common/logger';
+import { isLocal } from '../../common/utils';
+import { EncodeService } from '../../encode/encode.service';
+import { User } from '../entities/user.entity';
+import { UserPopulateError } from '../errors/user-populate.error';
 
 @Injectable()
 export class UserRepository implements OnApplicationBootstrap {
@@ -18,13 +19,18 @@ export class UserRepository implements OnApplicationBootstrap {
   }
 
   private async populateUsers(): Promise<User> {
-    return this.create({
-      name: 'User',
-      lastName: 'Root',
-      email: 'countergank.ti@gmail.com',
-      userName: 'root',
-      password: 'password',
-    });
+    try {
+      return this.create({
+        name: 'User',
+        lastName: 'Root',
+        email: 'countergank.ti@gmail.com',
+        userName: 'root',
+        password: 'password',
+      });
+    } catch (error) {
+      this.logger.error(error);
+      throw new UserPopulateError(error);
+    }
   }
 
   async existsByName(name: string): Promise<boolean> {

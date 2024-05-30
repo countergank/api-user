@@ -10,3 +10,11 @@ export function GetVersionDoc() {
     ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
   );
 }
+
+export function GetCallMicroserviceDoc() {
+  return applyDecorators(
+    ApiOperation({ summary: 'Call Microservice' }),
+    ApiBadRequestResponse({ description: 'Bad Request', type: BadRequestDTO }),
+    ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
+  );
+}

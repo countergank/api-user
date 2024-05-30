@@ -1,7 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
+import { AppVersionNotFoundError } from '../errors/app-version-not-found.error';
 import { AppService } from './app.service';
-import { VersionNotFoundError } from './common/errors/version-not-found.error';
 
 describe(AppService.name, () => {
   let service: AppService;
@@ -34,12 +34,12 @@ describe(AppService.name, () => {
       await expect(service.getVersionV1()).not.toBeUndefined();
     });
 
-    it(`should return ${VersionNotFoundError.name}`, async () => {
+    it(`should return ${AppVersionNotFoundError.name}`, async () => {
       VERSION = undefined;
       NODE_ENV = undefined;
       jest.spyOn(configService, 'getOrThrow').mockImplementation(() => VERSION);
       jest.spyOn(configService, 'getOrThrow').mockImplementation(() => NODE_ENV);
-      await expect(service.getVersionV1()).rejects.toThrow(VersionNotFoundError);
+      await expect(service.getVersionV1()).rejects.toThrow(AppVersionNotFoundError);
     });
   });
 });

@@ -1,4 +1,3 @@
-version: '3.9'
 services:
   db-user:
     image: mongo:6.0.3
@@ -12,7 +11,7 @@ services:
       - db-user-data:/data/db
     environment:
       - MONGO_INITDB_DATABASE=${DATABASE_NAME}
-      - MONGO_INITDB_BIND_IP=0.0.0.0
+      - MONGO_INITDB_BIND_IP=${DATABASE_HOST}
     networks:
       - db-user-net
 
@@ -37,6 +36,7 @@ services:
       - .:/usr/src/app
     networks:
       - api-user-net
+      - microservice-name-net
 
 volumes:
   db-user-data:
@@ -44,6 +44,11 @@ volumes:
 
 networks:
   api-user-net:
+    name: api-user-net
     driver: bridge
   db-user-net:
+    name: db-user-net
     driver: bridge
+  microservice-name-net:
+    name: microservice-name-net
+    external: true
