@@ -36,6 +36,7 @@ services:
       - .:/usr/src/app
     networks:
       - api-user-net
+      - microservice-name-net
 
 volumes:
   db-user-data:
@@ -43,6 +44,11 @@ volumes:
 
 networks:
   api-user-net:
+    name: api-user-net
     driver: bridge
   db-user-net:
+    name: db-user-net
     driver: bridge
+  microservice-name-net:
+    name: microservice-name-net
+    external: true

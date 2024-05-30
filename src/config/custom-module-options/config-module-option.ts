@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { isProd } from '../common/utils';
-import { validate } from './env.validation';
+import { isProd } from '../../common/utils';
+import { validate } from '../env.validation';
 
 @Injectable()
-export class ConfigModuleOptions {
+export class ConfigModuleOption {
   constructor() {
     return {
       isGlobal: true,

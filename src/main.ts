@@ -12,15 +12,13 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   const port = configService.get('PORT') ?? 3000;
   const host = configService.get('HOST') ?? '0.0.0.0';
+  const name = configService.get('npm_package_name') || 'REST API Name';
+  const description = configService.get('npm_package_description') || 'REST API Name Manager';
+  const version = configService.get('npm_package_version') || '1.0.0';
 
-  const config = new DocumentBuilder()
-    .setTitle('User Manager API')
-    .setDescription('Application of user interface programming to user management')
-    .setVersion('1.0')
-    .addTag('User Manager API')
-    .build();
+  const config = new DocumentBuilder().setTitle(name).setDescription(description).setVersion(version).build();
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document);
+  SwaggerModule.setup('docs', app, document);
   await app.listen(port, host);
 }
 bootstrap();
