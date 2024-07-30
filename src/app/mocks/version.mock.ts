@@ -6,7 +6,5 @@ export class VersionMock extends Version {
     super({
       version: versionStructure('User Manager', 'local', '1.0.0'),
     });
-
-    return this;
   }
 }

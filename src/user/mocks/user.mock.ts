@@ -11,7 +11,7 @@ export class UserMock extends User {
   randomize(): UserMock {
     this.name = faker.person.firstName();
     this.lastName = faker.person.lastName();
-    this.email = `${faker.person.firstName()}${faker.person.lastName()}@example.com`;
+    this.email = faker.internet.email({ firstName: this.name, lastName: this.lastName });
     this.userName = faker.person.fullName();
     this.password = faker.string.alphanumeric(10);
     return this;

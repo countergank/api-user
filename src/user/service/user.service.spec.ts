@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { Mock } from '../../../test/helpers';
 import { User } from '../entities/user.entity';
 import { UserEmailAlreadyExistsError } from '../errors/user-email-already-exists.error';
 import { UserNameAlreadyExistsError } from '../errors/user-name-already-exists.error';
@@ -24,6 +25,9 @@ describe(UserService.name, () => {
     })
       .overrideProvider(UserRepository)
       .useValue(userRepository)
+      .useMocker((token) => {
+        if (typeof token === 'function') return Mock(token);
+      })
       .compile();
 
     service = module.get<UserService>(UserService);

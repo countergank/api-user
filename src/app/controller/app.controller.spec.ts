@@ -1,7 +1,11 @@
-import { InternalServerErrorException } from '@nestjs/common';
+import { BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
+import { Mock } from '../../../test/helpers';
+import { ExampleMicroservice } from '../../config/custom-providers/microservices';
+import { Version } from '../class/version.class';
 import { AppVersionNotFoundError } from '../errors/app-version-not-found.error';
+import { VersionMock } from '../mocks/version.mock';
 import { AppService } from '../service/app.service';
 import { AppController } from './app.controller';
 
@@ -12,8 +16,12 @@ describe(AppController.name, () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AppController],
-      providers: [AppService, ConfigService],
-    }).compile();
+      providers: [AppService, ConfigService, ExampleMicroservice],
+    })
+      .useMocker((token) => {
+        if (typeof token === 'function') return Mock(token);
+      })
+      .compile();
 
     controller = module.get<AppController>(AppController);
     appService = module.get<AppService>(AppService);
@@ -24,20 +32,18 @@ describe(AppController.name, () => {
   });
 
   describe(`${AppController.name}.${AppController.prototype.getVersion.name}`, () => {
-    const version = 'User Manager API v=local-0.0.1';
-
     it('should return API version', async () => {
-      jest.spyOn(appService, 'getVersionV1').mockResolvedValue(version);
-      await expect(controller.getVersion()).not.toBeUndefined();
+      jest.spyOn(appService, 'getVersion').mockResolvedValue(new VersionMock());
+      await expect(controller.getVersion()).resolves.toBeInstanceOf(Version);
     });
 
     it(`should return ${AppVersionNotFoundError.name}`, async () => {
-      jest.spyOn(appService, 'getVersionV1').mockRejectedValueOnce(new AppVersionNotFoundError());
-      await expect(controller.getVersion()).rejects.toThrow(InternalServerErrorException);
+      jest.spyOn(appService, 'getVersion').mockRejectedValueOnce(new AppVersionNotFoundError());
+      await expect(controller.getVersion()).rejects.toThrow(BadRequestException);
     });
 
     it(`should return ${InternalServerErrorException.name}`, async () => {
-      jest.spyOn(appService, 'getVersionV1').mockRejectedValueOnce(new InternalServerErrorException());
+      jest.spyOn(appService, 'getVersion').mockRejectedValueOnce(new InternalServerErrorException());
       await expect(controller.getVersion()).rejects.toThrow(InternalServerErrorException);
     });
   });

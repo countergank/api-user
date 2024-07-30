@@ -1,5 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
+import { Mock } from '../../../test/helpers';
+import { ExampleMicroservice } from '../../config/custom-providers/microservices';
 import { AppVersionNotFoundError } from '../errors/app-version-not-found.error';
 import { AppService } from './app.service';
 
@@ -12,8 +14,12 @@ describe(AppService.name, () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AppService, ConfigService],
-    }).compile();
+      providers: [AppService, ConfigService, ExampleMicroservice],
+    })
+      .useMocker((token) => {
+        if (typeof token === 'function') return Mock(token);
+      })
+      .compile();
 
     service = module.get<AppService>(AppService);
     configService = module.get<ConfigService>(ConfigService);
@@ -27,11 +33,11 @@ describe(AppService.name, () => {
     expect(service).toBeDefined();
   });
 
-  describe(`${AppService.name}.${AppService.prototype.getVersionV1.name}`, () => {
+  describe(`${AppService.name}.${AppService.prototype.getVersion.name}`, () => {
     it('should return API version', async () => {
       jest.spyOn(configService, 'getOrThrow').mockImplementation(() => VERSION);
       jest.spyOn(configService, 'getOrThrow').mockImplementation(() => NODE_ENV);
-      await expect(service.getVersionV1()).not.toBeUndefined();
+      await expect(service.getVersion()).not.toBeUndefined();
     });
 
     it(`should return ${AppVersionNotFoundError.name}`, async () => {
@@ -39,7 +45,7 @@ describe(AppService.name, () => {
       NODE_ENV = undefined;
       jest.spyOn(configService, 'getOrThrow').mockImplementation(() => VERSION);
       jest.spyOn(configService, 'getOrThrow').mockImplementation(() => NODE_ENV);
-      await expect(service.getVersionV1()).rejects.toThrow(AppVersionNotFoundError);
+      await expect(service.getVersion()).rejects.toThrow(AppVersionNotFoundError);
     });
   });
 });
