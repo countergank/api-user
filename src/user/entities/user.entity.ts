@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Base } from '../../common/virtual-objects/base';
+import { Base } from '../../common/class/base';
 
 @Schema({
   autoIndex: true,

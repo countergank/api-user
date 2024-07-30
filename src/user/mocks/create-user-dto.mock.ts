@@ -11,7 +11,7 @@ export class CreateUserDTOMock extends CreateUserDTO {
   randomize(): CreateUserDTOMock {
     this.name = faker.person.firstName();
     this.lastName = faker.person.lastName();
-    this.email = `${faker.person.firstName()}${faker.person.lastName()}@example.com`;
+    this.email = faker.internet.email({ firstName: this.name, lastName: this.lastName });
     this.userName = faker.person.fullName();
     this.password = 'random';
     return this;

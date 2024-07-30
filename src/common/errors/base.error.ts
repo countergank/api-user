@@ -11,13 +11,20 @@ export class BaseError extends Error {
   constructor(acronym: ErrorAcronymIdentifier, body: BaseErrorDTO) {
     super();
     this.name = body?.name;
-    this.message = body?.message;
+    this.message = this.extractMessage(body);
     this.cause = body?.cause;
     this.identifier = `${this.appAcronymIdentifier}${acronym}`;
   }
 
   private isNumeric(string) {
     return Number.isFinite(+string);
+  }
+
+  private extractMessage(body: BaseErrorDTO) {
+    if (body?.response?.data?.message) return body?.response?.data?.message;
+    if (body?.data?.message) return body?.response?.data?.message;
+    if (body?.message) return body?.response?.data?.message;
+    return '';
   }
 
   setNumeration(code: string) {
@@ -28,7 +35,9 @@ export class BaseError extends Error {
   }
 
   setMessage(message: string) {
-    this.message = message;
+    if (!this.message) {
+      this.message = message;
+    }
   }
 
   get fullMessage(): string {

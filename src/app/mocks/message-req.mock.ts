@@ -1,7 +1,7 @@
 import { VersionReqDTO } from '../dto/version-req.dto';
 import { VersionMock } from './version.mock';
 
-export class VersionReqDTOMock extends VersionReqDTO {
+export class MessageReqMock extends VersionReqDTO {
   constructor() {
     super({
       payload: {

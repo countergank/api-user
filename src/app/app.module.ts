@@ -9,12 +9,12 @@ import { AppController } from './controller/app.controller';
 import { AppService } from './service/app.service';
 
 @Module({
+  controllers: [AppController],
+  providers: [AppService, ExampleMicroservice],
   imports: [
-    ConfigModule.forRoot(new ConfigModuleOption()),
+    ConfigModule.forRoot(ConfigModuleOption),
     MongooseModule.forRootAsync({ useClass: MongooseModuleOption }),
     UserModule,
   ],
-  controllers: [AppController],
-  providers: [AppService, ExampleMicroservice],
 })
 export class AppModule {}

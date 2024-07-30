@@ -1,36 +1,49 @@
-import { Controller, Get, InternalServerErrorException, VERSION_NEUTRAL } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  InternalServerErrorException,
+  Param,
+  Post,
+  VERSION_NEUTRAL,
+} from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { Message } from '../../common/class/message.class';
 import { CustomLogger } from '../../common/logger';
-import { GetCallMicroserviceDoc, GetVersionDoc } from '../../common/swagger/app.decorator';
-import { VersionRespDTO } from '../dto/version-res.dto';
+import { GetVersionDoc, PostMessageMicroserviceDoc } from '../api-docs/app.decorator';
+import { Version } from '../class/version.class';
 import { AppVersionNotFoundError } from '../errors/app-version-not-found.error';
 import { AppService } from '../service/app.service';
 
 @ApiTags('Root')
-@Controller({ version: [VERSION_NEUTRAL, '1'] })
+@Controller({ version: [VERSION_NEUTRAL] })
 export class AppController {
   private readonly logger = new CustomLogger(AppController.name);
   constructor(private readonly appService: AppService) {}
 
   @GetVersionDoc()
   @Get()
-  async getVersion(): Promise<string> {
+  async getVersion(): Promise<Version> {
     try {
-      return await this.appService.getVersionV1();
+      return await this.appService.getVersion();
     } catch (error) {
       if (error instanceof AppVersionNotFoundError) {
-        throw new InternalServerErrorException(error.fullMessage);
+        throw new BadRequestException(error.fullMessage);
       }
       this.logger.error(error.message, error.stack);
       throw new InternalServerErrorException();
     }
   }
 
-  @GetCallMicroserviceDoc()
-  @Get('call-microservice')
-  async callMicroservice(): Promise<VersionRespDTO> {
+  @PostMessageMicroserviceDoc()
+  @Post('message-microservice/:message-pattern')
+  async messageMicroservice(
+    @Param('message-pattern') messagePattern: string,
+    @Body() body: Message<any>,
+  ): Promise<Message<any>> {
     try {
-      return await this.appService.callMicroservice();
+      return await this.appService.messageMicroservice(messagePattern, body);
     } catch (error) {
       this.logger.error(error.message, error.stack);
       throw new InternalServerErrorException();

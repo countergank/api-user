@@ -3,7 +3,7 @@ import { AppErrorAlias, AppErrorMessage } from './app.dictionary';
 
 describe(AppVersionNotFoundError.name, () => {
   it(`should create en instance of ${AppVersionNotFoundError.name}`, () => {
-    const error = new AppVersionNotFoundError('Custom error message');
+    const error = new AppVersionNotFoundError();
 
     expect(error).toBeInstanceOf(AppVersionNotFoundError);
     expect(error.message).toBe(AppErrorMessage[AppErrorAlias.AppVersionNotFound]);
