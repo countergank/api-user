@@ -1,7 +1,6 @@
-import { ErrorBase } from "src/common/errors/error-base/error-base";
-import { ErrorCodes, ErrorMessages } from "./error.dictionary";
-import { ErrorBaseEnum } from "src/common/errors/error-base/error-base.enums";
-
+import { ErrorBase } from '../../common/errors/error-base/error-base';
+import { ErrorBaseEnum } from '../../common/errors/error-base/error-base.enums';
+import { ErrorCodes, ErrorMessages } from './error.dictionary';
 
 export class UserError extends ErrorBase {
   constructor(e?: unknown) {

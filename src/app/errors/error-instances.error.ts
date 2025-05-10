@@ -1,6 +1,6 @@
-import { ErrorBase } from "src/common/errors/error-base/error-base";
-import { ErrorBaseEnum } from "src/common/errors/error-base/error-base.enums";
-import { ErrorCodes, ErrorMessages } from "./error.dictionary";
+import { ErrorBase } from '../../common/errors/error-base/error-base';
+import { ErrorBaseEnum } from '../../common/errors/error-base/error-base.enums';
+import { ErrorCodes, ErrorMessages } from './error.dictionary';
 
 export class AppError extends ErrorBase {
   constructor(e?: unknown) {
@@ -24,7 +24,4 @@ export class AppVersionNotFoundError extends ErrorBase {
   }
 }
 
-export const AppErrors = [
-  new AppError().getErrorPublic(),
-  new AppVersionNotFoundError().getErrorPublic(),
-];
+export const AppErrors = [new AppError().getErrorPublic(), new AppVersionNotFoundError().getErrorPublic()];
