@@ -17,7 +17,7 @@ export function PostMessageMicroserviceDoc() {
     {
       body: {
         model: Message,
-        mock: new MessageReqMock(),
+        mock: new MessageReqMock().getVersion(),
       },
       params: [
         {
