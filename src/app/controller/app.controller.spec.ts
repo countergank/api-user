@@ -4,10 +4,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { Mock } from '../../../test/helpers';
 import { ExampleMicroservice } from '../../config/custom-providers/microservices';
 import { Version } from '../class/version.class';
-import { AppVersionNotFoundError } from '../errors/app-version-not-found.error';
 import { VersionMock } from '../mocks/version.mock';
 import { AppService } from '../service/app.service';
 import { AppController } from './app.controller';
+import { AppVersionNotFoundError } from '../errors/error-instances.error';
 
 describe(AppController.name, () => {
   let controller: AppController;

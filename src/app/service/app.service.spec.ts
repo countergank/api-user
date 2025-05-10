@@ -2,8 +2,8 @@ import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Mock } from '../../../test/helpers';
 import { ExampleMicroservice } from '../../config/custom-providers/microservices';
-import { AppVersionNotFoundError } from '../errors/app-version-not-found.error';
 import { AppService } from './app.service';
+import { AppVersionNotFoundError } from '../errors/error-instances.error';
 
 describe(AppService.name, () => {
   let service: AppService;

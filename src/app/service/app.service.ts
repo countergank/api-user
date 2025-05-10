@@ -6,14 +6,14 @@ import { Message } from '../../common/class/message.class';
 import { versionStructure } from '../../common/utils/global';
 import { MicroservicesNames } from '../../config/custom-providers/microservices-names.enum';
 import { Version } from '../class/version.class';
-import { AppVersionNotFoundError } from '../errors/app-version-not-found.error';
+import { AppVersionNotFoundError } from '../errors/error-instances.error';
 
 @Injectable()
 export class AppService {
   constructor(
     private readonly configService: ConfigService,
     @Inject(MicroservicesNames.EXAMPLE) private client: ClientProxy,
-  ) {}
+  ) { }
 
   async onApplicationBootstrap() {
     await this.client.connect();

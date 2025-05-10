@@ -5,12 +5,12 @@ import { CustomLogger } from '../../common/logger';
 import { isLocal } from '../../common/utils';
 import { EncodeService } from '../../encode/encode.service';
 import { User } from '../entities/user.entity';
-import { UserPopulateError } from '../errors/user-populate.error';
+import { UserPopulateError } from '../errors/error-instances.error';
 
 @Injectable()
 export class UserRepository implements OnApplicationBootstrap {
   private readonly logger = new CustomLogger(UserRepository.name);
-  constructor(@InjectModel(User.name) private userModel: Model<User>, private readonly encodeService: EncodeService) {}
+  constructor(@InjectModel(User.name) private userModel: Model<User>, private readonly encodeService: EncodeService) { }
 
   onApplicationBootstrap() {
     if (isLocal()) {
