@@ -1,11 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Mock } from '../../../test/helpers';
 import { User } from '../entities/user.entity';
+import {
+  UserEmailAlreadyExistsError,
+  UserNameAlreadyExistsError,
+  UserNotFoundError,
+} from '../errors/error-instances.error';
 import { CreateUserDTOMock } from '../mocks/create-user-dto.mock';
 import { UserMock } from '../mocks/user.mock';
 import { UserRepository } from '../repository/user.repository';
 import { UserService } from './user.service';
-import { UserEmailAlreadyExistsError, UserNameAlreadyExistsError, UserNotFoundError } from '../errors/error-instances.error';
 
 describe(UserService.name, () => {
   let service: UserService;
@@ -47,12 +51,12 @@ describe(UserService.name, () => {
     it(`should return a ${UserEmailAlreadyExistsError.name}`, async () => {
       jest.spyOn(userRepository, 'existsByName').mockResolvedValue(false);
       jest.spyOn(userRepository, 'existsByEmail').mockResolvedValue(true);
-      await expect(service.create(createDto)).rejects.toThrow(UserEmailAlreadyExistsError);
+      await expect(service.create(createDto)).rejects.toBeInstanceOf(UserEmailAlreadyExistsError);
     });
     it(`should return a ${UserNameAlreadyExistsError.name}`, async () => {
       jest.spyOn(userRepository, 'existsByName').mockResolvedValue(true);
       jest.spyOn(userRepository, 'existsByEmail').mockResolvedValue(false);
-      await expect(service.create(createDto)).rejects.toThrow(UserNameAlreadyExistsError);
+      await expect(service.create(createDto)).rejects.toBeInstanceOf(UserNameAlreadyExistsError);
     });
   });
 
@@ -72,7 +76,7 @@ describe(UserService.name, () => {
     });
     it(`should return a ${UserNotFoundError.name}`, async () => {
       jest.spyOn(userRepository, 'findById').mockResolvedValue(undefined);
-      await expect(service.findById(user.id)).rejects.toThrow(UserNotFoundError);
+      await expect(service.findById(user.id)).rejects.toBeInstanceOf(UserNotFoundError);
     });
   });
 });

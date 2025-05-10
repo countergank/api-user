@@ -2,8 +2,8 @@ import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Mock } from '../../../test/helpers';
 import { ExampleMicroservice } from '../../config/custom-providers/microservices';
-import { AppService } from './app.service';
 import { AppVersionNotFoundError } from '../errors/error-instances.error';
+import { AppService } from './app.service';
 
 describe(AppService.name, () => {
   let service: AppService;
@@ -45,7 +45,7 @@ describe(AppService.name, () => {
       NODE_ENV = undefined;
       jest.spyOn(configService, 'getOrThrow').mockImplementation(() => VERSION);
       jest.spyOn(configService, 'getOrThrow').mockImplementation(() => NODE_ENV);
-      await expect(service.getVersion()).rejects.toThrow(AppVersionNotFoundError);
+      await expect(service.getVersion()).rejects.toBeInstanceOf(AppVersionNotFoundError);
     });
   });
 });
