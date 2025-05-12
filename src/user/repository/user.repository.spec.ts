@@ -56,7 +56,7 @@ describe(UserRepository.name, () => {
   describe(`${UserRepository.name}.${UserRepository.prototype.create.name}`, () => {
     const user = new UserMock();
     it(`should be create a ${User.name}`, async () => {
-      jest.spyOn(encodeService, 'hash').mockResolvedValue(new HashMock());
+      jest.spyOn(encodeService, 'hash').mockResolvedValue(new HashMock().getMock());
       await expect(repository.create(user)).resolves.toBeInstanceOf(Model<User>);
     });
   });

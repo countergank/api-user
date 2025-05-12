@@ -13,13 +13,13 @@ import {
   getSchemaPath,
 } from '@nestjs/swagger';
 import { BadRequestError } from '../errors/bad-request.error';
-import { statusKey } from '../errors/helpers';
+import { statusKey } from '../errors/error-base/error-base.helpers';
 import { InternalServerError } from '../errors/internal-server.error';
 
 export const applyDocsDecorators = (
-  doc: { name: string; description?: string },
-  response: { status: HttpStatus; model: any },
-  request?: { body?: { model: any; mock: any }; queries?: ApiQueryOptions[]; params?: ApiParamOptions[] },
+  doc: { name: string; description?: string; },
+  response: { status: HttpStatus; model: any; },
+  request?: { body?: { model: any; mock: any; }; queries?: ApiQueryOptions[]; params?: ApiParamOptions[]; },
 ) => {
   const decorators = [
     ApiBadRequestResponse({ description: statusKey(HttpStatus.BAD_REQUEST), type: BadRequestError }),
