@@ -13,7 +13,7 @@ import { UserService } from '../service/user.service';
 @Controller({ path: 'user', version: '1' })
 export class UserController {
   private readonly logger = new CustomLogger(UserController.name);
-  constructor(private readonly userService: UserService) {}
+  constructor(private readonly userService: UserService) { }
 
   @CreateUserDoc()
   @Post('create')

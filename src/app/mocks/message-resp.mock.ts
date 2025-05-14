@@ -8,7 +8,5 @@ export class MessageReqMock extends VersionReqDTO {
         ...new VersionMock(),
       },
     });
-
-    return this;
   }
 }

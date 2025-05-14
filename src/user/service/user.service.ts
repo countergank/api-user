@@ -7,7 +7,7 @@ import { UserRepository } from '../repository/user.repository';
 
 @Injectable()
 export class UserService {
-  constructor(private readonly userRepository: UserRepository) {}
+  constructor(private readonly userRepository: UserRepository) { }
 
   async create(createUserDTO: CreateUserDTO): Promise<User> {
     const [usernameAlreadyExists, emailAlreadyExists] = await Promise.all([

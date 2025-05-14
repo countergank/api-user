@@ -1,7 +1,12 @@
 import { faker } from '@faker-js/faker';
 
 export class HashMock {
+  private hash: string;
   constructor() {
-    return faker.string.alphanumeric(60);
+    this.hash = faker.string.alphanumeric(60);
+  }
+
+  getMock() {
+    return this.hash;
   }
 }

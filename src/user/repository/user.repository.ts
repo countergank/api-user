@@ -10,7 +10,7 @@ import { UserPopulateError } from '../errors/error-instances.error';
 @Injectable()
 export class UserRepository implements OnApplicationBootstrap {
   private readonly logger = new CustomLogger(UserRepository.name);
-  constructor(@InjectModel(User.name) private userModel: Model<User>, private readonly encodeService: EncodeService) {}
+  constructor(@InjectModel(User.name) private userModel: Model<User>, private readonly encodeService: EncodeService) { }
 
   onApplicationBootstrap() {
     if (isLocal()) {

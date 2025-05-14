@@ -8,7 +8,9 @@ export class MessageReqMock extends VersionReqDTO {
         ...new VersionMock(),
       },
     });
+  }
 
-    return this;
+  getVersion() {
+    return this.payload;
   }
 }
