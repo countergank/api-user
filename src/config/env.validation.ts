@@ -55,11 +55,11 @@ class EnvironmentVariables {
   ENCRYPTION_PASSWORD: string;
 
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   EXAMPLE_MICROSERVICE_HOST: string;
 
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   EXAMPLE_MICROSERVICE_PORT: string;
 }
 

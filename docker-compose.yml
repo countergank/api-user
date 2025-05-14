@@ -6,14 +6,13 @@ services:
       - 27017
     restart: always
     ports:
-      - ${DATABASE_PORT}:${DATABASE_PORT}
+      - ${DATABASE_PORT}:27017
     volumes:
-      - db-user-data:/data/db
+      - api-user-data:/data/db
     environment:
       - MONGO_INITDB_DATABASE=${DATABASE_NAME}
-      - MONGO_INITDB_BIND_IP=${DATABASE_HOST}
     networks:
-      - db-user-net
+      - default
 
   api-user:
     image: countergank/api-user:${NODE_ENV}-${VERSION}
@@ -25,8 +24,6 @@ services:
       target: development
     depends_on:
       - db-user
-    links:
-      - db-user
     command: npm run start:debug
     ports:
       - ${PORT}:${PORT}
@@ -35,20 +32,17 @@ services:
     volumes:
       - .:/usr/src/app
     networks:
-      - api-user-net
-      - microservice-name-net
+      - default
 
 volumes:
-  db-user-data:
+  api-user-data:
     driver: local
 
 networks:
-  api-user-net:
+  default:
     name: api-user-net
     driver: bridge
-  db-user-net:
-    name: db-user-net
-    driver: bridge
-  microservice-name-net:
-    name: microservice-name-net
-    external: true
+
+  # microservice-name-net:
+  #   name: microservice-name-net
+  #   external: true

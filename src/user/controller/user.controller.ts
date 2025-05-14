@@ -6,9 +6,7 @@ import { CreateUserResponseDTO } from '../dto/create-user-response.dto';
 import { CreateUserDTO } from '../dto/create-user.dto';
 import { UserDTO } from '../dto/user.dto';
 import { User } from '../entities/user.entity';
-import { UserEmailAlreadyExistsError } from '../errors/user-email-already-exists.error';
-import { UserNameAlreadyExistsError } from '../errors/user-name-already-exists.error';
-import { UserNotFoundError } from '../errors/user-not-found.error';
+import { UserEmailAlreadyExistsError, UserNameAlreadyExistsError, UserNotFoundError } from '../errors/error-instances.error';
 import { UserService } from '../service/user.service';
 
 @ApiTags('User')
@@ -25,7 +23,7 @@ export class UserController {
       return CreateUserResponseDTO.of(user);
     } catch (error) {
       if (error instanceof UserNameAlreadyExistsError || error instanceof UserEmailAlreadyExistsError) {
-        throw new BadRequestException(error.fullMessage);
+        throw new BadRequestException(error.message);
       }
       this.logger.error(error.message, error.stack);
       throw new InternalServerErrorException();
@@ -40,7 +38,7 @@ export class UserController {
       return UserDTO.of(user);
     } catch (error) {
       if (error instanceof UserNotFoundError) {
-        throw new BadRequestException(error.fullMessage);
+        throw new BadRequestException(error.message);
       }
       this.logger.error(error.message, error.stack);
       throw new InternalServerErrorException();

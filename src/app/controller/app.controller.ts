@@ -13,7 +13,7 @@ import { Message } from '../../common/class/message.class';
 import { CustomLogger } from '../../common/logger';
 import { GetVersionDoc, PostMessageMicroserviceDoc } from '../api-docs/app.decorator';
 import { Version } from '../class/version.class';
-import { AppVersionNotFoundError } from '../errors/app-version-not-found.error';
+import { AppVersionNotFoundError } from '../errors/error-instances.error';
 import { AppService } from '../service/app.service';
 
 @ApiTags('Root')
@@ -29,7 +29,7 @@ export class AppController {
       return await this.appService.getVersion();
     } catch (error) {
       if (error instanceof AppVersionNotFoundError) {
-        throw new BadRequestException(error.fullMessage);
+        throw new BadRequestException(error.message);
       }
       this.logger.error(error.message, error.stack);
       throw new InternalServerErrorException();

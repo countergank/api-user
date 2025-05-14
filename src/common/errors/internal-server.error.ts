@@ -1,7 +1,7 @@
 import { HttpStatus } from '@nestjs/common';
 import { ApiProperty } from '@nestjs/swagger';
 import { IsNumber, IsString } from 'class-validator';
-import { statusKey } from './helpers';
+import { statusKey } from './error-base/error-base.helpers';
 
 export class InternalServerError {
   @ApiProperty({

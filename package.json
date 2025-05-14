@@ -19,7 +19,7 @@
     "test:cov": "jest --detectOpenHandles --coverage --forceExit",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --detectOpenHandles --config ./test/jest-e2e.json --forceExit --collectCoverage=false",
-    "prepare": "husky install"
+    "prepare": "husky"
   },
   "dependencies": {
     "@faker-js/faker": "^8.4.1",
@@ -66,13 +66,19 @@
     "typescript": "^5.5.4"
   },
   "jest": {
-    "moduleFileExtensions": ["js", "json", "ts"],
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "ts"
+    ],
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
-    "collectCoverageFrom": ["**/*.{!(module),}.(t|j)s"],
+    "collectCoverageFrom": [
+      "**/*.{!(module),}.(t|j)s"
+    ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",
     "testTimeout": 30000

@@ -13,7 +13,7 @@ import {
   getSchemaPath,
 } from '@nestjs/swagger';
 import { BadRequestError } from '../errors/bad-request.error';
-import { statusKey } from '../errors/helpers';
+import { statusKey } from '../errors/error-base/error-base.helpers';
 import { InternalServerError } from '../errors/internal-server.error';
 
 export const applyDocsDecorators = (

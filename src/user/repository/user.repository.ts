@@ -5,7 +5,7 @@ import { CustomLogger } from '../../common/logger';
 import { isLocal } from '../../common/utils';
 import { EncodeService } from '../../encode/encode.service';
 import { User } from '../entities/user.entity';
-import { UserPopulateError } from '../errors/user-populate.error';
+import { UserPopulateError } from '../errors/error-instances.error';
 
 @Injectable()
 export class UserRepository implements OnApplicationBootstrap {

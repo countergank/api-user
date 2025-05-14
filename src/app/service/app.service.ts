@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ClientProxy } from '@nestjs/microservices';
 import { lastValueFrom } from 'rxjs';
@@ -6,17 +6,25 @@ import { Message } from '../../common/class/message.class';
 import { versionStructure } from '../../common/utils/global';
 import { MicroservicesNames } from '../../config/custom-providers/microservices-names.enum';
 import { Version } from '../class/version.class';
-import { AppVersionNotFoundError } from '../errors/app-version-not-found.error';
+import { AppVersionNotFoundError } from '../errors/error-instances.error';
 
 @Injectable()
 export class AppService {
+  private microserviceEnabled: boolean;
+
   constructor(
     private readonly configService: ConfigService,
-    @Inject(MicroservicesNames.EXAMPLE) private client: ClientProxy,
-  ) {}
+    @Optional() @Inject(MicroservicesNames.EXAMPLE) private client: ClientProxy,
+  ) {
+    // Lee la variable de entorno para saber si el microservicio está habilitado
+    const enabled = this.configService.getOrThrow(`${MicroservicesNames.EXAMPLE}_MICROSERVICE_ENABLED`);
+    this.microserviceEnabled = enabled === 'true';
+  }
 
   async onApplicationBootstrap() {
-    await this.client.connect();
+    if (this.microserviceEnabled && this.client) {
+      await this.client.connect();
+    }
   }
 
   async getVersion(): Promise<Version> {
@@ -31,8 +39,13 @@ export class AppService {
     return new Version({ version: versionStructure(packageName, env, version) });
   }
 
-  async messageMicroservice(messagePattern: string, body: Message<any>): Promise<Message<any>> {
-    const microserviceRespDTO = await lastValueFrom(this.client.send<Message<any>, Message<any>>(messagePattern, body));
+  async messageMicroservice(messagePattern: string, body: Message<unknown>): Promise<Message<unknown>> {
+    if (!this.microserviceEnabled || !this.client) {
+      throw new Error('ExampleMicroservice is disabled or not available.');
+    }
+    const microserviceRespDTO = await lastValueFrom(
+      this.client.send<Message<unknown>, Message<unknown>>(messagePattern, body),
+    );
 
     return microserviceRespDTO;
   }
