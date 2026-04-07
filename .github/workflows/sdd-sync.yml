@@ -1,0 +1,53 @@
+name: SDD Issues Sync
+
+on:
+  push:
+    branches: [main, develop, 'feature/**', 'bugfix/**']
+    paths:
+      - openspec/changes/**
+      - openspec/specs/**
+  pull_request:
+    paths:
+      - openspec/changes/**
+      - openspec/specs/**
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get changed dirs
+        id: dirs
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            base=${{ github.event.pull_request.base.sha }}
+          else
+            base=${{ github.event.before }}
+          fi
+          dirs=$(git diff --name-only $base HEAD -- "openspec/changes/" "openspec/specs/" 2>/dev/null | sed 's|openspec/changes/||' | sed 's|openspec/specs/||' | cut -d'/' -f1 | sort -u)
+          echo "dirs=$dirs" >> $GITHUB_OUTPUT
+
+      - name: Create issues
+        if: steps.dirs.outputs.dirs != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for dir in ${{ steps.dirs.outputs.dirs }}; do
+            title="$dir"
+            if [[ -f "openspec/changes/$dir/proposal.md" ]]; then
+              title=$(grep "^# " "openspec/changes/$dir/proposal.md" | sed 's/^# //')
+            fi
+            gh issue create --title "[SDD] $title" --body "Change: $dir" --label "sdd" --label "enhancement"
+            
+            if [[ -f "openspec/changes/$dir/tasks.md" ]]; then
+              grep "^- \[ \] " "openspec/changes/$dir/tasks.md" | sed 's/^- \[ \] //' | while read task; do
+                gh issue create --title "[SDD-Task] $task" --body "Parent: $dir" --label "sdd" --label "task"
+              done
+            fi
+          done
