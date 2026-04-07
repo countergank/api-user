@@ -29,7 +29,7 @@ export class AppController {
       return await this.appService.getVersion();
     } catch (error) {
       if (error instanceof AppVersionNotFoundError) {
-        throw new BadRequestException(error.message);
+        throw new BadRequestException(error.getErrorPublic());
       }
       this.logger.error(error.message, error.stack);
       throw new InternalServerErrorException();

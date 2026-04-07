@@ -23,7 +23,7 @@ export class UserController {
       return CreateUserResponseDTO.of(user);
     } catch (error) {
       if (error instanceof UserNameAlreadyExistsError || error instanceof UserEmailAlreadyExistsError) {
-        throw new BadRequestException(error.message);
+        throw new BadRequestException(error.getErrorPublic());
       }
       this.logger.error(error.message, error.stack);
       throw new InternalServerErrorException();
@@ -38,7 +38,7 @@ export class UserController {
       return UserDTO.of(user);
     } catch (error) {
       if (error instanceof UserNotFoundError) {
-        throw new BadRequestException(error.message);
+        throw new BadRequestException(error.getErrorPublic());
       }
       this.logger.error(error.message, error.stack);
       throw new InternalServerErrorException();
