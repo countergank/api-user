@@ -1,4 +1,4 @@
-## Why ⭐
+## Why ⭐⭐
 
 El proyecto api-user necesita estabilización para convertirse en una API REST genérica reutilizable. Actualmente tiene tests passing pero carece de estructura profesional, documentación, y no sigue las best practices de NestJS para proyectos en producción. Necesitamos profesionalizar el codebase antes de expandir funcionalidades.
 
