@@ -2,98 +2,66 @@ name: SDD to Issues
 
 on:
   push:
-    branches:
-      - 'main'
-      - 'develop'
-      - 'feature/**'
-      - 'bugfix/**'
-      - 'hotfix/**'
+    branches: [main, develop, 'feature/**', 'bugfix/**', 'hotfix/**']
     paths:
       - 'openspec/changes/**'
       - 'openspec/specs/**'
   pull_request:
-    types:
-      - 'opened'
-      - 'synchronize'
-      - 'reopened'
+    types: [opened, synchronize, reopened]
     paths:
       - 'openspec/changes/**'
       - 'openspec/specs/**'
 
 jobs:
-  create-sdd-issues:
+  create-issues:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       issues: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Get changed SDD directories
-        id: changes
+      - name: Get changes
+        id: get-changes
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            BASE_SHA=${{ github.event.pull_request.base.sha }}
+            BASE=${{ github.event.pull_request.base.sha }}
           else
-            BASE_SHA=${{ github.event.before }}
+            BASE=${{ github.event.before }}
           fi
-          
-          CHANGED_FILES=$(git diff --name-only $BASE_SHA HEAD -- "openspec/changes/" "openspec/specs/" 2>/dev/null || echo "")
-          
-          if [ -z "$CHANGED_FILES" ]; then
-            echo "dirs=" >> $GITHUB_OUTPUT
+          git diff --name-only $BASE HEAD -- "openspec/changes/" "openspec/specs/" > /tmp/changed.txt
+          if [ -s /tmp/changed.txt ]; then
+            cat /tmp/changed.txt | sed 's|openspec/changes/||' | sed 's|openspec/specs/||' | cut -d'/' -f1 | sort -u > /tmp/dirs.txt
+            echo "dirs=$(cat /tmp/dirs.txt | tr '\n' ',')" >> $GITHUB_OUTPUT
           else
-            DIRS=$(echo "$CHANGED_FILES" | sed -E 's|openspec/changes/||' | sed -E 's|openspec/specs/||' | cut -d'/' -f1 | sort -u | grep -v '^$')
-            echo "dirs=$DIRS" >> $GITHUB_OUTPUT
+            echo "dirs=" >> $GITHUB_OUTPUT
           fi
 
-      - name: Create SDD issues
-        if: steps.changes.outputs.dirs != ''
+      - name: Create issues
+        if: steps.get-changes.outputs.dirs != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
         run: |
-          DIRS="${{ steps.changes.outputs.dirs }}"
-          BRANCH="${{ github.head_ref || github.ref_name }}"
-          EVENT="${{ github.event_name }}"
-          
-          if [ -z "$DIRS" ]; then
-            echo "No changes detected"
-            exit 0
-          fi
-
-          echo "$DIRS" | tr ',' '\n' | while read DIR; do
+          for DIR in $(echo "${{ steps.get-changes.outputs.dirs }}" | tr ',' ' '); do
             [ -z "$DIR" ] && continue
             
-            PROPOSAL="openspec/changes/$DIR/proposal.md"
-            if [ -f "$PROPOSAL" ]; then
-              TITLE=$(head -20 "$PROPOSAL" | grep -E "^# " | head -1 | sed 's/^# //' || echo "$DIR")
-            else
-              TITLE="$DIR"
+            TITLE="$DIR"
+            if [ -f "openspec/changes/$DIR/proposal.md" ]; then
+              TITLE=$(grep "^# " openspec/changes/$DIR/proposal.md | head -1 | sed 's/^# //')
             fi
 
             EXISTING=$(gh issue list --search "[SDD] $TITLE in:title" -q '.[0].number // empty')
-            if [ -n "$EXISTING" ]; then
-              echo "Skipping existing: #$EXISTING"
-              continue
+            if [ -z "$EXISTING" ]; then
+              gh issue create --title "[SDD] $TITLE" --body "Change: $DIR" --label "sdd" --label "enhancement"
             fi
 
-            BODY="SDD Change: $DIR | Branch: $BRANCH | Event: $EVENT"
-            
-            gh issue create --title "[SDD] $TITLE" --body "$BODY" --label "sdd" --label "enhancement"
-            echo "Created: $TITLE"
-
-            TASKS_FILE="openspec/changes/$DIR/tasks.md"
-            if [ -f "$TASKS_FILE" ]; then
-              grep -E '^\- \[ \] ' "$TASKS_FILE" | while read TASK; do
-                TASK_NAME=$(echo "$TASK" | sed 's/^- \[ \] //')
-                TASK_EXISTING=$(gh issue list --search "$TASK_NAME in:title" -q '.[0].number // empty')
+            if [ -f "openspec/changes/$DIR/tasks.md" ]; then
+              for TASK in $(grep "^- \[ \] " openspec/changes/$DIR/tasks.md | sed 's/^- \[ \] //'); do
+                TASK_EXISTING=$(gh issue list --search "$TASK in:title" -q '.[0].number // empty')
                 if [ -z "$TASK_EXISTING" ]; then
-                  gh issue create --title "[SDD-Task] $TASK_NAME" --body "Parent: $DIR | Branch: $BRANCH" --label "sdd" --label "task"
-                  echo "  Task: $TASK_NAME"
+                  gh issue create --title "[SDD-Task] $TASK" --body "Parent: $DIR" --label "sdd" --label "task"
                 fi
               done
             fi
