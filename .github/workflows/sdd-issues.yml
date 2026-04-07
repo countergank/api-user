@@ -36,10 +36,12 @@ jobs:
         id: changes
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} HEAD -- "openspec/changes/" "openspec/specs/" 2>/dev/null || echo "")
+            BASE_SHA=${{ github.event.pull_request.base.sha }}
           else
-            CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} HEAD -- "openspec/changes/" "openspec/specs/" 2>/dev/null || echo "")
+            BASE_SHA=${{ github.event.before }}
           fi
+          
+          CHANGED_FILES=$(git diff --name-only $BASE_SHA HEAD -- "openspec/changes/" "openspec/specs/" 2>/dev/null || echo "")
           
           if [ -z "$CHANGED_FILES" ]; then
             echo "dirs=" >> $GITHUB_OUTPUT
@@ -49,11 +51,14 @@ jobs:
           fi
 
       - name: Create SDD issues
+        if: steps.changes.outputs.dirs != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
         run: |
           DIRS="${{ steps.changes.outputs.dirs }}"
           BRANCH="${{ github.head_ref || github.ref_name }}"
+          EVENT="${{ github.event_name }}"
           
           if [ -z "$DIRS" ]; then
             echo "No changes detected"
@@ -63,7 +68,6 @@ jobs:
           echo "$DIRS" | tr ',' '\n' | while read DIR; do
             [ -z "$DIR" ] && continue
             
-            # Get title from proposal.md or use directory name
             PROPOSAL="openspec/changes/$DIR/proposal.md"
             if [ -f "$PROPOSAL" ]; then
               TITLE=$(head -20 "$PROPOSAL" | grep -E "^# " | head -1 | sed 's/^# //' || echo "$DIR")
@@ -71,51 +75,24 @@ jobs:
               TITLE="$DIR"
             fi
 
-            # Check if already exists
             EXISTING=$(gh issue list --search "[SDD] $TITLE in:title" -q '.[0].number // empty')
             if [ -n "$EXISTING" ]; then
               echo "Skipping existing: #$EXISTING"
               continue
             fi
 
-            # Get changed files
-            if [ "${{ github.event_name }}" = "pull_request" ]; then
-              FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} HEAD -- "openspec/changes/$DIR" "openspec/specs/$DIR" 2>/dev/null | head -15)
-            else
-              FILES=$(git diff --name-only ${{ github.event.before }} HEAD -- "openspec/changes/$DIR" "openspec/specs/$DIR" 2>/dev/null | head -15)
-            fi
-
-            BODY="## SDD Change: $DIR
-
-**Branch**: $BRANCH
-**Event**: ${{ github.event_name }}
-
-### Archivos modificados
-\`\`\`
-$FILES
-\`\`\`
-
----
-*Generated from OpenSpec SDD workflow*"
-
+            BODY="SDD Change: $DIR | Branch: $BRANCH | Event: $EVENT"
+            
             gh issue create --title "[SDD] $TITLE" --body "$BODY" --label "sdd" --label "enhancement"
             echo "Created: $TITLE"
 
-            # Create task issues
             TASKS_FILE="openspec/changes/$DIR/tasks.md"
             if [ -f "$TASKS_FILE" ]; then
               grep -E '^\- \[ \] ' "$TASKS_FILE" | while read TASK; do
                 TASK_NAME=$(echo "$TASK" | sed 's/^- \[ \] //')
                 TASK_EXISTING=$(gh issue list --search "$TASK_NAME in:title" -q '.[0].number // empty')
                 if [ -z "$TASK_EXISTING" ]; then
-                  TASK_BODY="## Task: $TASK_NAME
-
-**Parent**: $DIR
-**Branch**: $BRANCH
-
----
-*SDD Task*"
-                  gh issue create --title "[SDD-Task] $TASK_NAME" --body "$TASK_BODY" --label "sdd" --label "task"
+                  gh issue create --title "[SDD-Task] $TASK_NAME" --body "Parent: $DIR | Branch: $BRANCH" --label "sdd" --label "task"
                   echo "  Task: $TASK_NAME"
                 fi
               done
