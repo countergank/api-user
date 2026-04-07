@@ -54,14 +54,14 @@ jobs:
             fi
             
             # Check if already exists
-            existing=$(gh issue list --search "[SDD] $title in:title" -q '.[0].number // empty')
+            existing=$(gh issue list --search "[SDD] $title in:title" --json number -q '.[0].number // empty')
             if [[ -z "$existing" ]]; then
               gh issue create --title "[SDD] $title" --body "Change: $dir" --label "sdd" --label "enhancement"
             fi
             
             if [[ -f "openspec/changes/$dir/tasks.md" ]]; then
               grep "^- \[ \] " "openspec/changes/$dir/tasks.md" | sed 's/^- \[ \] //' | while read task; do
-                existing=$(gh issue list --search "$task in:title" -q '.[0].number // empty')
+                existing=$(gh issue list --search "$task in:title" --json number -q '.[0].number // empty')
                 if [[ -z "$existing" ]]; then
                   gh issue create --title "[SDD-Task] $task" --body "Parent: $dir" --label "sdd" --label "task"
                 fi
