@@ -7,6 +7,7 @@ import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import hyperid from 'hyperid';
 import { AppModule } from './app/app.module';
+import { ErrorFilter } from './common/errors/error-filter';
 import { isProd } from './common/utils';
 
 async function bootstrap() {
@@ -25,6 +26,7 @@ async function bootstrap() {
   );
 
   app.enableCors();
+  app.useGlobalFilters(new ErrorFilter());
   app.enableVersioning({ type: VersioningType.URI });
 
   await app.register(fastifyHelmet);
