@@ -1,68 +1,20 @@
 name: SDD to Issues
-
 on:
   push:
-    branches: [main, develop, 'feature/**', 'bugfix/**', 'hotfix/**']
-    paths:
-      - 'openspec/changes/**'
-      - 'openspec/specs/**'
+    branches: [main, develop]
+    paths: [openspec/**]
   pull_request:
-    types: [opened, synchronize, reopened]
-    paths:
-      - 'openspec/changes/**'
-      - 'openspec/specs/**'
-
+    paths: [openspec/**]
 jobs:
-  create-issues:
+  create:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      issues: write
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Get changes
-        id: get-changes
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            BASE=${{ github.event.pull_request.base.sha }}
-          else
-            BASE=${{ github.event.before }}
-          fi
-          git diff --name-only $BASE HEAD -- "openspec/changes/" "openspec/specs/" > /tmp/changed.txt
-          if [ -s /tmp/changed.txt ]; then
-            cat /tmp/changed.txt | sed 's|openspec/changes/||' | sed 's|openspec/specs/||' | cut -d'/' -f1 | sort -u > /tmp/dirs.txt
-            echo "dirs=$(cat /tmp/dirs.txt | tr '\n' ',')" >> $GITHUB_OUTPUT
-          else
-            echo "dirs=" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Create issues
-        if: steps.get-changes.outputs.dirs != ''
+      - uses: datanfr/actions/create-issue@v1
+        with:
+          title: "Test issue"
+          body: "Testing GitHub Action"
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          for DIR in $(echo "${{ steps.get-changes.outputs.dirs }}" | tr ',' ' '); do
-            [ -z "$DIR" ] && continue
-            
-            TITLE="$DIR"
-            if [ -f "openspec/changes/$DIR/proposal.md" ]; then
-              TITLE=$(grep "^# " openspec/changes/$DIR/proposal.md | head -1 | sed 's/^# //')
-            fi
-
-            EXISTING=$(gh issue list --search "[SDD] $TITLE in:title" -q '.[0].number // empty')
-            if [ -z "$EXISTING" ]; then
-              gh issue create --title "[SDD] $TITLE" --body "Change: $DIR" --label "sdd" --label "enhancement"
-            fi
-
-            if [ -f "openspec/changes/$DIR/tasks.md" ]; then
-              for TASK in $(grep "^- \[ \] " openspec/changes/$DIR/tasks.md | sed 's/^- \[ \] //'); do
-                TASK_EXISTING=$(gh issue list --search "$TASK in:title" -q '.[0].number // empty')
-                if [ -z "$TASK_EXISTING" ]; then
-                  gh issue create --title "[SDD-Task] $TASK" --body "Parent: $DIR" --label "sdd" --label "task"
-                fi
-              done
-            fi
-          done
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
