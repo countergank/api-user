@@ -143,22 +143,41 @@ jobs:
             
             echo "Processing archived change: $change"
             
-            # Search for main issue (title starts with "[SDD] " not "[SDD-Task]")
-            # Use --state all because issue might already be closed from previous test runs
-            main_issue=$(gh issue list --search "[SDD] $change" --state all --json number,title --jq '.[] | select(.title | startswith("[SDD] ")) | select(.title | contains("'"$change"'")) | .number' | head -1)
-            echo "Found main issue: $main_issue"
+            # Extract change name (last part of path) for flexible matching
+            change_name=$(echo "$change" | awk -F'/' '{print $NF}')
             
-            if [[ -n "$main_issue" ]]; then
+            # Search for main issue
+            # Use --state all because issue might already be closed from previous test runs
+            main_issue=$(gh issue list --search "[SDD]" --state all --json number,title,state --jq '.[] | select(.title | startswith("[SDD] ")) | select(.title | contains("'"$change_name"'")) | .number' | head -1)
+            main_state=$(gh issue list --search "[SDD]" --state all --json number,title,state --jq '.[] | select(.title | startswith("[SDD] ")) | select(.title | contains("'"$change_name"'")) | .state' | head -1)
+            echo "Found main issue: $main_issue (state: $main_state)"
+            
+            if [[ -n "$main_issue" && "$main_state" == "open" ]]; then
               gh issue close "$main_issue" --comment "Change '$change' has been archived."
               gh issue edit "$main_issue" --add-label "archived"
               echo "Closed main issue #$main_issue"
+            elif [[ -n "$main_issue" ]]; then
+              echo "Issue #$main_issue is already closed, skipping"
+              # Still add label if missing
+              gh issue edit "$main_issue" --add-label "archived" 2>/dev/null || true
             fi
             
-            # Search for task issues (title starts with "[SDD-Task]")
-            # Use --state all because issues might already be closed from previous test runs
-            gh issue list --search "[SDD-Task] $change" --state all --json number --jq '.[] | select(.title | startswith("[SDD-Task]")) | select(.title | contains("'"$change"'")) | .number' | while read -r task_num; do
-              gh issue close "$task_num" --comment "Parent change '$change' has been archived."
-              gh issue edit "$task_num" --add-label "archived"
-              echo "Closed task issue #$task_num"
-            done
+            # Search for task issues - match by change name in title
+            task_list=$(gh issue list --search "[SDD-Task]" --state all --json number,title,state --jq '.[] | select(.title | contains("'"$change_name"'")) | .number')
+            
+            if [[ -n "$task_list" ]]; then
+              echo "$task_list" | while read -r task_num; do
+                task_state=$(echo "$task_list" | jq -r --arg num "$task_num" '.[] | select(.number == ($num | tonumber)) | .state' 2>/dev/null || echo "open")
+                if [[ "$task_state" == "open" ]]; then
+                  gh issue close "$task_num" --comment "Parent change '$change' has been archived."
+                  gh issue edit "$task_num" --add-label "archived"
+                  echo "Closed task issue #$task_num"
+                else
+                  gh issue edit "$task_num" --add-label "archived" 2>/dev/null || true
+                  echo "Task issue #$task_num is already closed, added label"
+                fi
+              done
+            else
+              echo "No task issues found for $change"
+            fi
           done
