@@ -25,6 +25,14 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Ensure labels exist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for label in sdd feature bugfix hotfix release chore enhancement task archived; do
+            gh label create "$label" --description "SDD workflow label" 2>/dev/null || true
+          done
+
       - name: Detect branch type and find changes
         id: find
         env:
@@ -117,6 +125,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Ensure labels exist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for label in sdd archived; do
+            gh label create "$label" --description "SDD workflow label" 2>/dev/null || true
+          done
 
       - name: Close archived issues
         env:
