@@ -66,3 +66,6 @@ Revert `.github/workflows/sdd-sync.yml` to previous version from git history. Te
 - [ ] Issue body includes branch name, type, and SDD phase
 - [ ] Archiving a change closes all related issues
 - [ ] Manual workflow run succeeds without errors
+
+---
+Updated: 2026-04-15T15:27:00+00:00
