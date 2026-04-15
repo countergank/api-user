@@ -1,4 +1,4 @@
-name: SDD Issues Sync
+name: SDD Issues Sync v2
 
 on:
   push:
