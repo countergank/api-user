@@ -182,3 +182,6 @@ The system SHALL handle GitHub API failures gracefully. If issue creation fails,
 - WHEN the workflow processes that change
 - THEN use directory name as title (current behavior)
 - AND log a warning about missing proposal.md
+
+---
+Trigger: Wed Apr 15 15:50:35 UTC 2026
