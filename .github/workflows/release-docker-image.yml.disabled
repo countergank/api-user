@@ -1,7 +1,7 @@
 on:
   pull_request:
     branches: [develop, qa, master]
-name: release-docker-image
+name: release-docker-image (DISABLED - DOCKERHUB credentials broken)
 jobs:
   build-push-image:
     name: Build & Push image
