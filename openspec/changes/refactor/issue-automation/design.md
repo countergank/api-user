@@ -195,3 +195,6 @@ gh issue view 123 --json body --jq '.body' | grep "Parent:"
 
 ---
 Test trigger: Wed Apr 15 15:29:26 UTC 2026
+
+---
+Trigger recreate: Wed Apr 15 17:21:00 UTC 2026
