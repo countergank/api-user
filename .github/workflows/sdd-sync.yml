@@ -134,19 +134,24 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          echo "ARCHIVE_CHANGES=$ARCHIVE_CHANGES"
           for change in $ARCHIVE_CHANGES; do
             [[ -z "$change" ]] && continue
             
             echo "Processing archived change: $change"
             
-            main_issue=$(gh issue list --search "[SDD] $change in:title" --state open --json number --jq '.[0].number')
+            # Search for main issue - use broader search
+            main_issue=$(gh issue list --search "[SDD] $change" --state open --json number,title --jq '.[] | select(.title | contains("'"$change"'")) | .number')
+            echo "Found main issue: $main_issue"
+            
             if [[ -n "$main_issue" ]]; then
               gh issue close "$main_issue" --comment "Change '$change' has been archived."
               gh issue edit "$main_issue" --add-label "archived"
               echo "Closed main issue #$main_issue"
             fi
             
-            gh issue list --search "[SDD-Task] $change in:title" --state open --json number --jq '.[].number' | while read -r task_num; do
+            # Search for task issues
+            gh issue list --search "[SDD-Task] $change" --state open --json number --jq '.[] | select(.title | contains("'"$change"'")) | .number' | while read -r task_num; do
               gh issue close "$task_num" --comment "Parent change '$change' has been archived."
               gh issue edit "$task_num" --add-label "archived"
               echo "Closed task issue #$task_num"
