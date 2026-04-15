@@ -66,12 +66,15 @@ jobs:
           fi
           echo "CHANGES=$changes" >> $GITHUB_ENV
           
-          # Check for archive paths
+          # Check for archive paths - find all changes that have archive directory
           archive_changes=""
-          for path in $(git diff --name-only "$base" HEAD -- "openspec/changes/archive/" 2>/dev/null); do
-            change=$(echo "$path" | awk -F'openspec/changes/archive/' '{print $2}' | awk -F'/' '{print $1 "/" $2}')
-            archive_changes="$archive_changes $change"
+          for archive_path in $(find openspec/changes -name archive -type d 2>/dev/null); do
+            change=$(echo "$archive_path" | awk -F'openspec/changes/' '{print $2}' | awk -F'/archive' '{print $1}')
+            if [[ -n "$change" ]]; then
+              archive_changes="$archive_changes $change"
+            fi
           done
+          archive_changes=$(echo "$archive_changes" | tr ' ' '\n' | sort -u | tr '\n' ' ' | sed 's/^ //;s/ $//')
           echo "ARCHIVE_CHANGES=$archive_changes" >> $GITHUB_ENV
 
       - name: Create SDD issues
