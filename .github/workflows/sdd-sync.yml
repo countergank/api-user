@@ -144,7 +144,8 @@ jobs:
             echo "Processing archived change: $change"
             
             # Search for main issue (title starts with "[SDD] " not "[SDD-Task]")
-            main_issue=$(gh issue list --search "[SDD] $change" --state open --json number,title --jq '.[] | select(.title | startswith("[SDD] ")) | select(.title | contains("'"$change"'")) | .number' | head -1)
+            # Use --state all because issue might already be closed from previous test runs
+            main_issue=$(gh issue list --search "[SDD] $change" --state all --json number,title --jq '.[] | select(.title | startswith("[SDD] ")) | select(.title | contains("'"$change"'")) | .number' | head -1)
             echo "Found main issue: $main_issue"
             
             if [[ -n "$main_issue" ]]; then
@@ -154,7 +155,8 @@ jobs:
             fi
             
             # Search for task issues (title starts with "[SDD-Task]")
-            gh issue list --search "[SDD-Task] $change" --state open --json number --jq '.[] | select(.title | startswith("[SDD-Task]")) | select(.title | contains("'"$change"'")) | .number' | while read -r task_num; do
+            # Use --state all because issues might already be closed from previous test runs
+            gh issue list --search "[SDD-Task] $change" --state all --json number --jq '.[] | select(.title | startswith("[SDD-Task]")) | select(.title | contains("'"$change"'")) | .number' | while read -r task_num; do
               gh issue close "$task_num" --comment "Parent change '$change' has been archived."
               gh issue edit "$task_num" --add-label "archived"
               echo "Closed task issue #$task_num"
