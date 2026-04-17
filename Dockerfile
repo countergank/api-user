@@ -41,8 +41,8 @@ COPY --chown=node:node . .
 # Build the app
 RUN npm run build
 
-# Remove dev dependencies from existing node_modules (keep production deps)
-RUN npm prune --omit=dev
+# Remove dev dependencies explicitly
+RUN npm uninstall --omit=dev
 
 # Clean unnecessary files (optional)
 RUN rm -rf src test *.ts *.md .env*
