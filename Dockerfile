@@ -41,11 +41,8 @@ COPY --chown=node:node . .
 # Build the app
 RUN npm run build
 
-# Install only production dependencies
-RUN npm ci --omit=dev && npm cache clean --force
-
 # Clean unnecessary files (optional)
-RUN rm -rf src test *.ts *.md .env*
+RUN rm -rf src test *.ts *.md .env* node_modules/.cache
 
 ###################################
 # PRODUCTION STAGE
