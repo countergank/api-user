@@ -41,8 +41,8 @@ COPY --chown=node:node . .
 # Build the app
 RUN npm run build
 
-# Install only production dependencies (--ignore-scripts to skip husky/prepare in production)
-RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
+# Remove dev dependencies from existing node_modules (keep production deps)
+RUN npm prune --omit=dev
 
 # Clean unnecessary files (optional)
 RUN rm -rf src test *.ts *.md .env*
