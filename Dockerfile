@@ -41,11 +41,8 @@ COPY --chown=node:node . .
 # Build the app
 RUN npm run build
 
-# Remove dev dependencies explicitly
-RUN npm uninstall --omit=dev
-
 # Clean unnecessary files (optional)
-RUN rm -rf src test *.ts *.md .env*
+RUN rm -rf src test *.ts *.md .env* node_modules/.cache
 
 ###################################
 # PRODUCTION STAGE
