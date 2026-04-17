@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - develop
+      - 'feature/**'  # TEMPORARY: for testing, will be removed
   workflow_dispatch:
     inputs:
       tags:
