@@ -1,12 +1,11 @@
 import { ExceptionFilter, Catch, ArgumentsHost, HttpException } from '@nestjs/common';
-import { Response } from 'express';
 import { ErrorBase } from './error-base/error-base';
 
 @Catch(ErrorBase, Error)
 export class ErrorFilter implements ExceptionFilter {
   catch(exception: ErrorBase | Error, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
-    const response = ctx.getResponse<Response>();
+    const response = ctx.getResponse<any>();
 
     let status = 500;
     let message = 'Internal server error';
@@ -20,12 +19,21 @@ export class ErrorFilter implements ExceptionFilter {
     } else {
       message = exception.message;
     }
-    
-    response.status(status).json({
-      error: status === 500 ? 'INTERNAL_ERROR' : 'ERROR',
+
+    const body = {
+      statusCode: status,
+      error: status === 500 ? 'Internal Server Error' : 'Error',
       message,
       timestamp: new Date().toISOString(),
-    });
+    };
+
+    // Works with both Express and Fastify responses
+    if (typeof response.status === 'function' && typeof response.json === 'function') {
+      response.status(status).json(body);
+    } else if (typeof response.send === 'function') {
+      response.status?.(status);
+      response.send(body);
+    }
   }
 
   private getStatusFromErrorCode(code: string): number {
