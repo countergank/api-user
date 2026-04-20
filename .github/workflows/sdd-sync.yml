@@ -62,18 +62,23 @@ jobs:
               awk -F'/' '{print $1 "/" $2}' | \
               sort -u)
           else
-            # Only include directories that have proposal.md or tasks.md (actual changes)
-            changes=$(find openspec/changes -mindepth 1 -maxdepth 1 -type d \( -name "archive" -o -name "refactor" \) -prune -o -type d -printf '%f\n' 2>/dev/null | grep -v "^$")
+            # Only list changes that have proposal.md (real SDD changes, not template dirs)
+            changes=$(find openspec/changes -mindepth 1 -maxdepth 1 -type d \
+              ! -name "archive" \
+              ! -name "refactor" \
+              -exec test -f {}/proposal.md \; -print 2>/dev/null | \
+              awk -F'openspec/changes/' '{print $2}' | sort)
           fi
           echo "CHANGES=$changes" >> $GITHUB_ENV
           
-          # Check for archive paths - find all changes that have archive directory
+          # Check for archive paths - find all changes that have archive subdirectory
           archive_changes=""
-          for archive_path in $(find openspec/changes -mindepth 1 -maxdepth 1 -type d \( -name "archive" -o -name "refactor" \) -prune -o -name archive -type d 2>/dev/null); do
-            change=$(echo "$archive_path" | awk -F'openspec/changes/' '{print $2}' | awk -F'/archive' '{print $1}' | sed 's|/issue-automation||')
-            # Skip empty or refactor paths
-            if [[ -n "$change" && "$change" != "refactor" ]]; then
-              archive_changes="$archive_changes $change"
+          for change_dir in $(find openspec/changes -mindepth 1 -maxdepth 1 -type d \
+            ! -name "archive" \
+            ! -name "refactor"); do
+            if [[ -d "$change_dir/archive" ]]; then
+              change_name=$(echo "$change_dir" | awk -F'openspec/changes/' '{print $2}')
+              archive_changes="$archive_changes $change_name"
             fi
           done
           archive_changes=$(echo "$archive_changes" | tr ' ' '\n' | sort -u | tr '\n' ' ' | sed 's/^ //;s/ $//')
