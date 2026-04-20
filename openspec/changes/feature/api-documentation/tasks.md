@@ -6,6 +6,6 @@
 - [x] Agregar JSDocs y Swagger docs a AppController
 - [x] Agregar JSDocs y Swagger docs a RoleController
 - [x] Agregar JSDocs y Swagger docs a PermissionController
-- [ ] Agregar ApiProperty examples a User DTOs
-- [ ] Agregar ApiProperty examples a App DTOs
-- [ ] Verificar que todos los endpoints tengan documentation completa
+- [x] Agregar ApiProperty examples a User DTOs
+- [x] Agregar ApiProperty examples a App DTOs
+- [x] Verificar que todos los endpoints tengan documentation completa
