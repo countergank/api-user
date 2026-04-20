@@ -1,6 +1,12 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Base } from '../../common/class/base';
 
+export enum UserRole {
+  ADMIN = 'admin',
+  USER = 'user',
+  VIEWER = 'viewer',
+}
+
 @Schema({
   autoIndex: true,
   timestamps: true,
@@ -23,6 +29,21 @@ export class User extends Base {
 
   @Prop({ required: true })
   password: string;
+
+  @Prop({ enum: UserRole, default: UserRole.USER })
+  role: UserRole;
+
+  @Prop({ type: [String], default: [] })
+  permissions: string[];
+
+  @Prop({ default: false })
+  isActive: boolean;
+
+  @Prop()
+  resetPasswordToken?: string;
+
+  @Prop()
+  resetPasswordExpires?: Date;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
