@@ -14,7 +14,7 @@ import {
 import { UserService } from '../service/user.service';
 
 @ApiTags('users')
-@Controller({ path: 'admin/users', version: '1' })
+@Controller('admin/users')
 export class UserController {
   private readonly logger = new CustomLogger(UserController.name);
   constructor(private readonly userService: UserService) {}

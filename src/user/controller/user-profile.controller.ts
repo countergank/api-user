@@ -5,7 +5,7 @@ import { UserService } from '../service/user.service';
 import { EncodeService } from '../../encode/encode.service';
 
 @ApiTags('users')
-@Controller({ path: 'users', version: '1' })
+@Controller('users')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 export class UserProfileController {

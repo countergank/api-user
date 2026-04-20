@@ -1,6 +1,5 @@
 import fastifyCompress from '@fastify/compress';
 import fastifyHelmet from '@fastify/helmet';
-import { VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
@@ -27,7 +26,6 @@ async function bootstrap() {
 
   app.enableCors();
   app.useGlobalFilters(new ErrorFilter());
-  app.enableVersioning({ type: VersioningType.URI });
 
   await app.register(fastifyHelmet);
   await app.register(fastifyCompress, { encodings: ['gzip', 'deflate'] });
