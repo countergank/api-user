@@ -1,7 +1,6 @@
 export enum ErrorCodes {
   Base = '000',
   AppVersionNotFound = '001',
-
 }
 
 export enum ErrorMessages {

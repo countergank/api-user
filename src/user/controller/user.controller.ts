@@ -6,14 +6,18 @@ import { CreateUserResponseDTO } from '../dto/create-user-response.dto';
 import { CreateUserDTO } from '../dto/create-user.dto';
 import { UserDTO } from '../dto/user.dto';
 import { User } from '../entities/user.entity';
-import { UserEmailAlreadyExistsError, UserNameAlreadyExistsError, UserNotFoundError } from '../errors/error-instances.error';
+import {
+  UserEmailAlreadyExistsError,
+  UserNameAlreadyExistsError,
+  UserNotFoundError,
+} from '../errors/error-instances.error';
 import { UserService } from '../service/user.service';
 
 @ApiTags('User')
 @Controller({ path: 'user', version: '1' })
 export class UserController {
   private readonly logger = new CustomLogger(UserController.name);
-  constructor(private readonly userService: UserService) { }
+  constructor(private readonly userService: UserService) {}
 
   @CreateUserDoc()
   @Post('create')

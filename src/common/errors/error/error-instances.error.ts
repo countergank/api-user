@@ -1,7 +1,6 @@
-import { ErrorBase } from "../error-base/error-base";
-import { ErrorBaseEnum } from "../error-base/error-base.enums";
-import { ErrorCodes, ErrorMessages } from "./error.dictionary";
-
+import { ErrorBase } from '../error-base/error-base';
+import { ErrorBaseEnum } from '../error-base/error-base.enums';
+import { ErrorCodes, ErrorMessages } from './error.dictionary';
 
 export class GenericError extends ErrorBase {
   constructor(e?: unknown) {
@@ -14,6 +13,4 @@ export class GenericError extends ErrorBase {
   }
 }
 
-export const CommonErrors = [
-  new GenericError().getErrorPublic(),
-];
+export const CommonErrors = [new GenericError().getErrorPublic()];

@@ -1,7 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Mock } from '../../../test/helpers';
 import { User } from '../entities/user.entity';
-import { UserEmailAlreadyExistsError, UserNameAlreadyExistsError, UserNotFoundError } from '../errors/error-instances.error';
+import {
+  UserEmailAlreadyExistsError,
+  UserNameAlreadyExistsError,
+  UserNotFoundError,
+} from '../errors/error-instances.error';
 import { CreateUserDTOMock } from '../mocks/create-user-dto.mock';
 import { UserMock } from '../mocks/user.mock';
 import { UserRepository } from '../repository/user.repository';
