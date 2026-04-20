@@ -64,12 +64,13 @@ jobs:
               awk -F'/' '{print $1 "/" $2}' | \
               sort -u)
           else
-            # Only list changes that have proposal.md (real SDD changes, not template dirs)
-            changes=$(find openspec/changes -mindepth 1 -maxdepth 1 -type d \
+            # Recursively find all changes that have proposal.md
+            changes=$(find openspec/changes -mindepth 1 -type d \
+              ! -name "specs" \
               ! -name "archive" \
               ! -name "refactor" \
               -exec test -f {}/proposal.md \; -print 2>/dev/null | \
-              awk -F'openspec/changes/' '{print $2}' | sort)
+              awk -F'openspec/changes/' '{print $2}' | sort -u)
           fi
           {
             echo "CHANGES<<EOF"
