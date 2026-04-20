@@ -1,5 +1,5 @@
 import { BadRequestException, Body, Controller, Get, InternalServerErrorException, Param, Post } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import { CustomLogger } from '../../common/logger';
 import { CreateUserDoc, FindAllUserDoc, FindByIdUserDoc } from '../api-docs/user.decorator';
 import { CreateUserResponseDTO } from '../dto/create-user-response.dto';
@@ -13,14 +13,40 @@ import {
 } from '../errors/error-instances.error';
 import { UserService } from '../service/user.service';
 
+/**
+ * Controller para gestión de usuarios (ADMIN).
+ * Endpoints para crear, buscar y listar usuarios.
+ * Requiere JWT con rol admin.
+ * @public
+ */
 @ApiTags('users')
 @Controller('admin/users')
+@ApiBearerAuth()
 export class UserController {
   private readonly logger = new CustomLogger(UserController.name);
   constructor(private readonly userService: UserService) {}
 
   @CreateUserDoc()
   @Post()
+  @ApiOperation({ 
+    summary: 'Crear nuevo usuario (Admin)', 
+    description: 'Crea un nuevo usuario en el sistema. Solo accesible por administradores.' 
+  })
+  @ApiResponse({ status: 201, description: 'Usuario creado exitosamente' })
+  @ApiResponse({ status: 400, description: 'Email o username ya existe' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['email', 'userName', 'password', 'name', 'lastName'],
+      properties: {
+        email: { type: 'string', example: 'newuser@example.com', description: 'Email único' },
+        userName: { type: 'string', example: 'newuser', description: 'Nombre de usuario único' },
+        password: { type: 'string', example: 'Pass123!', description: 'Contraseña' },
+        name: { type: 'string', example: 'Juan', description: 'Nombre' },
+        lastName: { type: 'string', example: 'Pérez', description: 'Apellido' },
+      },
+    },
+  })
   async create(@Body() createUserDTO: CreateUserDTO): Promise<CreateUserResponseDTO> {
     try {
       const user: User = await this.userService.create(createUserDTO);
@@ -37,6 +63,12 @@ export class UserController {
 
   @FindByIdUserDoc()
   @Get(':id')
+  @ApiOperation({ 
+    summary: 'Obtener usuario por ID (Admin)', 
+    description: 'Busca un usuario por su ID. Solo accesible por administradores.' 
+  })
+  @ApiResponse({ status: 200, description: 'Usuario encontrado' })
+  @ApiResponse({ status: 404, description: 'Usuario no encontrado' })
   async findById(@Param('id') id: string): Promise<UserDTO> {
     try {
       const user: User = await this.userService.findById(id);
@@ -53,6 +85,11 @@ export class UserController {
 
   @FindAllUserDoc()
   @Get()
+  @ApiOperation({ 
+    summary: 'Listar todos los usuarios (Admin)', 
+    description: 'Retorna lista de todos los usuarios. Solo accesible por administradores.' 
+  })
+  @ApiResponse({ status: 200, description: 'Lista de usuarios' })
   async findAll(): Promise<UserDTO[]> {
     try {
       const users: User[] = await this.userService.findAll();

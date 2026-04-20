@@ -8,7 +8,7 @@ import {
   Post,
   VERSION_NEUTRAL,
 } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { Message } from '../../common/class/message.class';
 import { CustomLogger } from '../../common/logger';
 import { GetVersionDoc, PostMessageMicroserviceDoc } from '../api-docs/app.decorator';
@@ -16,6 +16,11 @@ import { Version } from '../class/version.class';
 import { AppVersionNotFoundError } from '../errors/error-instances.error';
 import { AppService } from '../service/app.service';
 
+/**
+ * Controller raíz para información de la API.
+ * Provee endpoints de health check y versión.
+ * @public
+ */
 @ApiTags('Root')
 @Controller({ version: [VERSION_NEUTRAL] })
 export class AppController {
@@ -24,6 +29,11 @@ export class AppController {
 
   @GetVersionDoc()
   @Get()
+  @ApiOperation({ 
+    summary: 'Obtener información de la API', 
+    description: 'Retorna la versión y metadata de la API.' 
+  })
+  @ApiResponse({ status: 200, description: 'Información de la API' })
   async getVersion(): Promise<Version> {
     try {
       return await this.appService.getVersion();
@@ -39,6 +49,17 @@ export class AppController {
 
   @PostMessageMicroserviceDoc()
   @Post('message-microservice/:message-pattern')
+  @ApiOperation({ 
+    summary: 'Enviar mensaje al microservice', 
+    description: 'Envía un mensaje al microservice interne.' 
+  })
+  @ApiParam({ 
+    name: 'message-pattern', 
+    description: 'Patrón del mensaje (ej: user-created, order-completed)', 
+    example: 'user-created' 
+  })
+  @ApiResponse({ status: 200, description: 'Mensaje procesado' })
+  @ApiResponse({ status: 400, description: 'Patrón de mensaje inválido' })
   async messageMicroservice(
     @Param('message-pattern') messagePattern: string,
     @Body() body: Message<any>,
