@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Post, Body, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Body, UseGuards, Request, HttpCode, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { UserService } from '../service/user.service';
@@ -51,6 +51,7 @@ export class UserProfileController {
   }
 
   @Post('change-password')
+  @HttpCode(200)
   @ApiOperation({ summary: 'Change user password' })
   @ApiResponse({ status: 200, description: 'Password changed' })
   @ApiResponse({ status: 400, description: 'Current password incorrect' })
@@ -58,7 +59,7 @@ export class UserProfileController {
     const user = req.user;
     const isValid = await this.encodeService.compare(body.currentPassword, user.password);
     if (!isValid) {
-      return { message: 'Current password is incorrect' };
+      throw new BadRequestException('Current password is incorrect');
     }
 
     await this.userService.update(user.id, {
