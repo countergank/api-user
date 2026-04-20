@@ -13,14 +13,14 @@ import {
 } from '../errors/error-instances.error';
 import { UserService } from '../service/user.service';
 
-@ApiTags('User')
-@Controller({ path: 'user', version: '1' })
+@ApiTags('users')
+@Controller({ path: 'admin/users', version: '1' })
 export class UserController {
   private readonly logger = new CustomLogger(UserController.name);
   constructor(private readonly userService: UserService) {}
 
   @CreateUserDoc()
-  @Post('create')
+  @Post()
   async create(@Body() createUserDTO: CreateUserDTO): Promise<CreateUserResponseDTO> {
     try {
       const user: User = await this.userService.create(createUserDTO);
@@ -50,7 +50,7 @@ export class UserController {
   }
 
   @FindAllUserDoc()
-  @Get('')
+  @Get()
   async findAll(): Promise<UserDTO[]> {
     try {
       const users: User[] = await this.userService.findAll();
