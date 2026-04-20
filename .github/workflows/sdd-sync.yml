@@ -62,7 +62,8 @@ jobs:
               awk -F'/' '{print $1 "/" $2}' | \
               sort -u)
           else
-            changes=$(find openspec/changes -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null)
+            # Only include directories that have proposal.md or tasks.md (actual changes)
+            changes=$(find openspec/changes -mindepth 1 -maxdepth 1 -type d \( -name "archive" -o -name "refactor" \) -prune -o -type d -printf '%f\n' 2>/dev/null | grep -v "^$")
           fi
           echo "CHANGES=$changes" >> $GITHUB_ENV
           
