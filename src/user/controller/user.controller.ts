@@ -29,7 +29,8 @@ export class UserController {
       if (error instanceof UserNameAlreadyExistsError || error instanceof UserEmailAlreadyExistsError) {
         throw new BadRequestException(error.getErrorPublic());
       }
-      this.logger.error(error.message, error.stack);
+      const err = error as Error;
+      this.logger.error(err.message, err.stack);
       throw new InternalServerErrorException();
     }
   }
@@ -44,7 +45,8 @@ export class UserController {
       if (error instanceof UserNotFoundError) {
         throw new BadRequestException(error.getErrorPublic());
       }
-      this.logger.error(error.message, error.stack);
+      const err = error as Error;
+      this.logger.error(err.message, err.stack);
       throw new InternalServerErrorException();
     }
   }
@@ -56,7 +58,8 @@ export class UserController {
       const users: User[] = await this.userService.findAll();
       return users.map((user) => UserDTO.of(user));
     } catch (error) {
-      this.logger.error(error.message, error.stack);
+      const err = error as Error;
+      this.logger.error(err.message, err.stack);
       throw new InternalServerErrorException();
     }
   }

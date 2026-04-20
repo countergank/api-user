@@ -37,7 +37,12 @@ async function bootstrap() {
   const description = configService.get('npm_package_description') || 'REST API Name Manager';
   const version = configService.get('npm_package_version') || '1.0.0';
 
-  const swaggerConfig = new DocumentBuilder().setTitle(name).setDescription(description).setVersion(version).build();
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle(name)
+    .setDescription(description)
+    .setVersion(version)
+    .addBearerAuth()
+    .build();
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('/docs', app, swaggerDocument, { customSiteTitle: `${String(name).toUpperCase()} Docs` });
 

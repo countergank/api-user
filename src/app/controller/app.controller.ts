@@ -31,7 +31,8 @@ export class AppController {
       if (error instanceof AppVersionNotFoundError) {
         throw new BadRequestException(error.getErrorPublic());
       }
-      this.logger.error(error.message, error.stack);
+      const err = error as Error;
+      this.logger.error(err.message, err.stack);
       throw new InternalServerErrorException();
     }
   }
@@ -45,7 +46,8 @@ export class AppController {
     try {
       return await this.appService.messageMicroservice(messagePattern, body);
     } catch (error) {
-      this.logger.error(error.message, error.stack);
+      const err = error as Error;
+      this.logger.error(err.message, err.stack);
       throw new InternalServerErrorException();
     }
   }
