@@ -31,6 +31,10 @@ jobs:
             gh label create "$label" --description "SDD workflow label" 2>/dev/null || true
           done
 
+      - name: Create GH_TOKEN env for subsequent steps
+        run: |
+          echo "GH_TOKEN=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_ENV
+
       - name: Detect branch type and find changes
         id: find
         run: |
@@ -87,6 +91,8 @@ jobs:
           echo "ARCHIVE_CHANGES=$archive_changes" >> $GITHUB_OUTPUT
 
       - name: Create SDD issues
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           changes="${{ steps.find.outputs.CHANGES }}"
           branch_name="${{ steps.find.outputs.BRANCH_NAME }}"
@@ -147,6 +153,8 @@ jobs:
           done
 
       - name: Close archived issues
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           archive_changes="${{ steps.find.outputs.ARCHIVE_CHANGES }}"
           echo "ARCHIVE_CHANGES=$archive_changes"
