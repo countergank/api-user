@@ -23,7 +23,22 @@ export class UserProfileController {
     summary: 'Obtener perfil del usuario actual', 
     description: 'Retorna los datos del usuario actualmente autenticado.' 
   })
-  @ApiResponse({ status: 200, description: 'Perfil del usuario' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Perfil del usuario',
+    schema: {
+      example: {
+        id: "123e4567-e89b-12d3-a456-426614174000",
+        email: "user@example.com",
+        userName: "username",
+        name: "Juan",
+        lastName: "Pérez",
+        role: "user",
+        permissions: ["user:read", "user:write"],
+        isActive: true
+      }
+    }
+  })
   @ApiResponse({ status: 401, description: 'No autenticado' })
   async getProfile(@Request() req) {
     const user = req.user;

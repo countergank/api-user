@@ -18,7 +18,21 @@ export class AuthController {
     summary: 'Registrar nuevo usuario', 
     description: 'Crea un nuevo usuario en el sistema. Retorna tokens de acceso y refresh.' 
   })
-  @ApiResponse({ status: 201, description: 'Usuario registrado exitosamente' })
+  @ApiResponse({ 
+    status: 201, 
+    description: 'Usuario registrado exitosamente',
+    schema: {
+      example: {
+        id: "123e4567-e89b-12d3-a456-426614174000",
+        email: "user@example.com",
+        userName: "username",
+        name: "Juan",
+        lastName: "Pérez",
+        accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+        refreshToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      }
+    }
+  })
   @ApiResponse({ status: 400, description: 'Email o nombre de usuario ya existe' })
   @ApiBody({
     schema: {
@@ -43,7 +57,16 @@ export class AuthController {
     summary: 'Iniciar sesión', 
     description: 'Autentica un usuario y retorna tokens de acceso y refresh.' 
   })
-  @ApiResponse({ status: 200, description: 'Login exitoso' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Login exitoso',
+    schema: {
+      example: {
+        accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+        refreshToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      }
+    }
+  })
   @ApiResponse({ status: 401, description: 'Credenciales inválidas' })
   @ApiBody({
     schema: {
@@ -64,7 +87,11 @@ export class AuthController {
     summary: 'Solicitar recuperación de contraseña', 
     description: 'Envía un email con link para resetear la contraseña.' 
   })
-  @ApiResponse({ status: 200, description: 'Email de recuperación enviado' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Email de recuperación enviado',
+    schema: { example: { message: "If the email exists, a reset link has been sent" } }
+  })
   @ApiBody({
     schema: {
       type: 'object',
@@ -84,7 +111,11 @@ export class AuthController {
     summary: 'Resetear contraseña', 
     description: 'Resetea la contraseña usando el token del email.' 
   })
-  @ApiResponse({ status: 200, description: 'Contraseña reseteada exitosamente' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Contraseña reseteada exitosamente',
+    schema: { example: { message: "Password reset successfully" } }
+  })
   @ApiResponse({ status: 400, description: 'Token inválido o expirado' })
   @ApiBody({
     schema: {
@@ -107,7 +138,16 @@ export class AuthController {
     summary: 'Refrescar token de acceso', 
     description: 'Usa el refresh token para obtener nuevos access y refresh tokens.' 
   })
-  @ApiResponse({ status: 200, description: 'Tokens refrescados exitosamente' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Tokens refrescados exitosamente',
+    schema: {
+      example: {
+        accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+        refreshToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      }
+    }
+  })
   @ApiResponse({ status: 401, description: 'Refresh token inválido' })
   @ApiBody({
     schema: {
