@@ -1,9 +1,8 @@
 # Tasks
 
-- [ ] Agregar JSDocs y Swagger docs a AuthController
-- [ ] Agregar JSDocs y Swagger docs a AuthService
+- [x] Agregar JSDocs y Swagger docs a AuthController
+- [x] Agregar JSDocs y Swagger docs a UserProfileController
 - [ ] Agregar JSDocs y Swagger docs a UserController
-- [ ] Agregar JSDocs y Swagger docs a UserProfileController
 - [ ] Agregar JSDocs y Swagger docs a UserService
 - [ ] Agregar JSDocs y Swagger docs a AppController
 - [ ] Agregar JSDocs y Swagger docs a RoleController
