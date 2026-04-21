@@ -1,13 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { CreateUserDTO } from '../dto/create-user.dto';
-import { User } from '../entities/user.entity';
-import { UserEmailAlreadyExistsError, UserNameAlreadyExistsError, UserNotFoundError } from '../errors/error-instances.error';
+import { User, UserRole } from '../entities/user.entity';
+import {
+  UserEmailAlreadyExistsError,
+  UserNameAlreadyExistsError,
+  UserNotFoundError,
+} from '../errors/error-instances.error';
 import { UserRepository } from '../repository/user.repository';
 
 @Injectable()
 export class UserService {
-  constructor(private readonly userRepository: UserRepository) { }
+  constructor(private readonly userRepository: UserRepository) {}
 
   async create(createUserDTO: CreateUserDTO): Promise<User> {
     const [usernameAlreadyExists, emailAlreadyExists] = await Promise.all([
@@ -27,6 +31,31 @@ export class UserService {
     return createdUser;
   }
 
+  async createWithRole(data: {
+    email: string;
+    userName: string;
+    password: string;
+    name: string;
+    lastName: string;
+    role: UserRole;
+    permissions: string[];
+    isActive: boolean;
+  }): Promise<User> {
+    const [usernameAlreadyExists, emailAlreadyExists] = await Promise.all([
+      this.userRepository.existsByName(data.userName),
+      this.userRepository.existsByEmail(data.email),
+    ]);
+
+    if (usernameAlreadyExists) {
+      throw new UserNameAlreadyExistsError();
+    }
+    if (emailAlreadyExists) {
+      throw new UserEmailAlreadyExistsError();
+    }
+
+    return this.userRepository.createWithRole(data);
+  }
+
   async findAll(): Promise<User[]> {
     const users: User[] = await this.userRepository.findAll();
     return users;
@@ -38,5 +67,29 @@ export class UserService {
       throw new UserNotFoundError();
     }
     return user;
+  }
+
+  async findByEmail(email: string): Promise<User | null> {
+    return this.userRepository.findByEmail(email);
+  }
+
+  async findByResetToken(token: string): Promise<User | null> {
+    return this.userRepository.findByResetToken(token);
+  }
+
+  async update(id: string, data: Partial<User>): Promise<User> {
+    return this.userRepository.update(id, data);
+  }
+
+  async validatePassword(password: string, hashedPassword: string): Promise<boolean> {
+    return this.userRepository.validatePassword(password, hashedPassword);
+  }
+
+  async existsByEmailOrUsername(email: string, userName: string): Promise<boolean> {
+    const [emailExists, usernameExists] = await Promise.all([
+      this.userRepository.existsByEmail(email),
+      this.userRepository.existsByName(userName),
+    ]);
+    return emailExists || usernameExists;
   }
 }

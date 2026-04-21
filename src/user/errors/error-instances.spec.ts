@@ -1,4 +1,10 @@
-import { UserEmailAlreadyExistsError, UserError, UserNameAlreadyExistsError, UserNotFoundError, UserPopulateError } from './error-instances.error';
+import {
+  UserEmailAlreadyExistsError,
+  UserError,
+  UserNameAlreadyExistsError,
+  UserNotFoundError,
+  UserPopulateError,
+} from './error-instances.error';
 import { ErrorCodes, ErrorMessages } from './error.dictionary';
 
 describe(UserError.name, () => {

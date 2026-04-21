@@ -4,7 +4,11 @@ import { Mock } from '../../../test/helpers';
 import { CreateUserResponseDTO } from '../dto/create-user-response.dto';
 import { UserDTO } from '../dto/user.dto';
 import { User } from '../entities/user.entity';
-import { UserEmailAlreadyExistsError, UserNameAlreadyExistsError, UserNotFoundError } from '../errors/error-instances.error';
+import {
+  UserEmailAlreadyExistsError,
+  UserNameAlreadyExistsError,
+  UserNotFoundError,
+} from '../errors/error-instances.error';
 import { CreateUserDTOMock } from '../mocks/create-user-dto.mock';
 import { UserMock } from '../mocks/user.mock';
 import { UserService } from '../service/user.service';
@@ -36,19 +40,19 @@ describe(UserController.name, () => {
     const user = new UserMock().randomize();
     const createUserDTO = new CreateUserDTOMock().randomize();
     it(`should be create a ${User.name}`, async () => {
-      jest.spyOn(userService, 'create').mockResolvedValue(user);
+      jest.spyOn(userService, 'createWithRole').mockResolvedValue(user);
       await expect(controller.create(createUserDTO)).resolves.toBeInstanceOf(CreateUserResponseDTO);
     });
     it(`should return a ${UserEmailAlreadyExistsError.name}`, async () => {
-      jest.spyOn(userService, 'create').mockRejectedValueOnce(new UserEmailAlreadyExistsError());
+      jest.spyOn(userService, 'createWithRole').mockRejectedValueOnce(new UserEmailAlreadyExistsError());
       await expect(controller.create(createUserDTO)).rejects.toThrow(BadRequestException);
     });
     it(`should return a ${UserNameAlreadyExistsError.name}`, async () => {
-      jest.spyOn(userService, 'create').mockRejectedValueOnce(new UserNameAlreadyExistsError());
+      jest.spyOn(userService, 'createWithRole').mockRejectedValueOnce(new UserNameAlreadyExistsError());
       await expect(controller.create(createUserDTO)).rejects.toThrow(BadRequestException);
     });
     it(`should return a ${InternalServerErrorException.name}`, async () => {
-      jest.spyOn(userService, 'create').mockRejectedValueOnce(new Error('Error from test'));
+      jest.spyOn(userService, 'createWithRole').mockRejectedValueOnce(new Error('Error from test'));
       await expect(controller.create(createUserDTO)).rejects.toThrow(InternalServerErrorException);
     });
   });

@@ -1,6 +1,5 @@
-import { UserEmailAlreadyExistsError, UserNameAlreadyExistsError, UserNotFoundError } from "./error-instances.error";
-import { ErrorCodes, ErrorMessages } from "./error.dictionary";
-
+import { UserEmailAlreadyExistsError, UserNameAlreadyExistsError, UserNotFoundError } from './error-instances.error';
+import { ErrorCodes, ErrorMessages } from './error.dictionary';
 
 describe(UserEmailAlreadyExistsError.name, () => {
   it(`should create an instance of ${UserEmailAlreadyExistsError.name}`, () => {

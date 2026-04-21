@@ -1,6 +1,5 @@
-import { AppError, AppVersionNotFoundError } from "./error-instances.error";
-import { ErrorCodes, ErrorMessages } from "./error.dictionary";
-
+import { AppError, AppVersionNotFoundError } from './error-instances.error';
+import { ErrorCodes, ErrorMessages } from './error.dictionary';
 
 describe(AppError.name, () => {
   it(`should create en instance of ${AppError.name}`, () => {
@@ -11,7 +10,6 @@ describe(AppError.name, () => {
     expect(error.code.includes(ErrorCodes.Base)).toBeTruthy();
   });
 });
-
 
 describe(AppVersionNotFoundError.name, () => {
   it(`should create en instance of ${AppVersionNotFoundError.name}`, () => {

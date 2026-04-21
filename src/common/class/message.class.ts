@@ -1,14 +1,20 @@
-import { ApiProperty } from "@nestjs/swagger";
+import { ApiProperty } from '@nestjs/swagger';
 
-// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+/**
+ * Clase base para mensajes de microservice.
+ */
 export abstract class Message<T extends Record<string, any>> {
-	@ApiProperty({ example: new Date() })
-	timestamp?: Date;
+  @ApiProperty({ 
+    example: '2024-01-01T00:00:00.000Z', 
+    description: 'Timestamp del mensaje' 
+  })
+  timestamp?: Date;
 
-	abstract payload: T;
+  /** Payload del mensaje */
+  abstract payload: T;
 
-	constructor(partialData: Partial<Message<T>>) {
-		this.timestamp = partialData?.timestamp ?? new Date();
-		Object.assign(this, partialData);
-	}
+  constructor(partialData: Partial<Message<T>>) {
+    this.timestamp = partialData?.timestamp ?? new Date();
+    Object.assign(this, partialData);
+  }
 }
