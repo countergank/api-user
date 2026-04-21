@@ -79,12 +79,13 @@ jobs:
           } >> $GITHUB_OUTPUT
           
           # Check for archive paths - find all changes that have archive subdirectory
+          # Search recursively in any subdirectory of openspec/changes/
           archive_changes=""
-          for change_dir in $(find openspec/changes -mindepth 1 -maxdepth 1 -type d \
-            ! -name "archive" \
-            ! -name "refactor"); do
-            if [[ -d "$change_dir/archive" ]]; then
-              change_name=$(echo "$change_dir" | awk -F'openspec/changes/' '{print $2}')
+          for archive_dir in $(find openspec/changes -type d -name archive 2>/dev/null); do
+            # Get the parent directory (the change directory)
+            change_dir=$(dirname "$archive_dir")
+            change_name=$(echo "$change_dir" | awk -F'openspec/changes/' '{print $2}')
+            if [[ -n "$change_name" ]]; then
               archive_changes="$archive_changes $change_name"
             fi
           done
