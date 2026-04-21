@@ -11,7 +11,11 @@ export interface JwtPayload {
 }
 
 export interface AuthResponse {
-  user: Partial<User>;
+  user: {
+    email: string;
+    name: string;
+    lastName: string;
+  };
   accessToken: string;
   refreshToken: string;
 }
@@ -43,7 +47,7 @@ export class AuthService {
       lastName,
       role: UserRole.USER,
       permissions: [],
-      isActive: true,
+      isActive: false, // Requiere verificación de email
     });
 
     return this.generateAuthResponse(user);
@@ -125,13 +129,9 @@ export class AuthService {
 
     return {
       user: {
-        id: user.id,
         email: user.email,
-        userName: user.userName,
         name: user.name,
         lastName: user.lastName,
-        role: user.role,
-        permissions: user.permissions,
       },
       accessToken,
       refreshToken,

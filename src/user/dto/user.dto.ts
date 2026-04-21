@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { User } from '../entities/user.entity';
+import { User, UserRole } from '../entities/user.entity';
 
 /**
  * DTO de respuesta de usuario.
@@ -10,6 +10,7 @@ import { User } from '../entities/user.entity';
  *   lastName: 'Pérez',
  *   email: 'juan@example.com',
  *   userName: 'juanperez',
+ *   role: 'user',
  *   createdAt: '2024-01-01T00:00:00.000Z',
  *   updatedAt: '2024-01-01T00:00:00.000Z'
  * }
@@ -46,6 +47,14 @@ export class UserDTO {
   userName: string;
 
   @ApiProperty({ 
+    example: 'user', 
+    description: 'Rol del usuario (admin, user, viewer)',
+    enum: UserRole,
+    enumName: 'UserRole'
+  })
+  role: UserRole;
+
+  @ApiProperty({ 
     example: '2024-01-01T00:00:00.000Z', 
     description: 'Fecha de creación' 
   })
@@ -57,14 +66,22 @@ export class UserDTO {
   })
   updatedAt: string;
 
+  @ApiProperty({ 
+    example: true, 
+    description: 'Indica si la cuenta está activa' 
+  })
+  isActive: boolean;
+
   constructor(user: User) {
     this.id = user.id;
     this.name = user.name;
     this.lastName = user.lastName;
     this.email = user.email;
     this.userName = user.userName;
+    this.role = user.role;
     this.createdAt = user.createdAt;
     this.updatedAt = user.updatedAt;
+    this.isActive = user.isActive;
   }
 
   static of(user: User): UserDTO {

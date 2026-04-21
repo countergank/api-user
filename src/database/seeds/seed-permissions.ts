@@ -1,7 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../../app/app.module';
-import { PermissionService } from '../../rbac/services/permission.service';
 import { CustomLogger } from '../../common/logger';
+import { PermissionService } from '../../rbac/services/permission.service';
 
 async function seedPermissions() {
   const logger = new CustomLogger('SeedPermissions');
@@ -17,7 +17,8 @@ async function seedPermissions() {
     logger.log('Permisos creados exitosamente');
     await app.close();
   } catch (error) {
-    logger.error('Error creando permisos:', error);
+    const err = error as Error;
+    logger.error(err.message, err.stack);
     process.exit(1);
   }
 }

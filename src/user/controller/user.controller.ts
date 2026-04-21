@@ -2,6 +2,9 @@ import { BadRequestException, Body, Controller, Get, InternalServerErrorExceptio
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CustomLogger } from '../../common/logger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
+import { UserRole } from '../entities/user.entity';
 import { CreateUserDoc, FindAllUserDoc, FindByIdUserDoc } from '../api-docs/user.decorator';
 import { CreateUserResponseDTO } from '../dto/create-user-response.dto';
 import { CreateUserDTO } from '../dto/create-user.dto';
@@ -23,7 +26,8 @@ import { UserService } from '../service/user.service';
 @ApiTags('users')
 @Controller('admin/users')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(UserRole.ADMIN)
 export class UserController {
   private readonly logger = new CustomLogger(UserController.name);
   constructor(private readonly userService: UserService) {}
@@ -34,24 +38,51 @@ export class UserController {
     summary: 'Crear nuevo usuario (Admin)', 
     description: 'Crea un nuevo usuario en el sistema. Solo accesible por administradores.' 
   })
-  @ApiResponse({ status: 201, description: 'Usuario creado exitosamente' })
+  @ApiResponse({ 
+    status: 201, 
+    description: 'Usuario creado exitosamente',
+    schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', example: 'Juan' },
+        lastName: { type: 'string', example: 'Pérez' },
+        email: { type: 'string', example: 'juan@example.com' },
+        userName: { type: 'string', example: 'juanperez' },
+        role: { type: 'string', example: 'user', enum: ['admin', 'user', 'viewer'] },
+        isActive: { type: 'boolean', example: true },
+        createdAt: { type: 'string', example: '2024-01-01T00:00:00.000Z' },
+        updatedAt: { type: 'string', example: '2024-01-01T00:00:00.000Z' },
+      },
+    },
+  })
   @ApiResponse({ status: 400, description: 'Email o username ya existe' })
+  @ApiResponse({ status: 403, description: 'Acceso denegado. Se requiere rol admin.' })
   @ApiBody({
     schema: {
       type: 'object',
-      required: ['email', 'userName', 'password', 'name', 'lastName'],
+      required: ['email', 'userName', 'password', 'name', 'lastName', 'role'],
       properties: {
         email: { type: 'string', example: 'newuser@example.com', description: 'Email único' },
         userName: { type: 'string', example: 'newuser', description: 'Nombre de usuario único' },
         password: { type: 'string', example: 'Pass123!', description: 'Contraseña' },
         name: { type: 'string', example: 'Juan', description: 'Nombre' },
         lastName: { type: 'string', example: 'Pérez', description: 'Apellido' },
+        role: { type: 'string', example: 'user', enum: ['admin', 'user', 'viewer'], description: 'Rol del usuario' },
       },
     },
   })
   async create(@Body() createUserDTO: CreateUserDTO): Promise<CreateUserResponseDTO> {
     try {
-      const user: User = await this.userService.create(createUserDTO);
+      const user: User = await this.userService.createWithRole({
+        email: createUserDTO.email,
+        userName: createUserDTO.userName,
+        password: createUserDTO.password,
+        name: createUserDTO.name,
+        lastName: createUserDTO.lastName,
+        role: createUserDTO.role,
+        permissions: [],
+        isActive: true, // Admin crea usuarios activos
+      });
       return CreateUserResponseDTO.of(user);
     } catch (error) {
       if (error instanceof UserNameAlreadyExistsError || error instanceof UserEmailAlreadyExistsError) {

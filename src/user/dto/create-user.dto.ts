@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
-import { User } from '../entities/user.entity';
+import { IsEmail, IsNotEmpty, IsString, IsEnum } from 'class-validator';
+import { User, UserRole } from '../entities/user.entity';
 
 /**
  * DTO para creación de usuarios.
@@ -10,7 +10,8 @@ import { User } from '../entities/user.entity';
  *   lastName: 'Pérez',
  *   email: 'juan@example.com',
  *   userName: 'juanperez',
- *   password: 'SecurePass123!'
+ *   password: 'SecurePass123!',
+ *   role: 'user'
  * }
  */
 export class CreateUserDTO {
@@ -59,6 +60,16 @@ export class CreateUserDTO {
   @IsString()
   password: string;
 
+  @ApiProperty({ 
+    example: 'user', 
+    description: 'Rol del usuario (admin, user, viewer)',
+    enum: UserRole,
+    enumName: 'UserRole'
+  })
+  @IsNotEmpty()
+  @IsEnum(UserRole)
+  role: UserRole;
+
   toEntity(): User {
     const user = new User();
     user.name = this.name;
@@ -66,6 +77,7 @@ export class CreateUserDTO {
     user.email = this.email;
     user.userName = this.userName;
     user.password = this.password;
+    user.role = this.role;
     return user;
   }
 }
