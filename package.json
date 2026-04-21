@@ -20,7 +20,12 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --detectOpenHandles --coverage --forceExit",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "prepare": "husky"
+    "prepare": "husky",
+    "db:drop": "docker exec db-user mongosh --quiet --eval 'db.adminCommand({dropAllDatabases:1})'",
+    "seed:permissions": "docker compose exec api-user npx ts-node src/database/seeds/seed-permissions.ts",
+    "seed:roles": "docker compose exec api-user npx ts-node src/database/seeds/seed-roles.ts",
+    "seed:users": "docker compose exec api-user npx ts-node src/database/seeds/seed-users.ts",
+    "seed:all": "npm run seed:permissions && npm run seed:roles && npm run seed:users"
   },
   "dependencies": {
     "@faker-js/faker": "^8.4.1",
