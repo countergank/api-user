@@ -1,6 +1,7 @@
-import { BadRequestException, Body, Controller, Get, InternalServerErrorException, Param, Post } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
+import { BadRequestException, Body, Controller, Get, InternalServerErrorException, Param, Post, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CustomLogger } from '../../common/logger';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CreateUserDoc, FindAllUserDoc, FindByIdUserDoc } from '../api-docs/user.decorator';
 import { CreateUserResponseDTO } from '../dto/create-user-response.dto';
 import { CreateUserDTO } from '../dto/create-user.dto';
@@ -22,6 +23,7 @@ import { UserService } from '../service/user.service';
 @ApiTags('users')
 @Controller('admin/users')
 @ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 export class UserController {
   private readonly logger = new CustomLogger(UserController.name);
   constructor(private readonly userService: UserService) {}

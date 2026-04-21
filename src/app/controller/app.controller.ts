@@ -8,7 +8,7 @@ import {
   Post,
   VERSION_NEUTRAL,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiHideProperty } from '@nestjs/swagger';
 import { Message } from '../../common/class/message.class';
 import { CustomLogger } from '../../common/logger';
 import { GetVersionDoc, PostMessageMicroserviceDoc } from '../api-docs/app.decorator';
@@ -33,7 +33,17 @@ export class AppController {
     summary: 'Obtener información de la API', 
     description: 'Retorna la versión y metadata de la API.' 
   })
-  @ApiResponse({ status: 200, description: 'Información de la API' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Información de la API',
+    schema: {
+      example: {
+        version: "api-user v=1.0.0",
+        name: "API User",
+        repository: "https://github.com/countergank/api-user"
+      }
+    }
+  })
   async getVersion(): Promise<Version> {
     try {
       return await this.appService.getVersion();
@@ -50,9 +60,10 @@ export class AppController {
   @PostMessageMicroserviceDoc()
   @Post('message-microservice/:message-pattern')
   @ApiOperation({ 
-    summary: 'Enviar mensaje al microservice', 
-    description: 'Envía un mensaje al microservice interne.' 
+    summary: '[HIDDEN] Enviar mensaje al microservice', 
+    description: 'Endpoint interno para comunicación con microservicios. No documentado.' 
   })
+  @ApiHideProperty()
   @ApiParam({ 
     name: 'message-pattern', 
     description: 'Patrón del mensaje (ej: user-created, order-completed)', 
