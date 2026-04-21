@@ -4,9 +4,8 @@ description: Propose a new change with all artifacts generated in one step. Use 
 license: MIT
 compatibility: Requires openspec CLI.
 metadata:
-  author: openspec
-  version: "1.0"
-  generatedBy: "1.2.0"
+  author: countergank
+  version: "1.1"
 ---
 
 Propose a new change - create the change and generate all artifacts in one step.
@@ -22,6 +21,21 @@ When ready to implement, run /opsx-apply
 
 **Input**: The user's request should include a change name (kebab-case) OR a description of what they want to build.
 
+**CRITICAL: Directory Structure**
+
+This project uses subdirectories for change organization:
+```
+openspec/changes/
+├── feature/          ← feature branches
+├── bugfix/           ← bug fix branches
+├── hotfix/           ← urgent fixes
+├── release/          ← release branches
+├── chore/            ← maintenance tasks
+└── specs/            ← global specs
+```
+
+**ALWAYS create changes in the appropriate subdirectory based on branch type.**
+
 **Steps**
 
 1. **If no clear input provided, ask what they want to build**
@@ -33,13 +47,42 @@ When ready to implement, run /opsx-apply
 
    **IMPORTANT**: Do NOT proceed without understanding what the user wants to build.
 
-2. **Create the change directory**
+2. **Detect branch type and determine target subdirectory**
+
+   Run:
+   ```bash
+   git branch --show-current
+   ```
+
+   Extract the prefix:
+   - Branch `feature/xxx` → subdirectory `feature/`
+   - Branch `bugfix/xxx` → subdirectory `bugfix/`
+   - Branch `hotfix/xxx` → subdirectory `hotfix/`
+   - Branch `release/xxx` → subdirectory `release/`
+   - Branch `chore/xxx` → subdirectory `chore/`
+   - Default (main, master, develop) → ask user which type
+
+3. **Create the change in the correct subdirectory**
+
+   First, ensure the subdirectory exists:
+   ```bash
+   mkdir -p openspec/changes/<subdir>/
+   ```
+
+   Then create the change (the CLI will scaffold inside):
    ```bash
    openspec new change "<name>"
    ```
-   This creates a scaffolded change at `openspec/changes/<name>/` with `.openspec.yaml`.
 
-3. **Get the artifact build order**
+   **CRITICAL**: After creation, MOVE the change to the subdirectory if needed:
+   ```bash
+   # If created in wrong location or root
+   git mv openspec/changes/<name> openspec/changes/<subdir>/<name>
+   ```
+
+   Verify: `ls openspec/changes/<subdir>/<name>/` should show `.openspec.yaml`
+
+4. **Get the artifact build order**
    ```bash
    openspec status --change "<name>" --json
    ```
@@ -47,7 +90,7 @@ When ready to implement, run /opsx-apply
    - `applyRequires`: array of artifact IDs needed before implementation (e.g., `["tasks"]`)
    - `artifacts`: list of all artifacts with their status and dependencies
 
-4. **Create artifacts in sequence until apply-ready**
+5. **Create artifacts in sequence until apply-ready**
 
    Use the **TodoWrite tool** to track progress through the artifacts.
 
@@ -79,18 +122,38 @@ When ready to implement, run /opsx-apply
       - Use **AskUserQuestion tool** to clarify
       - Then continue with creation
 
-5. **Show final status**
+6. **Show final status**
    ```bash
    openspec status --change "<name>"
    ```
 
+7. **IMPORTANT: Archive when complete**
+
+   When the change is fully implemented and verified, create an archive:
+   ```bash
+   mkdir -p openspec/changes/<subdir>/<name>/archive
+   echo "# Archived: <name>
+
+   Completed on: $(date +%Y-%m-%d)
+
+   ## Summary
+   - What was implemented
+   - Key files changed
+
+   ## Notes
+   Any important notes for future reference
+   " > openspec/changes/<subdir>/<name>/archive/completed.md
+   ```
+
+   This triggers the SDD Issues Sync workflow to automatically close linked GitHub issues.
+
 **Output**
 
 After completing all artifacts, summarize:
-- Change name and location
+- Change name and location (e.g., `openspec/changes/feature/my-feature/`)
 - List of artifacts created with brief descriptions
 - What's ready: "All artifacts created! Ready for implementation."
-- Prompt: "Run `/opsx-apply` or ask me to implement to start working on the tasks."
+- Archive command hint: "When complete, run `/opsx-archive` or create archive/ folder to close issues"
 
 **Artifact Creation Guidelines**
 
@@ -102,9 +165,16 @@ After completing all artifacts, summarize:
   - Do NOT copy `<context>`, `<rules>`, `<project_context>` blocks into the artifact
   - These guide what you write, but should never appear in the output
 
+**Directory Structure Enforcement**
+
+- NEVER create changes in the root `openspec/changes/<name>/`
+- ALWAYS use subdirectories: `feature/`, `bugfix/`, `hotfix/`, `release/`, `chore/`
+- The subdirectory must match the branch type
+
 **Guardrails**
 - Create ALL artifacts needed for implementation (as defined by schema's `apply.requires`)
 - Always read dependency artifacts before creating a new one
 - If context is critically unclear, ask the user - but prefer making reasonable decisions to keep momentum
 - If a change with that name already exists, ask if user wants to continue it or create a new one
 - Verify each artifact file exists after writing before proceeding to next
+- Verify the change is in the correct subdirectory (not root)

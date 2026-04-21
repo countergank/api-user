@@ -1,15 +1,32 @@
 ---
 name: openspec-archive-change
-description: Archive a completed change in the experimental workflow. Use when the user wants to finalize and archive a change after implementation is complete.
+description: Archive a completed change. Use when the user wants to finalize a change after implementation is complete. This triggers the SDD Issues Sync workflow to automatically close linked GitHub issues.
 license: MIT
 compatibility: Requires openspec CLI.
 metadata:
-  author: openspec
-  version: "1.0"
-  generatedBy: "1.2.0"
+  author: countergank
+  version: "1.1"
 ---
 
-Archive a completed change in the experimental workflow.
+Archive a completed change.
+
+**CRITICAL: Archive Structure**
+
+This project uses `archive/` as a subdirectory OF the change, not as a separate archive folder:
+
+```
+openspec/changes/feature/my-change/
+├── archive/
+│   └── completed.md      ← This triggers issue closing
+├── proposal.md
+├── design.md
+└── tasks.md
+```
+
+**NOT:**
+```
+openspec/changes/archive/YYYY-MM-DD-my-change/  ← WRONG
+```
 
 **Input**: Optionally specify a change name. If omitted, check if it can be inferred from conversation context. If vague or ambiguous you MUST prompt for available changes.
 
@@ -19,7 +36,7 @@ Archive a completed change in the experimental workflow.
 
    Run `openspec list --json` to get available changes. Use the **AskUserQuestion tool** to let the user select.
 
-   Show only active changes (not already archived).
+   Show only active changes (not already archived - those with `archive/` subdirectory).
    Include the schema used for each change if available.
 
    **IMPORTANT**: Do NOT guess or auto-select a change. Always let the user choose.
@@ -50,65 +67,73 @@ Archive a completed change in the experimental workflow.
 
    **If no tasks file exists:** Proceed without task-related warning.
 
-4. **Assess delta spec sync state**
+4. **Create the archive**
 
-   Check for delta specs at `openspec/changes/<name>/specs/`. If none exist, proceed without sync prompt.
-
-   **If delta specs exist:**
-   - Compare each delta spec with its corresponding main spec at `openspec/specs/<capability>/spec.md`
-   - Determine what changes would be applied (adds, modifications, removals, renames)
-   - Show a combined summary before prompting
-
-   **Prompt options:**
-   - If changes needed: "Sync now (recommended)", "Archive without syncing"
-   - If already synced: "Archive now", "Sync anyway", "Cancel"
-
-   If user chooses sync, use Task tool (subagent_type: "general-purpose", prompt: "Use Skill tool to invoke openspec-sync-specs for change '<name>'. Delta spec analysis: <include the analyzed delta spec summary>"). Proceed to archive regardless of choice.
-
-5. **Perform the archive**
-
-   Create the archive directory if it doesn't exist:
+   The archive must be inside the change directory:
    ```bash
-   mkdir -p openspec/changes/archive
+   mkdir -p openspec/changes/<subdir>/<name>/archive
    ```
 
-   Generate target name using current date: `YYYY-MM-DD-<change-name>`
-
-   **Check if target already exists:**
-   - If yes: Fail with error, suggest renaming existing archive or using different date
-   - If no: Move the change directory to archive
-
+   Create `completed.md` with summary:
    ```bash
-   mv openspec/changes/<name> openspec/changes/archive/YYYY-MM-DD-<name>
+   cat > openspec/changes/<subdir>/<name>/archive/completed.md << 'EOF'
+   # Archived: <name>
+
+   Completed on: YYYY-MM-DD
+
+   ## Summary
+   - What was implemented
+   - Key decisions made
+
+   ## Files Changed
+   - list of main files
+
+   ## Notes
+   Any important notes for future reference
+   EOF
    ```
 
-6. **Display summary**
+5. **Update .openspec.yaml status**
+
+   Update the change's `.openspec.yaml` to mark as archived:
+   ```yaml
+   status: archived
+   archived: YYYY-MM-DD
+   ```
+
+6. **Git commit and push**
+
+   ```bash
+   git add openspec/changes/<subdir>/<name>/
+   git commit -m "docs(openspec): archive completed change <name>"
+   git push
+   ```
+
+   **IMPORTANT**: Pushing triggers the SDD Issues Sync workflow which automatically closes GitHub issues linked to this change.
+
+7. **Display summary**
 
    Show archive completion summary including:
-   - Change name
+   - Change name and location
    - Schema that was used
-   - Archive location
-   - Whether specs were synced (if applicable)
-   - Note about any warnings (incomplete artifacts/tasks)
+   - Note about pushing to trigger workflow
 
 **Output On Success**
 
 ```
 ## Archive Complete
 
-**Change:** <change-name>
-**Schema:** <schema-name>
-**Archived to:** openspec/changes/archive/YYYY-MM-DD-<name>/
-**Specs:** ✓ Synced to main specs (or "No delta specs" or "Sync skipped")
+**Change:** openspec/changes/feature/<name>/
+**Schema:** spec-driven
+**Location:** <subdir>/<name>/archive/completed.md
+**GitHub Issues:** Will be closed by SDD Issues Sync workflow on push
 
 All artifacts complete. All tasks complete.
 ```
 
 **Guardrails**
-- Always prompt for change selection if not provided
-- Use artifact graph (openspec status --json) for completion checking
+- Always create archive inside the change directory, not in a separate archive folder
+- Always push to trigger the SDD Issues Sync workflow
 - Don't block archive on warnings - just inform and confirm
-- Preserve .openspec.yaml when moving to archive (it moves with the directory)
-- Show clear summary of what happened
-- If sync is requested, use openspec-sync-specs approach (agent-driven)
-- If delta specs exist, always run the sync assessment and show the combined summary before prompting
+- Preserve .openspec.yaml when archiving
+- Show clear summary of what happened and that push triggers workflow

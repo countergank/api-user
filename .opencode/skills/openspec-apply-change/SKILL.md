@@ -4,12 +4,29 @@ description: Implement tasks from an OpenSpec change. Use when the user wants to
 license: MIT
 compatibility: Requires openspec CLI.
 metadata:
-  author: openspec
-  version: "1.0"
-  generatedBy: "1.2.0"
+  author: countergank
+  version: "1.1"
 ---
 
 Implement tasks from an OpenSpec change.
+
+**CRITICAL: Directory Structure**
+
+Changes are organized by subdirectory:
+```
+openspec/changes/
+├── feature/          ← features
+│   └── <name>/
+│       ├── archive/
+│       ├── proposal.md
+│       ├── design.md
+│       └── tasks.md
+├── bugfix/           ← bugs
+│   └── <name>/
+└── specs/            ← global specs
+```
+
+When referencing a change, use the full path: `<subdir>/<name>`
 
 **Input**: Optionally specify a change name. If omitted, check if it can be inferred from conversation context. If vague or ambiguous you MUST prompt for available changes.
 
@@ -17,12 +34,17 @@ Implement tasks from an OpenSpec change.
 
 1. **Select the change**
 
-   If a name is provided, use it. Otherwise:
+   If a name is provided, determine the subdirectory:
+   - Check current branch: `git branch --show-current`
+   - Infer type from branch (`feature/`, `bugfix/`, etc.)
+   - Default to `feature/` if unclear
+
+   Otherwise:
    - Infer from conversation context if the user mentioned a change
    - Auto-select if only one active change exists
    - If ambiguous, run `openspec list --json` to get available changes and use the **AskUserQuestion tool** to let the user select
 
-   Always announce: "Using change: <name>" and how to override (e.g., `/opsx-apply <other>`).
+   Always announce: "Using change: `<subdir>/<name>`" and how to override (e.g., `/opsx-apply <other>`).
 
 2. **Check status to understand the schema**
    ```bash
@@ -90,7 +112,7 @@ Implement tasks from an OpenSpec change.
 **Output During Implementation**
 
 ```
-## Implementing: <change-name> (schema: <schema-name>)
+## Implementing: <subdir>/<name> (schema: <schema-name>)
 
 Working on task 3/7: <task description>
 [...implementation happening...]
@@ -106,7 +128,7 @@ Working on task 4/7: <task description>
 ```
 ## Implementation Complete
 
-**Change:** <change-name>
+**Change:** <subdir>/<name>
 **Schema:** <schema-name>
 **Progress:** 7/7 tasks complete ✓
 
@@ -123,7 +145,7 @@ All tasks complete! Ready to archive this change.
 ```
 ## Implementation Paused
 
-**Change:** <change-name>
+**Change:** <subdir>/<name>
 **Schema:** <schema-name>
 **Progress:** 4/7 tasks complete
 
@@ -147,6 +169,7 @@ What would you like to do?
 - Update task checkbox immediately after completing each task
 - Pause on errors, blockers, or unclear requirements - don't guess
 - Use contextFiles from CLI output, don't assume specific file names
+- Always verify change is in correct subdirectory
 
 **Fluid Workflow Integration**
 
