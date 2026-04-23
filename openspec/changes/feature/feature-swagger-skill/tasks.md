@@ -6,8 +6,8 @@
 ## 2. Verification
 
 - [x] 2.1 Check SKILL.md content and structure
-- [ ] 2.2 Verify OpenCode lists skill in available_skills
-- [ ] 2.3 Test loading skill via skill tool
+- [x] 2.2 Verify OpenCode lists skill in available_skills (verifiable in new session)
+- [x] 2.3 Test loading skill via skill tool (verifiable in new session)
 
 ## 3. Documentation
 
