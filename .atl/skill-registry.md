@@ -18,8 +18,10 @@
 4. Wait for explicit approval before merging
 
 ### OpenSpec Structure
+
 ```
-openspec/changes/{type}/{change-name}/
+openspec/changes/{subdir}/{change-name}/
+├── .openspec.yaml
 ├── proposal.md
 ├── design.md
 ├── specs/
@@ -28,11 +30,49 @@ openspec/changes/{type}/{change-name}/
 └── archive/
 ```
 
+**⚠️ ALWAYS use subdirectories based on branch type:**
+- `feature/` → for `feature/xxx` branches
+- `bugfix/` → for `bugfix/xxx` branches
+- `hotfix/` → for `hotfix/xxx` branches
+- `release/` → for `release/xxx` branches
+- `chore/` → for `chore/xxx` branches
+
+Reference: `.opencode/refs/changes-structure.md`
+
 ### Artifact Store Mode
 **Mode**: `hybrid`
 - **engram**: Automatic persistence for sub-agents
 - **openspec**: File-based artifacts, team-shareable
 - **Both**: Required for every change
+
+### API Documentation Patterns
+
+| Pattern | Description | Priority |
+|---------|-------------|----------|
+| Module-level docs | Documentation goes INSIDE each module, NOT in common/ | **CRITICAL** |
+| Examples required | Every endpoint MUST include request/response examples | **CRITICAL** |
+| Sync with DTOs | Examples MUST stay updated when DTOs change | **MANDATORY** |
+
+**⚠️ Directory Structure for API Docs:**
+```
+src/{module}/
+├── controller/
+│   └── {module}.controller.ts
+└── api-docs/
+    ├── index.ts
+    ├── decorators.ts
+    └── examples/
+        ├── {operation}.request.ts
+        └── {operation}.response.ts
+```
+
+**⚠️ Decorator Functions Pattern:**
+- Create custom decorator functions (e.g., `applyUserDocs()`)
+- Import from module's own `api-docs/` directory
+- Include @ApiOperation, @ApiResponse, @ApiBody
+- Add `examples` objects for every request and response
+
+Reference: `.opencode/refs/api-docs-pattern.md`
 
 ## Skills
 
@@ -67,4 +107,4 @@ openspec/changes/{type}/{change-name}/
 - `main`: Requires PR with reviews
 
 ---
-Updated: 2026-04-15
+Updated: 2026-04-22 (API docs pattern added)
