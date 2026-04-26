@@ -3,7 +3,8 @@
 
 name: refactor/swagger-docs
 type: refactor
-status: in_progress
+status: archived
+archived: 2026-04-26
 created: 2026-04-23
 author: api-user
 
@@ -19,7 +20,7 @@ phases:
   - design: completed
   - tasks: completed
   - apply: completed
-  - verify: in_progress
+  - verify: completed
   - archive: pending
 
 scope:
