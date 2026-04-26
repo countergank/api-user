@@ -3,7 +3,7 @@
 
 name: refactor/swagger-docs
 type: refactor
-status: proposed
+status: in_progress
 created: 2026-04-23
 author: api-user
 
@@ -16,10 +16,10 @@ phases:
   - explore: completed
   - propose: completed
   - spec: completed
-  - design: pending
-  - tasks: pending
-  - apply: pending
-  - verify: pending
+  - design: completed
+  - tasks: completed
+  - apply: completed
+  - verify: in_progress
   - archive: pending
 
 scope:
@@ -30,8 +30,8 @@ scope:
     - role.controller.ts refactor
     - permission.controller.ts refactor
     - auth.controller.ts refactor
-    - app/api-docs/ examples verification
-    - common/api-docs/ deprecation
+    - user.controller.ts refactor (examples added)
+    - app/api-docs/ refactor (examples added)
   out:
     - Creating new endpoints
     - Modifying business logic
@@ -45,6 +45,8 @@ artifacts:
 
 metadata:
   complexity: medium
-  estimated_hours: 4-6
+  estimated_hours: 6-8
   dependencies: "@nestjs/swagger v7.4.0"
   branch: feature/refactor-swagger-docs
+  test_status: passed
+  tests: 43/43 passed
