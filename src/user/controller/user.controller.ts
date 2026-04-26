@@ -1,5 +1,4 @@
 import { BadRequestException, Body, Controller, Get, InternalServerErrorException, Param, Post, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CustomLogger } from '../../common/logger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -23,9 +22,7 @@ import { UserService } from '../service/user.service';
  * Requiere JWT con rol admin.
  * @public
  */
-@ApiTags('users')
 @Controller('admin/users')
-@ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN)
 export class UserController {
@@ -34,43 +31,6 @@ export class UserController {
 
   @CreateUserDoc()
   @Post()
-  @ApiOperation({ 
-    summary: 'Crear nuevo usuario (Admin)', 
-    description: 'Crea un nuevo usuario en el sistema. Solo accesible por administradores.' 
-  })
-  @ApiResponse({ 
-    status: 201, 
-    description: 'Usuario creado exitosamente',
-    schema: {
-      type: 'object',
-      properties: {
-        name: { type: 'string', example: 'Juan' },
-        lastName: { type: 'string', example: 'Pérez' },
-        email: { type: 'string', example: 'juan@example.com' },
-        userName: { type: 'string', example: 'juanperez' },
-        role: { type: 'string', example: 'user', enum: ['admin', 'user', 'viewer'] },
-        isActive: { type: 'boolean', example: true },
-        createdAt: { type: 'string', example: '2024-01-01T00:00:00.000Z' },
-        updatedAt: { type: 'string', example: '2024-01-01T00:00:00.000Z' },
-      },
-    },
-  })
-  @ApiResponse({ status: 400, description: 'Email o username ya existe' })
-  @ApiResponse({ status: 403, description: 'Acceso denegado. Se requiere rol admin.' })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      required: ['email', 'userName', 'password', 'name', 'lastName', 'role'],
-      properties: {
-        email: { type: 'string', example: 'newuser@example.com', description: 'Email único' },
-        userName: { type: 'string', example: 'newuser', description: 'Nombre de usuario único' },
-        password: { type: 'string', example: 'Pass123!', description: 'Contraseña' },
-        name: { type: 'string', example: 'Juan', description: 'Nombre' },
-        lastName: { type: 'string', example: 'Pérez', description: 'Apellido' },
-        role: { type: 'string', example: 'user', enum: ['admin', 'user', 'viewer'], description: 'Rol del usuario' },
-      },
-    },
-  })
   async create(@Body() createUserDTO: CreateUserDTO): Promise<CreateUserResponseDTO> {
     try {
       const user: User = await this.userService.createWithRole({
@@ -96,12 +56,6 @@ export class UserController {
 
   @FindByIdUserDoc()
   @Get(':id')
-  @ApiOperation({ 
-    summary: 'Obtener usuario por ID (Admin)', 
-    description: 'Busca un usuario por su ID. Solo accesible por administradores.' 
-  })
-  @ApiResponse({ status: 200, description: 'Usuario encontrado' })
-  @ApiResponse({ status: 404, description: 'Usuario no encontrado' })
   async findById(@Param('id') id: string): Promise<UserDTO> {
     try {
       const user: User = await this.userService.findById(id);
@@ -118,11 +72,6 @@ export class UserController {
 
   @FindAllUserDoc()
   @Get()
-  @ApiOperation({ 
-    summary: 'Listar todos los usuarios (Admin)', 
-    description: 'Retorna lista de todos los usuarios. Solo accesible por administradores.' 
-  })
-  @ApiResponse({ status: 200, description: 'Lista de usuarios' })
   async findAll(): Promise<UserDTO[]> {
     try {
       const users: User[] = await this.userService.findAll();

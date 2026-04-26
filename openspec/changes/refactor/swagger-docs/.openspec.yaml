@@ -1,0 +1,50 @@
+# OpenSpec Change Configuration
+# refactor/swagger-docs
+
+name: refactor/swagger-docs
+type: refactor
+status: proposed
+created: 2026-04-23
+author: api-user
+
+description: >
+  Standardize API documentation patterns across ALL NestJS controllers
+  by creating per-module api-docs/ directories with custom decorator
+  functions and complete request/response examples.
+
+phases:
+  - explore: completed
+  - propose: completed
+  - spec: completed
+  - design: pending
+  - tasks: pending
+  - apply: pending
+  - verify: pending
+  - archive: pending
+
+scope:
+  in:
+    - rbac/api-docs/ (new)
+    - auth/api-docs/ (new)
+    - user-profile.controller.ts refactor
+    - role.controller.ts refactor
+    - permission.controller.ts refactor
+    - auth.controller.ts refactor
+    - app/api-docs/ examples verification
+    - common/api-docs/ deprecation
+  out:
+    - Creating new endpoints
+    - Modifying business logic
+
+artifacts:
+  proposal: openspec/changes/refactor/swagger-docs/proposal.md
+  specs: openspec/changes/refactor/swagger-docs/specs/
+  design: openspec/changes/refactor/swagger-docs/design.md
+  tasks: openspec/changes/refactor/swagger-docs/tasks.md
+  archive: openspec/changes/refactor/swagger-docs/archive/
+
+metadata:
+  complexity: medium
+  estimated_hours: 4-6
+  dependencies: "@nestjs/swagger v7.4.0"
+  branch: feature/refactor-swagger-docs
