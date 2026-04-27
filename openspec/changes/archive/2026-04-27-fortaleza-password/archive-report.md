@@ -40,12 +40,16 @@ Password strength validation feature implemented and verified. 8 validation rule
 - `src/common/validators/password-strength.validator.spec.ts`
 - `src/user/dto/password-validation.integration.spec.ts`
 - `test/password-strength.e2e-spec.ts`
+- `src/auth/dto/register-user.dto.ts` — DTO para registro público sin campo role
 
 ### Files Modified
-- `src/user/dto/create-user.dto.ts` — Added @PasswordStrength() decorator
+- `src/user/dto/create-user.dto.ts` — Added @PasswordStrength() decorator, role opcional
 - `src/user/controller/user-profile.controller.ts` — Uses ChangePasswordDTO
 - `src/user/mocks/create-user-dto.mock.ts` — Updated to valid password
-- `src/database/seeds/seed-users.ts` — Updated passwords to comply with new rules
+- `src/database/seeds/seed-users.ts` — Updated passwords
+- `src/auth/auth.controller.ts` — Uses RegisterUserDTO
+- `src/main.ts` — Added global ValidationPipe
+- `src/common/errors/error-filter.ts` — Improved validation error messages
 
 ### Validation Rules Implemented
 1. Minimum 8 characters
@@ -56,6 +60,30 @@ Password strength validation feature implemented and verified. 8 validation rule
 6. Maximum 64 characters
 7. No consecutive repeated characters
 8. No common sequences (123, abc, qwe, asd, zxc)
+
+---
+
+## Post-Archive Fixes (2026-04-27)
+
+### Fix 1: ValidationPipe not enabled in production
+- **Problem**: Password validation worked in tests but not in production Docker
+- **Solution**: Added global ValidationPipe in `src/main.ts`
+- **Commit**: `8d0578c`
+
+### Fix 2: Error messages not showing validation details
+- **Problem**: API returned generic "Bad Request Exception" 
+- **Solution**: Updated `ErrorFilter` to extract validation error messages
+- **Commit**: `8bf0143`
+
+### Fix 3: CreateUserDTO used in register (role required)
+- **Problem**: /auth/register required role field
+- **Solution**: Created `RegisterUserDTO` without role field
+- **Commit**: `7d23ab0`
+
+### Fix 4: CreateUserDTO role optional for admin
+- **Problem**: Admin endpoint required role field
+- **Solution**: Made role optional with default UserRole.USER
+- **Commit**: `136f8c0`
 
 ---
 
@@ -71,6 +99,16 @@ Password strength validation feature implemented and verified. 8 validation rule
 
 - Dropped and re-seeded with new password rules
 - Users now use valid passwords: `XyzAdmin1@`, `XyzAdmin2@`, `XyzUser1@`, `XyzViewer1@`
+
+---
+
+## API Endpoints
+
+| Endpoint | DTO | Role |
+|----------|-----|------|
+| POST /auth/register | RegisterUserDTO | N/A (default: user) |
+| POST /users/change-password | ChangePasswordDTO | Validates newPassword |
+| POST /admin/users | CreateUserDTO | Optional (default: user) |
 
 ---
 
