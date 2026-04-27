@@ -23,14 +23,14 @@ async function seedUsers() {
       await userService.createWithRole({
         email: 'admin@test.com',
         userName: 'admin',
-        password: 'Admin123!',
+        password: 'XyzAdmin1@',
         name: 'Admin',
         lastName: 'User',
         role: UserRole.ADMIN,
         permissions: [],
         isActive: true,
       });
-      logger.log('✓ admin@test.com / Admin123! -> admin');
+      logger.log('✓ admin@test.com / XyzAdmin1@ -> admin');
     } catch (_e) {
       logger.log('admin@test.com ya existe');
     }
@@ -39,14 +39,14 @@ async function seedUsers() {
       await userService.createWithRole({
         email: 'admin2@test.com',
         userName: 'admin2',
-        password: 'Admin123!',
+        password: 'XyzAdmin2@',
         name: 'Second',
         lastName: 'Admin',
         role: UserRole.ADMIN,
         permissions: [],
         isActive: true,
       });
-      logger.log('✓ admin2@test.com / Admin123! -> admin');
+      logger.log('✓ admin2@test.com / XyzAdmin2@ -> admin');
     } catch (_e) {
       logger.log('admin2@test.com ya existe');
     }
@@ -56,14 +56,14 @@ async function seedUsers() {
       await userService.createWithRole({
         email: 'user@test.com',
         userName: 'user',
-        password: 'User123!',
+        password: 'XyzUser1@',
         name: 'Regular',
         lastName: 'User',
         role: UserRole.USER,
         permissions: [],
         isActive: true,
       });
-      logger.log('✓ user@test.com / User123! -> user');
+      logger.log('✓ user@test.com / XyzUser1@ -> user');
     } catch (_e) {
       logger.log('user@test.com ya existe');
     }
@@ -73,14 +73,14 @@ async function seedUsers() {
       await userService.createWithRole({
         email: 'viewer@test.com',
         userName: 'viewer',
-        password: 'Viewer123!',
+        password: 'XyzViewer1@',
         name: 'Viewer',
         lastName: 'User',
         role: UserRole.VIEWER,
         permissions: [],
         isActive: true,
       });
-      logger.log('✓ viewer@test.com / Viewer123! -> viewer');
+      logger.log('✓ viewer@test.com / XyzViewer1@ -> viewer');
     } catch (_e) {
       logger.log('viewer@test.com ya existe');
     }

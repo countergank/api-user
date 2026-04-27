@@ -8,19 +8,31 @@ export class ErrorFilter implements ExceptionFilter {
     const response = ctx.getResponse<any>();
 
     let status = 500;
-    let message = 'Internal server error';
+    let message: string | string[] = 'Internal server error';
 
     if (exception instanceof ErrorBase) {
       status = this.getStatusFromErrorCode(exception.code);
       message = exception.getErrorPublic().message;
     } else if (exception instanceof HttpException) {
       status = exception.getStatus();
-      message = exception.message;
+      const exceptionResponse = exception.getResponse();
+      
+      // Handle validation errors from ValidationPipe
+      if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
+        const response = exceptionResponse as any;
+        if (Array.isArray(response.message)) {
+          message = response.message;
+        } else if (response.message) {
+          message = response.message;
+        }
+      } else {
+        message = exception.message;
+      }
     } else {
       message = exception.message;
     }
 
-    const body = {
+    const body: any = {
       statusCode: status,
       error: status === 500 ? 'Internal Server Error' : 'Error',
       message,

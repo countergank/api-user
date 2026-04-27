@@ -1,21 +1,20 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsString, IsEnum, IsOptional } from 'class-validator';
-import { User, UserRole } from '../entities/user.entity';
+import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
 import { PasswordStrength } from '../../common/decorators/password-strength.decorator';
 
 /**
- * DTO para creación de usuarios.
+ * DTO para registro público de usuarios.
+ * El rol se asigna por defecto como 'user' y no es editable desde el registro público.
  * @example
  * {
  *   name: 'Juan',
  *   lastName: 'Pérez',
  *   email: 'juan@example.com',
  *   userName: 'juanperez',
- *   password: 'SecurePass123!',
- *   role: 'user'
+ *   password: 'SecurePass123!'
  * }
  */
-export class CreateUserDTO {
+export class RegisterUserDTO {
   @ApiProperty({ 
     example: 'Juan', 
     description: 'Nombre del usuario',
@@ -61,26 +60,4 @@ export class CreateUserDTO {
   @IsString()
   @PasswordStrength()
   password: string;
-
-  @ApiProperty({ 
-    example: 'user', 
-    description: 'Rol del usuario (admin, user, viewer)',
-    enum: UserRole,
-    enumName: 'UserRole',
-    required: false
-  })
-  @IsOptional()
-  @IsEnum(UserRole)
-  role: UserRole = UserRole.USER;
-
-  toEntity(): User {
-    const user = new User();
-    user.name = this.name;
-    user.lastName = this.lastName;
-    user.email = this.email;
-    user.userName = this.userName;
-    user.password = this.password;
-    user.role = this.role;
-    return user;
-  }
 }

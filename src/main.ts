@@ -2,6 +2,7 @@ import fastifyCompress from '@fastify/compress';
 import fastifyHelmet from '@fastify/helmet';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import hyperid from 'hyperid';
@@ -26,6 +27,16 @@ async function bootstrap() {
 
   app.enableCors();
   app.useGlobalFilters(new ErrorFilter());
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
+    }),
+  );
 
   await app.register(fastifyHelmet);
   await app.register(fastifyCompress, { encodings: ['gzip', 'deflate'] });
