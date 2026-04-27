@@ -16,7 +16,7 @@ Password strength validation feature implemented and verified. 8 validation rule
 
 | Domain | Action | Details |
 |--------|--------|---------|
-| password-validation | Created | Full spec from engram observation #615 |
+| password-validation | Created | Synced to openspec/SPEC.md |
 
 ---
 
