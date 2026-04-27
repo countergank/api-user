@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEmail, IsNotEmpty, IsString, IsEnum } from 'class-validator';
 import { User, UserRole } from '../entities/user.entity';
+import { PasswordStrength } from '../../common/decorators/password-strength.decorator';
 
 /**
  * DTO para creación de usuarios.
@@ -53,11 +54,12 @@ export class CreateUserDTO {
 
   @ApiProperty({ 
     example: 'SecurePass123!', 
-    description: 'Contraseña del usuario (mín. 8 caracteres)',
+    description: 'Contraseña del usuario (mín. 8 caracteres, máx. 64)',
     type: String 
   })
   @IsNotEmpty()
   @IsString()
+  @PasswordStrength()
   password: string;
 
   @ApiProperty({ 

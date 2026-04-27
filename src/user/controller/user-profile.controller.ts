@@ -3,6 +3,7 @@ import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { UserService } from '../service/user.service';
 import { EncodeService } from '../../encode/encode.service';
+import { ChangePasswordDTO } from '../dto/change-password.dto';
 import { ApplyGetProfileDoc, ApplyUpdateProfileDoc, ApplyChangePasswordDoc } from '../api-docs';
 
 /**
@@ -47,15 +48,15 @@ export class UserProfileController {
   @Post('change-password')
   @HttpCode(200)
   @ApplyChangePasswordDoc()
-  async changePassword(@Request() req, @Body() body: { currentPassword: string; newPassword: string }) {
+  async changePassword(@Request() req, @Body() dto: ChangePasswordDTO) {
     const user = req.user;
-    const isValid = await this.encodeService.compare(body.currentPassword, user.password);
+    const isValid = await this.encodeService.compare(dto.currentPassword, user.password);
     if (!isValid) {
       throw new BadRequestException('Current password is incorrect');
     }
 
     await this.userService.update(user.id, {
-      password: body.newPassword,
+      password: dto.newPassword,
     });
 
     return { message: 'Password changed successfully' };
