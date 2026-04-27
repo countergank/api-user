@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsString, IsEnum } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, IsEnum, IsOptional } from 'class-validator';
 import { User, UserRole } from '../entities/user.entity';
 import { PasswordStrength } from '../../common/decorators/password-strength.decorator';
 
@@ -66,11 +66,12 @@ export class CreateUserDTO {
     example: 'user', 
     description: 'Rol del usuario (admin, user, viewer)',
     enum: UserRole,
-    enumName: 'UserRole'
+    enumName: 'UserRole',
+    required: false
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsEnum(UserRole)
-  role: UserRole;
+  role: UserRole = UserRole.USER;
 
   toEntity(): User {
     const user = new User();
