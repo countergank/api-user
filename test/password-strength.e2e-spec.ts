@@ -1,7 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app/app.module';
 import { PASSWORD_ERROR_CODES } from '../src/common/interfaces/password-validation.interface';
 
@@ -25,9 +24,6 @@ describe('Password Strength Validation (e2e)', () => {
     const baseUser = {
       name: 'Test',
       lastName: 'User',
-      email: 'test@example.com',
-      userName: 'testuser',
-      role: 'user',
     };
 
     it('should accept valid password', async () => {
@@ -159,12 +155,10 @@ describe('Password Strength Validation (e2e)', () => {
     const testEmail = `changepass-${Date.now()}@example.com`;
     const testUserName = `changepassuser-${Date.now()}`;
     const testPassword = 'SecurePass123@';
-    const newPassword = 'NewSecurePass456@';
     let token: string;
 
     beforeAll(async () => {
-      // Create user for password change tests
-      await request(app.getHttpServer())
+      const registerRes = await request(app.getHttpServer())
         .post('/auth/register')
         .send({
           name: 'Test',
@@ -172,17 +166,20 @@ describe('Password Strength Validation (e2e)', () => {
           email: testEmail,
           userName: testUserName,
           password: testPassword,
-          role: 'user',
         })
         .expect(201);
 
-      // Login to get token
-      const response = await request(app.getHttpServer())
+      await request(app.getHttpServer())
+        .post('/auth/verify-email')
+        .send({ token: registerRes.body.verificationToken })
+        .expect(201);
+
+      const loginRes = await request(app.getHttpServer())
         .post('/auth/login')
         .send({ email: testEmail, password: testPassword })
         .expect(200);
 
-      token = response.body.accessToken;
+      token = loginRes.body.accessToken;
     });
 
     it('should accept valid new password', async () => {

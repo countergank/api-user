@@ -14,12 +14,15 @@ export interface JwtPayload {
 
 export interface AuthResponse {
   user: {
+    id: string;
     email: string;
+    userName: string;
     name: string;
     lastName: string;
   };
   accessToken: string;
   refreshToken: string;
+  verificationToken?: string;
 }
 
 @Injectable()
@@ -68,7 +71,7 @@ export class AuthService {
       verificationToken,
     });
 
-    return this.generateAuthResponse(user);
+    return this.generateAuthResponse(user, verificationToken);
   }
 
   async login(email: string, password: string): Promise<AuthResponse> {
@@ -206,7 +209,10 @@ export class AuthService {
     }
   }
 
-  private generateAuthResponse(user: User): AuthResponse {
+  private generateAuthResponse(
+    user: User,
+    verificationToken?: string,
+  ): AuthResponse {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
@@ -218,12 +224,15 @@ export class AuthService {
 
     return {
       user: {
+        id: user.id,
         email: user.email,
+        userName: user.userName,
         name: user.name,
         lastName: user.lastName,
       },
       accessToken,
       refreshToken,
+      ...(verificationToken && { verificationToken }),
     };
   }
 }

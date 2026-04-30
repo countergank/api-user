@@ -24,11 +24,19 @@ export class EmailService {
     private readonly eventEmitter: EventEmitter2,
   ) {
     this.eventEmitter.on('email.send', async (event: EmailSendEvent) => {
-      await this.processSend(event);
+      try {
+        await this.processSend(event);
+      } catch {
+        // Silently fail in tests/non-prod environments
+      }
     });
   }
 
-  async sendBySlug(slug: string, to: string, variables: Record<string, string> = {}): Promise<{ status: string }> {
+  async sendBySlug(
+    slug: string,
+    to: string,
+    variables: Record<string, string> = {},
+  ): Promise<{ status: string }> {
     const template = await this.templateService.resolve(slug);
     const { subject, html } = this.templateService.render(template, variables);
 

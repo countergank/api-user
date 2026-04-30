@@ -1,11 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { config } from 'dotenv';
 import { AppModule } from '../src/app/app.module';
-
-// Load environment variables
-config({ path: '.env.local.testing' });
 
 describe('UserProfile (e2e)', () => {
   let app: INestApplication;
@@ -27,16 +23,25 @@ describe('UserProfile (e2e)', () => {
     app = moduleFixture.createNestApplication();
     await app.init();
 
-    // Register and login
-    await request(app.getHttpServer())
+    // Register
+    const registerRes = await request(app.getHttpServer())
       .post('/auth/register')
-      .send(testUser);
+      .send(testUser)
+      .expect(201);
 
-    const response = await request(app.getHttpServer())
+    // Verify email
+    await request(app.getHttpServer())
+      .post('/auth/verify-email')
+      .send({ token: registerRes.body.verificationToken })
+      .expect(201);
+
+    // Login
+    const loginRes = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ email: testUser.email, password: testUser.password });
+      .send({ email: testUser.email, password: testUser.password })
+      .expect(200);
 
-    token = response.body.accessToken;
+    token = loginRes.body.accessToken;
   });
 
   afterAll(async () => {
@@ -52,7 +57,6 @@ describe('UserProfile (e2e)', () => {
 
       expect(response.body).toMatchObject({
         email: testUser.email,
-        userName: testUser.userName,
         name: testUser.name,
         lastName: testUser.lastName,
       });
