@@ -1,7 +1,6 @@
 import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { AppModule } from '../src/app/app.module';
+import { createTestApp } from './helpers/create-test-app';
 
 describe('RBAC (e2e)', () => {
   let app: INestApplication;
@@ -11,7 +10,7 @@ describe('RBAC (e2e)', () => {
   const adminUser = {
     email: `admin-${Date.now()}@example.com`,
     userName: `admin-${Date.now()}`,
-    password: 'AdminPassword123!',
+    password: 'Adm1nW0rd!x',
     name: 'Admin',
     lastName: 'User',
   };
@@ -19,18 +18,13 @@ describe('RBAC (e2e)', () => {
   const regularUser = {
     email: `user-${Date.now()}@example.com`,
     userName: `user-${Date.now()}`,
-    password: 'UserPassword123!',
+    password: 'U5erW0rd!x',
     name: 'Regular',
     lastName: 'User',
   };
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    await app.init();
+    app = await createTestApp();
 
     // Register and verify admin user
     const adminRegRes = await request(app.getHttpServer())

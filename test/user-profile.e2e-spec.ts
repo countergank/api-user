@@ -1,7 +1,6 @@
 import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { AppModule } from '../src/app/app.module';
+import { createTestApp } from './helpers/create-test-app';
 
 describe('UserProfile (e2e)', () => {
   let app: INestApplication;
@@ -10,18 +9,13 @@ describe('UserProfile (e2e)', () => {
   const testUser = {
     email: `profile-${Date.now()}@example.com`,
     userName: `profileuser-${Date.now()}`,
-    password: 'ProfilePassword123!',
+    password: 'Pr0fileW0rd!x',
     name: 'Profile',
     lastName: 'User',
   };
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    await app.init();
+    app = await createTestApp();
 
     // Register
     const registerRes = await request(app.getHttpServer())
@@ -88,7 +82,7 @@ describe('UserProfile (e2e)', () => {
         .set('Authorization', `Bearer ${token}`)
         .send({
           currentPassword: testUser.password,
-          newPassword: 'NewPassword123!',
+          newPassword: 'NewW0rd!y97x',
         })
         .expect(200);
 
@@ -100,8 +94,8 @@ describe('UserProfile (e2e)', () => {
         .post('/users/change-password')
         .set('Authorization', `Bearer ${token}`)
         .send({
-          currentPassword: 'WrongPassword',
-          newPassword: 'AnotherPassword123!',
+          currentPassword: 'Wr0ngW0rd!z',
+          newPassword: 'An0th3rW0rd!a',
         })
         .expect(400);
     });

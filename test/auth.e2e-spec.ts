@@ -1,7 +1,6 @@
 import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { AppModule } from '../src/app/app.module';
+import { createTestApp } from './helpers/create-test-app';
 
 describe('AuthController (e2e)', () => {
   let app: INestApplication;
@@ -9,18 +8,13 @@ describe('AuthController (e2e)', () => {
   const testUser = {
     email: `test-${Date.now()}@example.com`,
     userName: `testuser-${Date.now()}`,
-    password: 'TestPassword123!',
+    password: 'TestW0rd!x97',
     name: 'Test',
     lastName: 'User',
   };
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    await app.init();
+    app = await createTestApp();
   });
 
   afterAll(async () => {
