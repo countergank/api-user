@@ -61,6 +61,63 @@ class EnvironmentVariables {
   @IsString()
   @IsOptional()
   EXAMPLE_MICROSERVICE_PORT: string;
+
+  // Email configuration
+  @IsString()
+  @IsOptional()
+  EMAIL_ENABLED: string;
+
+  @IsString()
+  @IsOptional()
+  EMAIL_PROVIDER: string; // 'smtp' | 'resend'
+
+  @IsString()
+  @IsOptional()
+  EMAIL_HOST: string;
+
+  @IsString()
+  @IsOptional()
+  EMAIL_PORT: string;
+
+  @IsString()
+  @IsOptional()
+  EMAIL_SECURE: string;
+
+  @IsString()
+  @IsOptional()
+  EMAIL_USER: string;
+
+  @IsString()
+  @IsOptional()
+  EMAIL_PASS: string;
+
+  @IsString()
+  @IsOptional()
+  EMAIL_FROM: string;
+
+  @IsString()
+  @IsOptional()
+  RESEND_API_KEY: string;
+
+  @IsString()
+  @IsOptional()
+  RESEND_FROM_EMAIL: string;
+
+  @IsString()
+  @IsOptional()
+  RESEND_FROM_NAME: string;
+
+  @IsString()
+  @IsOptional()
+  FRONTEND_URL: string;
+
+  @IsString()
+  @IsOptional()
+  ACTIVATION_TOKEN_EXPIRATION_HOURS: string;
+
+  @IsString()
+  @IsOptional()
+  PASSWORD_RESET_TOKEN_EXPIRATION_HOURS: string;
 }
 
 export function validate(config: Record<string, unknown>) {

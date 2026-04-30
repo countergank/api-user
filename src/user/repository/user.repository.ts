@@ -89,6 +89,24 @@ export class UserRepository implements OnApplicationBootstrap {
       .exec();
   }
 
+  async findByEmailVerificationToken(token: string): Promise<User | null> {
+    return this.userModel
+      .findOne({
+        emailVerificationToken: token,
+        emailVerificationExpires: { $gt: new Date() },
+      })
+      .exec();
+  }
+
+  async findByPendingEmailToken(token: string): Promise<User | null> {
+    return this.userModel
+      .findOne({
+        pendingEmailToken: token,
+        pendingEmailExpires: { $gt: new Date() },
+      })
+      .exec();
+  }
+
   async findAll(): Promise<User[]> {
     return this.userModel.find().exec();
   }

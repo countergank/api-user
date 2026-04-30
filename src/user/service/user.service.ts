@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { CreateUserDTO } from '../dto/create-user.dto';
 import { User, UserRole } from '../entities/user.entity';
@@ -77,6 +78,14 @@ export class UserService {
     return this.userRepository.findByResetToken(token);
   }
 
+  async findByEmailVerificationToken(token: string): Promise<User | null> {
+    return this.userRepository.findByEmailVerificationToken(token);
+  }
+
+  async findByPendingEmailToken(token: string): Promise<User | null> {
+    return this.userRepository.findByPendingEmailToken(token);
+  }
+
   async update(id: string, data: Partial<User>): Promise<User> {
     return this.userRepository.update(id, data);
   }
@@ -91,5 +100,24 @@ export class UserService {
       this.userRepository.existsByName(userName),
     ]);
     return emailExists || usernameExists;
+  }
+
+  async requestEmailChange(userId: string, newEmail: string): Promise<{ token: string; expires: Date; user: User }> {
+    const existing = await this.findByEmail(newEmail);
+    if (existing) {
+      throw new ConflictException('Email already in use');
+    }
+
+    const user = await this.findById(userId);
+    const token = randomUUID();
+    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await this.update(userId, {
+      pendingEmail: newEmail,
+      pendingEmailToken: token,
+      pendingEmailExpires: expires,
+    });
+
+    return { token, expires, user };
   }
 }

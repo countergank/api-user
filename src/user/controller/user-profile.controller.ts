@@ -1,10 +1,12 @@
-import { Controller, Get, Patch, Post, Body, UseGuards, Request, HttpCode, BadRequestException } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { BadRequestException, Body, Controller, Get, HttpCode, Patch, Post, Request, UseGuards } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { UserService } from '../service/user.service';
+import { EmailEvents } from '../../email/constants/email.events';
 import { EncodeService } from '../../encode/encode.service';
+import { ApplyChangeEmailDoc, ApplyChangePasswordDoc, ApplyGetProfileDoc, ApplyUpdateProfileDoc } from '../api-docs';
 import { ChangePasswordDTO } from '../dto/change-password.dto';
-import { ApplyGetProfileDoc, ApplyUpdateProfileDoc, ApplyChangePasswordDoc } from '../api-docs';
+import { UserService } from '../service/user.service';
 
 /**
  * Controller para gestión del perfil del usuario autenticado.
@@ -18,6 +20,7 @@ export class UserProfileController {
   constructor(
     private userService: UserService,
     private encodeService: EncodeService,
+    private eventEmitter: EventEmitter2,
   ) {}
 
   @Get('profile')
@@ -59,6 +62,29 @@ export class UserProfileController {
       password: dto.newPassword,
     });
 
+    this.eventEmitter.emit(EmailEvents.PASSWORD_CHANGED, {
+      userId: user.id,
+      email: user.email,
+      name: user.name,
+    });
+
     return { message: 'Password changed successfully' };
+  }
+
+  @Post('change-email')
+  @HttpCode(200)
+  @ApplyChangeEmailDoc()
+  async changeEmail(@Request() req, @Body() body: { email: string }) {
+    const user = req.user;
+    const { token } = await this.userService.requestEmailChange(user.id, body.email);
+
+    this.eventEmitter.emit(EmailEvents.EMAIL_CHANGE_REQUESTED, {
+      userId: user.id,
+      newEmail: body.email,
+      name: user.name,
+      pendingEmailToken: token,
+    });
+
+    return { message: 'Confirmation email sent to the new address' };
   }
 }

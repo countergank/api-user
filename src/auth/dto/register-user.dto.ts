@@ -15,46 +15,46 @@ import { PasswordStrength } from '../../common/decorators/password-strength.deco
  * }
  */
 export class RegisterUserDTO {
-  @ApiProperty({ 
-    example: 'Juan', 
+  @ApiProperty({
+    example: 'Juan',
     description: 'Nombre del usuario',
-    type: String 
+    type: String,
   })
   @IsNotEmpty()
   @IsString()
   name: string;
 
-  @ApiProperty({ 
-    example: 'Pérez', 
+  @ApiProperty({
+    example: 'Pérez',
     description: 'Apellido del usuario',
-    type: String 
+    type: String,
   })
   @IsNotEmpty()
   @IsString()
   lastName: string;
 
-  @ApiProperty({ 
-    example: 'juan@example.com', 
+  @ApiProperty({
+    example: 'juan@example.com',
     description: 'Email único del usuario',
-    type: String 
+    type: String,
   })
   @IsNotEmpty()
   @IsEmail()
   email: string;
 
-  @ApiProperty({ 
-    example: 'juanperez', 
+  @ApiProperty({
+    example: 'juanperez',
     description: 'Nombre de usuario único',
-    type: String 
+    type: String,
   })
   @IsNotEmpty()
   @IsString()
   userName: string;
 
-  @ApiProperty({ 
-    example: 'SecurePass123!', 
+  @ApiProperty({
+    example: 'SecurePass123!',
     description: 'Contraseña del usuario (mín. 8 caracteres, máx. 64)',
-    type: String 
+    type: String,
   })
   @IsNotEmpty()
   @IsString()

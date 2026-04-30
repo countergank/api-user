@@ -1,14 +1,17 @@
-import { Controller, Post, Body, HttpCode } from '@nestjs/common';
+import { Body, Controller, HttpCode, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import {
+  ApplyConfirmEmailChangeDoc,
+  ApplyForgotPasswordDoc,
+  ApplyLoginDoc,
+  ApplyRefreshDoc,
+  ApplyRegisterDoc,
+  ApplyResendVerificationDoc,
+  ApplyResetPasswordDoc,
+  ApplyVerifyEmailDoc,
+} from './api-docs';
 import { AuthService } from './auth.service';
 import { RegisterUserDTO } from './dto/register-user.dto';
-import {
-  ApplyRegisterDoc,
-  ApplyLoginDoc,
-  ApplyForgotPasswordDoc,
-  ApplyResetPasswordDoc,
-  ApplyRefreshDoc,
-} from './api-docs';
 
 /**
  * Controller para manejo de autenticación de usuarios.
@@ -23,13 +26,7 @@ export class AuthController {
   @Post('register')
   @ApplyRegisterDoc()
   async register(@Body() dto: RegisterUserDTO) {
-    return this.authService.register(
-      dto.email,
-      dto.userName,
-      dto.password,
-      dto.name,
-      dto.lastName,
-    );
+    return this.authService.register(dto.email, dto.userName, dto.password, dto.name, dto.lastName);
   }
 
   @Post('login')
@@ -58,5 +55,32 @@ export class AuthController {
   @ApplyRefreshDoc()
   async refresh(@Body() body: { refreshToken: string }) {
     return this.authService.refreshToken(body.refreshToken);
+  }
+
+  @Post('verify-email')
+  @ApplyVerifyEmailDoc()
+  async verifyEmail(@Body() body: { token: string }) {
+    await this.authService.verifyEmail(body.token);
+    return { message: 'Email verified successfully' };
+  }
+
+  @Post('confirm-email-change')
+  @ApplyConfirmEmailChangeDoc()
+  async confirmEmailChange(@Body() body: { token: string }) {
+    await this.authService.confirmEmailChange(body.token);
+    return { message: 'Email changed successfully' };
+  }
+
+  @Post('resend-verification')
+  @ApplyResendVerificationDoc()
+  async resendVerification(@Body() body: { email: string }) {
+    const user = await this.authService.findUserByEmail(body.email);
+    if (!user) {
+      return { message: 'If the email exists, a verification link has been sent' };
+    }
+
+    await this.authService.resendVerification(user.id, user.email, user.name);
+
+    return { message: 'If the email exists, a verification link has been sent' };
   }
 }

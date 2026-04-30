@@ -8,4 +8,3 @@ export * from './examples/update-profile.request';
 export * from './examples/change-password.request';
 export * from './user-profile.decorator';
 export * from './user.decorator';
-

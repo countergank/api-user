@@ -1,9 +1,9 @@
 /**
  * Password Strength Decorator
- * 
+ *
  * Decorator that applies password strength validation to a password field.
  * Usage:
- * 
+ *
  * ```typescript
  * export class CreateUserDto {
  *   @PasswordStrength()

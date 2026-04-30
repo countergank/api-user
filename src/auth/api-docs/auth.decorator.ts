@@ -2,6 +2,7 @@ import { applyDecorators } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBody,
+  ApiConflictResponse,
   ApiExtraModels,
   ApiInternalServerErrorResponse,
   ApiOperation,
@@ -15,6 +16,16 @@ import { RegisterRequest, RegisterResponse } from './examples/register.examples'
 import { LoginRequest, LoginResponse } from './examples/login.examples';
 import { ForgotPasswordRequest, ResetPasswordRequest } from './examples/password.examples';
 import { RefreshRequest, RefreshResponse } from './examples/refresh.examples';
+import {
+  VerifyEmailRequest,
+  VerifyEmailResponse,
+  ConfirmEmailChangeRequest,
+  ConfirmEmailChangeResponse,
+  ResendVerificationRequest,
+  ResendVerificationResponse,
+  ChangeEmailRequest,
+  ChangeEmailResponse,
+} from './examples/verification.examples';
 
 export function ApplyRegisterDoc() {
   return applyDecorators(
@@ -133,3 +144,76 @@ export function ApplyRefreshDoc() {
     }),
   );
 }
+
+export function ApplyVerifyEmailDoc() {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Verificar email',
+      description: 'Activa la cuenta del usuario usando el token recibido por email.',
+    }),
+    ApiExtraModels(VerifyEmailRequest, VerifyEmailResponse),
+    ApiResponse({
+      status: 200,
+      description: 'Email verificado exitosamente',
+      schema: {
+        $ref: getSchemaPath(VerifyEmailResponse),
+      },
+    }),
+    ApiBadRequestResponse({ description: 'Token inválido o expirado', type: BadRequestDTO }),
+    ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
+    ApiBody({
+      schema: {
+        $ref: getSchemaPath(VerifyEmailRequest),
+      },
+    }),
+  );
+}
+
+export function ApplyConfirmEmailChangeDoc() {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Confirmar cambio de email',
+      description: 'Confirma el cambio de email usando el token recibido en el nuevo email.',
+    }),
+    ApiExtraModels(ConfirmEmailChangeRequest, ConfirmEmailChangeResponse),
+    ApiResponse({
+      status: 200,
+      description: 'Email cambiado exitosamente',
+      schema: {
+        $ref: getSchemaPath(ConfirmEmailChangeResponse),
+      },
+    }),
+    ApiBadRequestResponse({ description: 'Token inválido o expirado', type: BadRequestDTO }),
+    ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
+    ApiBody({
+      schema: {
+        $ref: getSchemaPath(ConfirmEmailChangeRequest),
+      },
+    }),
+  );
+}
+
+export function ApplyResendVerificationDoc() {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Reenviar email de verificación',
+      description:
+        'Reenvía el link de verificación al email del usuario. No revela si el email existe.',
+    }),
+    ApiExtraModels(ResendVerificationRequest, ResendVerificationResponse),
+    ApiResponse({
+      status: 200,
+      description: 'Link de verificación reenviado',
+      schema: {
+        $ref: getSchemaPath(ResendVerificationResponse),
+      },
+    }),
+    ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
+    ApiBody({
+      schema: {
+        $ref: getSchemaPath(ResendVerificationRequest),
+      },
+    }),
+  );
+}
+

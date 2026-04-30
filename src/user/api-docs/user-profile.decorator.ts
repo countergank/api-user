@@ -3,6 +3,7 @@ import {
   ApiBadRequestResponse,
   ApiBearerAuth,
   ApiBody,
+  ApiConflictResponse,
   ApiExtraModels,
   ApiInternalServerErrorResponse,
   ApiOperation,
@@ -15,6 +16,7 @@ import { InternalErrorDTO } from '../../common/dto/internal-error.dto';
 import { GetProfileResponse } from './examples/get-profile.response';
 import { UpdateProfileRequest } from './examples/update-profile.request';
 import { ChangePasswordRequest, ChangePasswordResponse } from './examples/change-password.request';
+import { ChangeEmailRequest, ChangeEmailResponse } from '../../auth/api-docs/examples/verification.examples';
 
 export function ApplyGetProfileDoc() {
   return applyDecorators(
@@ -83,6 +85,34 @@ export function ApplyChangePasswordDoc() {
     ApiBody({
       schema: {
         $ref: getSchemaPath(ChangePasswordRequest),
+      },
+    }),
+  );
+}
+
+export function ApplyChangeEmailDoc() {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Cambiar email',
+      description:
+        'Solicita el cambio de email. Se envía un email de confirmación a la nueva dirección.',
+    }),
+    ApiBearerAuth(),
+    ApiExtraModels(ChangeEmailRequest, ChangeEmailResponse),
+    ApiResponse({
+      status: 200,
+      description: 'Email de confirmación enviado',
+      schema: {
+        $ref: getSchemaPath(ChangeEmailResponse),
+      },
+    }),
+    ApiConflictResponse({ description: 'El email ya está en uso' }),
+    ApiUnauthorizedResponse({ description: 'No autenticado' }),
+    ApiBadRequestResponse({ description: 'Datos inválidos', type: BadRequestDTO }),
+    ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
+    ApiBody({
+      schema: {
+        $ref: getSchemaPath(ChangeEmailRequest),
       },
     }),
   );

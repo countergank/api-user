@@ -15,53 +15,53 @@ import { User, UserRole } from '../entities/user.entity';
  * }
  */
 export class CreateUserResponseDTO {
-  @ApiProperty({ 
-    example: 'Juan', 
-    description: 'Nombre del usuario creado' 
+  @ApiProperty({
+    example: 'Juan',
+    description: 'Nombre del usuario creado',
   })
   name: string;
 
-  @ApiProperty({ 
-    example: 'Pérez', 
-    description: 'Apellido del usuario creado' 
+  @ApiProperty({
+    example: 'Pérez',
+    description: 'Apellido del usuario creado',
   })
   lastName: string;
 
-  @ApiProperty({ 
-    example: 'juan@example.com', 
-    description: 'Email del usuario creado' 
+  @ApiProperty({
+    example: 'juan@example.com',
+    description: 'Email del usuario creado',
   })
   email: string;
 
-  @ApiProperty({ 
-    example: 'juanperez', 
-    description: 'Nombre de usuario creado' 
+  @ApiProperty({
+    example: 'juanperez',
+    description: 'Nombre de usuario creado',
   })
   userName: string;
 
-  @ApiProperty({ 
-    example: 'user', 
+  @ApiProperty({
+    example: 'user',
     description: 'Rol del usuario (admin, user, viewer)',
     enum: UserRole,
-    enumName: 'UserRole'
+    enumName: 'UserRole',
   })
   role: UserRole;
 
-  @ApiProperty({ 
-    example: '2024-01-01T00:00:00.000Z', 
-    description: 'Fecha de creación' 
+  @ApiProperty({
+    example: '2024-01-01T00:00:00.000Z',
+    description: 'Fecha de creación',
   })
   createdAt: string;
 
-  @ApiProperty({ 
-    example: '2024-01-01T00:00:00.000Z', 
-    description: 'Fecha de última actualización' 
+  @ApiProperty({
+    example: '2024-01-01T00:00:00.000Z',
+    description: 'Fecha de última actualización',
   })
   updatedAt: string;
 
-  @ApiProperty({ 
-    example: true, 
-    description: 'Indica si la cuenta está activa' 
+  @ApiProperty({
+    example: true,
+    description: 'Indica si la cuenta está activa',
   })
   isActive: boolean;
 

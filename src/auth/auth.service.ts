@@ -1,6 +1,8 @@
-import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import { randomUUID } from 'node:crypto';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { JwtService } from '@nestjs/jwt';
+import { EmailEvents } from '../email/constants/email.events';
 import { User, UserRole } from '../user/entities/user.entity';
 import { UserService } from '../user/service/user.service';
 
@@ -25,6 +27,7 @@ export class AuthService {
   constructor(
     private userService: UserService,
     private jwtService: JwtService,
+    private eventEmitter: EventEmitter2,
   ) {}
 
   async register(
@@ -47,7 +50,22 @@ export class AuthService {
       lastName,
       role: UserRole.USER,
       permissions: [],
-      isActive: false, // Requiere verificación de email
+      isActive: false,
+    });
+
+    const verificationToken = randomUUID();
+    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await this.userService.update(user.id, {
+      emailVerificationToken: verificationToken,
+      emailVerificationExpires: verificationExpires,
+    } as any);
+
+    this.eventEmitter.emit(EmailEvents.USER_REGISTERED, {
+      userId: user.id,
+      email: user.email,
+      name: user.name,
+      verificationToken,
     });
 
     return this.generateAuthResponse(user);
@@ -78,17 +96,23 @@ export class AuthService {
   async forgotPassword(email: string): Promise<void> {
     const user = await this.userService.findByEmail(email);
     if (!user) {
-      // Don't reveal if email exists
       return;
     }
 
     const resetToken = randomUUID();
-    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
+    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
     await this.userService.update(user.id, {
       resetPasswordToken: resetToken,
       resetPasswordExpires: expires,
     } as any);
+
+    this.eventEmitter.emit(EmailEvents.FORGOT_PASSWORD, {
+      userId: user.id,
+      email: user.email,
+      name: user.name,
+      resetToken,
+    });
   }
 
   async resetPassword(token: string, newPassword: string): Promise<void> {
@@ -102,6 +126,71 @@ export class AuthService {
       resetPasswordToken: undefined,
       resetPasswordExpires: undefined,
     } as any);
+
+    this.eventEmitter.emit(EmailEvents.PASSWORD_CHANGED, {
+      userId: user.id,
+      email: user.email,
+      name: user.name,
+    });
+  }
+
+  async verifyEmail(token: string): Promise<void> {
+    const user = await this.userService.findByEmailVerificationToken(token);
+    if (!user || !user.emailVerificationExpires || user.emailVerificationExpires < new Date()) {
+      throw new BadRequestException('Invalid or expired verification token');
+    }
+
+    await this.userService.update(user.id, {
+      isActive: true,
+      emailVerificationToken: undefined,
+      emailVerificationExpires: undefined,
+    } as any);
+  }
+
+  async confirmEmailChange(token: string): Promise<void> {
+    const user = await this.userService.findByPendingEmailToken(token);
+    if (!user || !user.pendingEmailExpires || user.pendingEmailExpires < new Date()) {
+      throw new BadRequestException('Invalid or expired confirmation token');
+    }
+
+    const newEmail = user.pendingEmail;
+    if (!newEmail) {
+      throw new BadRequestException('No pending email change found');
+    }
+
+    await this.userService.update(user.id, {
+      email: newEmail,
+      pendingEmail: undefined,
+      pendingEmailToken: undefined,
+      pendingEmailExpires: undefined,
+    } as any);
+
+    this.eventEmitter.emit(EmailEvents.EMAIL_CHANGE_CONFIRMED, {
+      userId: user.id,
+      email: newEmail,
+      name: user.name,
+    });
+  }
+
+  async resendVerification(userId: string, email: string, name: string): Promise<void> {
+    const verificationToken = randomUUID();
+    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await this.userService.update(userId, {
+      emailVerificationToken: verificationToken,
+      emailVerificationExpires: verificationExpires,
+    } as any);
+
+    this.eventEmitter.emit(EmailEvents.RESEND_VERIFICATION, {
+      userId,
+      email,
+      name,
+      verificationToken,
+    });
+  }
+
+  async findUserByEmail(email: string): Promise<User | null> {
+    return this.userService.findByEmail(email);
   }
 
   async refreshToken(refreshToken: string): Promise<AuthResponse> {
