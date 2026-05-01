@@ -1,6 +1,6 @@
 /**
  * Password Strength Validator
- * 
+ *
  * Custom class-validator constraint that enforces 8 password strength rules:
  * 1. Minimum 8 characters
  * 2. At least 1 lowercase letter
@@ -12,7 +12,12 @@
  * 8. No common sequences (123, abc, qwe, asd, zxc)
  */
 
-import { ValidatorConstraint, ValidatorConstraintInterface, ValidationArguments, ValidationError } from 'class-validator';
+import {
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
+  ValidationArguments,
+  ValidationError,
+} from 'class-validator';
 import { Logger } from '@nestjs/common';
 import { PASSWORD_ERROR_CODES, PASSWORD_RULES, PASSWORD_MESSAGES } from '../interfaces/password-validation.interface';
 
@@ -22,14 +27,14 @@ export class PasswordStrengthValidator implements ValidatorConstraintInterface {
 
   validate(password: string): boolean {
     const errors = this.validatePassword(password);
-    
+
     // Store errors in a way that can be accessed by defaultMessage
     // We use a WeakMap to store errors per validation instance
     if (errors.length > 0) {
       (this as any).__validationErrors = errors;
       return false;
     }
-    
+
     return true;
   }
 
@@ -100,14 +105,14 @@ export class PasswordStrengthValidator implements ValidatorConstraintInterface {
   defaultMessage(args: ValidationArguments): string {
     // Try to get stored errors from validation
     const errors: string[] = (this as any).__validationErrors || [];
-    
+
     if (errors.length > 0) {
       // Return code:message format for easier testing
       const code = errors[0];
       const message = PASSWORD_MESSAGES[code]?.es || code;
       return `${code}: ${message}`;
     }
-    
+
     return 'PASSWORD_INVALID: La contraseña no cumple con los requisitos de seguridad';
   }
 
@@ -116,8 +121,8 @@ export class PasswordStrengthValidator implements ValidatorConstraintInterface {
    */
   buildErrors(password: string): ValidationError[] {
     const errorCodes = this.validatePassword(password);
-    
-    return errorCodes.map(code => {
+
+    return errorCodes.map((code) => {
       const validationError = new ValidationError();
       validationError.property = 'password';
       validationError.constraints = {

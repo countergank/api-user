@@ -1,20 +1,24 @@
 import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from '../src/app/app.module';
+import { createTestApp } from './helpers/create-test-app';
 import { PASSWORD_ERROR_CODES } from '../src/common/interfaces/password-validation.interface';
+
+/**
+ * Helper to check if any error message contains the expected code.
+ * ValidationPipe returns `message` as an array of strings.
+ */
+function hasErrorCode(message: string | string[], code: string): boolean {
+  if (Array.isArray(message)) {
+    return message.some((m) => m.includes(code));
+  }
+  return message.includes(code);
+}
 
 describe('Password Strength Validation (e2e)', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    await app.init();
+    app = await createTestApp();
   });
 
   afterAll(async () => {
@@ -25,9 +29,6 @@ describe('Password Strength Validation (e2e)', () => {
     const baseUser = {
       name: 'Test',
       lastName: 'User',
-      email: 'test@example.com',
-      userName: 'testuser',
-      role: 'user',
     };
 
     it('should accept valid password', async () => {
@@ -37,7 +38,7 @@ describe('Password Strength Validation (e2e)', () => {
           ...baseUser,
           email: `valid-${Date.now()}@example.com`,
           userName: `validuser-${Date.now()}`,
-          password: 'SecurePass123@',
+          password: 'V@lidP4sw0rdXz',
         })
         .expect(201);
     });
@@ -53,7 +54,7 @@ describe('Password Strength Validation (e2e)', () => {
         })
         .expect(400);
 
-      expect(response.body.message).toContain(PASSWORD_ERROR_CODES.MIN_LENGTH);
+      expect(hasErrorCode(response.body.message, PASSWORD_ERROR_CODES.MIN_LENGTH)).toBe(true);
     });
 
     it('should reject password without uppercase', async () => {
@@ -67,7 +68,7 @@ describe('Password Strength Validation (e2e)', () => {
         })
         .expect(400);
 
-      expect(response.body.message).toContain(PASSWORD_ERROR_CODES.UPPERCASE);
+      expect(hasErrorCode(response.body.message, PASSWORD_ERROR_CODES.UPPERCASE)).toBe(true);
     });
 
     it('should reject password without lowercase', async () => {
@@ -81,7 +82,7 @@ describe('Password Strength Validation (e2e)', () => {
         })
         .expect(400);
 
-      expect(response.body.message).toContain(PASSWORD_ERROR_CODES.LOWERCASE);
+      expect(hasErrorCode(response.body.message, PASSWORD_ERROR_CODES.LOWERCASE)).toBe(true);
     });
 
     it('should reject password without number', async () => {
@@ -95,7 +96,7 @@ describe('Password Strength Validation (e2e)', () => {
         })
         .expect(400);
 
-      expect(response.body.message).toContain(PASSWORD_ERROR_CODES.NUMBER);
+      expect(hasErrorCode(response.body.message, PASSWORD_ERROR_CODES.NUMBER)).toBe(true);
     });
 
     it('should reject password without special character', async () => {
@@ -109,7 +110,7 @@ describe('Password Strength Validation (e2e)', () => {
         })
         .expect(400);
 
-      expect(response.body.message).toContain(PASSWORD_ERROR_CODES.SPECIAL_CHAR);
+      expect(hasErrorCode(response.body.message, PASSWORD_ERROR_CODES.SPECIAL_CHAR)).toBe(true);
     });
 
     it('should reject password with common sequence', async () => {
@@ -119,11 +120,11 @@ describe('Password Strength Validation (e2e)', () => {
           ...baseUser,
           email: `sequence-${Date.now()}@example.com`,
           userName: `sequenceuser-${Date.now()}`,
-          password: 'Secure123Pass@',
+          password: 'AbcXy9!k',
         })
         .expect(400);
 
-      expect(response.body.message).toContain(PASSWORD_ERROR_CODES.SEQUENCE);
+      expect(hasErrorCode(response.body.message, PASSWORD_ERROR_CODES.SEQUENCE)).toBe(true);
     });
 
     it('should reject password with consecutive repeated chars', async () => {
@@ -137,7 +138,7 @@ describe('Password Strength Validation (e2e)', () => {
         })
         .expect(400);
 
-      expect(response.body.message).toContain(PASSWORD_ERROR_CODES.CONSECUTIVE);
+      expect(hasErrorCode(response.body.message, PASSWORD_ERROR_CODES.CONSECUTIVE)).toBe(true);
     });
 
     it('should reject password exceeding max length', async () => {
@@ -151,20 +152,18 @@ describe('Password Strength Validation (e2e)', () => {
         })
         .expect(400);
 
-      expect(response.body.message).toContain(PASSWORD_ERROR_CODES.MAX_LENGTH);
+      expect(hasErrorCode(response.body.message, PASSWORD_ERROR_CODES.MAX_LENGTH)).toBe(true);
     });
   });
 
   describe('/users/change-password (POST) - Password Strength', () => {
     const testEmail = `changepass-${Date.now()}@example.com`;
     const testUserName = `changepassuser-${Date.now()}`;
-    const testPassword = 'SecurePass123@';
-    const newPassword = 'NewSecurePass456@';
+    const testPassword = 'V@lidP4sw0rdXz';
     let token: string;
 
     beforeAll(async () => {
-      // Create user for password change tests
-      await request(app.getHttpServer())
+      const registerRes = await request(app.getHttpServer())
         .post('/auth/register')
         .send({
           name: 'Test',
@@ -172,17 +171,20 @@ describe('Password Strength Validation (e2e)', () => {
           email: testEmail,
           userName: testUserName,
           password: testPassword,
-          role: 'user',
         })
         .expect(201);
 
-      // Login to get token
-      const response = await request(app.getHttpServer())
+      await request(app.getHttpServer())
+        .post('/auth/verify-email')
+        .send({ token: registerRes.body.verificationToken })
+        .expect(201);
+
+      const loginRes = await request(app.getHttpServer())
         .post('/auth/login')
         .send({ email: testEmail, password: testPassword })
         .expect(200);
 
-      token = response.body.accessToken;
+      token = loginRes.body.accessToken;
     });
 
     it('should accept valid new password', async () => {
@@ -191,7 +193,7 @@ describe('Password Strength Validation (e2e)', () => {
         .set('Authorization', `Bearer ${token}`)
         .send({
           currentPassword: testPassword,
-          newPassword: 'AnotherPass789$',
+          newPassword: 'An0th3r$ecur3Y',
         })
         .expect(200);
     });
@@ -206,7 +208,7 @@ describe('Password Strength Validation (e2e)', () => {
         })
         .expect(400);
 
-      expect(response.body.message).toContain(PASSWORD_ERROR_CODES.MIN_LENGTH);
+      expect(hasErrorCode(response.body.message, PASSWORD_ERROR_CODES.MIN_LENGTH)).toBe(true);
     });
 
     it('should reject new password without uppercase', async () => {
@@ -219,7 +221,7 @@ describe('Password Strength Validation (e2e)', () => {
         })
         .expect(400);
 
-      expect(response.body.message).toContain(PASSWORD_ERROR_CODES.UPPERCASE);
+      expect(hasErrorCode(response.body.message, PASSWORD_ERROR_CODES.UPPERCASE)).toBe(true);
     });
   });
 });

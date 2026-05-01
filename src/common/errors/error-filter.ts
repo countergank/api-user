@@ -16,7 +16,7 @@ export class ErrorFilter implements ExceptionFilter {
     } else if (exception instanceof HttpException) {
       status = exception.getStatus();
       const exceptionResponse = exception.getResponse();
-      
+
       // Handle validation errors from ValidationPipe
       if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
         const response = exceptionResponse as any;

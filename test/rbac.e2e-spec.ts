@@ -1,11 +1,6 @@
 import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { config } from 'dotenv';
-import { AppModule } from '../src/app/app.module';
-
-// Load environment variables
-config({ path: '.env.local.testing' });
+import { createTestApp } from './helpers/create-test-app';
 
 describe('RBAC (e2e)', () => {
   let app: INestApplication;
@@ -15,7 +10,7 @@ describe('RBAC (e2e)', () => {
   const adminUser = {
     email: `admin-${Date.now()}@example.com`,
     userName: `admin-${Date.now()}`,
-    password: 'AdminPassword123!',
+    password: 'Adm1nW0rd!x',
     name: 'Admin',
     lastName: 'User',
   };
@@ -23,30 +18,49 @@ describe('RBAC (e2e)', () => {
   const regularUser = {
     email: `user-${Date.now()}@example.com`,
     userName: `user-${Date.now()}`,
-    password: 'UserPassword123!',
+    password: 'U5erW0rd!x',
     name: 'Regular',
     lastName: 'User',
   };
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
+    app = await createTestApp();
 
-    app = moduleFixture.createNestApplication();
-    await app.init();
-
-    // Create admin user
-    const adminResponse = await request(app.getHttpServer())
+    // Register and verify admin user
+    const adminRegRes = await request(app.getHttpServer())
       .post('/auth/register')
-      .send(adminUser);
-    adminToken = adminResponse.body.accessToken;
+      .send(adminUser)
+      .expect(201);
 
-    // Create regular user
-    const userResponse = await request(app.getHttpServer())
+    await request(app.getHttpServer())
+      .post('/auth/verify-email')
+      .send({ token: adminRegRes.body.verificationToken })
+      .expect(201);
+
+    const adminLoginRes = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email: adminUser.email, password: adminUser.password })
+      .expect(200);
+
+    adminToken = adminLoginRes.body.accessToken;
+
+    // Register and verify regular user
+    const userRegRes = await request(app.getHttpServer())
       .post('/auth/register')
-      .send(regularUser);
-    userToken = userResponse.body.accessToken;
+      .send(regularUser)
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post('/auth/verify-email')
+      .send({ token: userRegRes.body.verificationToken })
+      .expect(201);
+
+    const userLoginRes = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email: regularUser.email, password: regularUser.password })
+      .expect(200);
+
+    userToken = userLoginRes.body.accessToken;
   });
 
   afterAll(async () => {
@@ -57,6 +71,7 @@ describe('RBAC (e2e)', () => {
     it('should list all permissions', async () => {
       const response = await request(app.getHttpServer())
         .get('/permissions')
+        .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
       expect(response.body.permissions).toBeInstanceOf(Array);
@@ -66,6 +81,7 @@ describe('RBAC (e2e)', () => {
     it('should include user:create permission', async () => {
       const response = await request(app.getHttpServer())
         .get('/permissions')
+        .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
       const permissionNames = response.body.permissions.map((p: any) => p.name);

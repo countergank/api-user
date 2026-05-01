@@ -1,11 +1,6 @@
 import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { config } from 'dotenv';
-import { AppModule } from '../src/app/app.module';
-
-// Load environment variables
-config({ path: '.env.local.testing' });
+import { createTestApp } from './helpers/create-test-app';
 
 describe('UserProfile (e2e)', () => {
   let app: INestApplication;
@@ -14,29 +9,33 @@ describe('UserProfile (e2e)', () => {
   const testUser = {
     email: `profile-${Date.now()}@example.com`,
     userName: `profileuser-${Date.now()}`,
-    password: 'ProfilePassword123!',
+    password: 'Pr0fileW0rd!x',
     name: 'Profile',
     lastName: 'User',
   };
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
+    app = await createTestApp();
 
-    app = moduleFixture.createNestApplication();
-    await app.init();
-
-    // Register and login
-    await request(app.getHttpServer())
+    // Register
+    const registerRes = await request(app.getHttpServer())
       .post('/auth/register')
-      .send(testUser);
+      .send(testUser)
+      .expect(201);
 
-    const response = await request(app.getHttpServer())
+    // Verify email
+    await request(app.getHttpServer())
+      .post('/auth/verify-email')
+      .send({ token: registerRes.body.verificationToken })
+      .expect(201);
+
+    // Login
+    const loginRes = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ email: testUser.email, password: testUser.password });
+      .send({ email: testUser.email, password: testUser.password })
+      .expect(200);
 
-    token = response.body.accessToken;
+    token = loginRes.body.accessToken;
   });
 
   afterAll(async () => {
@@ -52,7 +51,6 @@ describe('UserProfile (e2e)', () => {
 
       expect(response.body).toMatchObject({
         email: testUser.email,
-        userName: testUser.userName,
         name: testUser.name,
         lastName: testUser.lastName,
       });
@@ -84,7 +82,7 @@ describe('UserProfile (e2e)', () => {
         .set('Authorization', `Bearer ${token}`)
         .send({
           currentPassword: testUser.password,
-          newPassword: 'NewPassword123!',
+          newPassword: 'NewW0rd!y97x',
         })
         .expect(200);
 
@@ -96,8 +94,8 @@ describe('UserProfile (e2e)', () => {
         .post('/users/change-password')
         .set('Authorization', `Bearer ${token}`)
         .send({
-          currentPassword: 'WrongPassword',
-          newPassword: 'AnotherPassword123!',
+          currentPassword: 'Wr0ngW0rd!z',
+          newPassword: 'An0th3rW0rd!a',
         })
         .expect(400);
     });

@@ -44,6 +44,21 @@ export class User extends Base {
 
   @Prop()
   resetPasswordExpires?: Date;
+
+  @Prop()
+  emailVerificationToken?: string;
+
+  @Prop()
+  emailVerificationExpires?: Date;
+
+  @Prop()
+  pendingEmail?: string;
+
+  @Prop()
+  pendingEmailToken?: string;
+
+  @Prop()
+  pendingEmailExpires?: Date;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

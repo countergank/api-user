@@ -69,8 +69,7 @@ export function ApplyFindAllPermissionsDoc() {
   return applyDecorators(
     ApiOperation({
       summary: 'Listar todos los permisos',
-      description:
-        'Retorna lista de todos los permisos disponibles en el sistema. Formato: recurso:acción',
+      description: 'Retorna lista de todos los permisos disponibles en el sistema. Formato: recurso:acción',
     }),
     ApiBearerAuth(),
     ApiExtraModels(FindAllPermissionsResponse),

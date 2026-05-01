@@ -89,11 +89,38 @@ export class UserRepository implements OnApplicationBootstrap {
       .exec();
   }
 
+  async findByEmailVerificationToken(token: string): Promise<User | null> {
+    return this.userModel
+      .findOne({
+        emailVerificationToken: token,
+        emailVerificationExpires: { $gt: new Date() },
+      })
+      .exec();
+  }
+
+  async findByPendingEmailToken(token: string): Promise<User | null> {
+    return this.userModel
+      .findOne({
+        pendingEmailToken: token,
+        pendingEmailExpires: { $gt: new Date() },
+      })
+      .exec();
+  }
+
   async findAll(): Promise<User[]> {
     return this.userModel.find().exec();
   }
 
   async update(id: string, data: Partial<User>): Promise<User> {
+    // If password is being updated, use save() to trigger pre-save hooks for hashing
+    if (data.password) {
+      const user = await this.userModel.findById(id).exec();
+      if (!user) {
+        throw new Error(`User ${id} not found`);
+      }
+      user.set(data);
+      return user.save();
+    }
     return this.userModel.findByIdAndUpdate(id, data, { new: true }).exec();
   }
 

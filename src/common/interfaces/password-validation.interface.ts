@@ -1,6 +1,6 @@
 /**
  * Password Validation Interface and Constants
- * 
+ *
  * Contains error codes, rules configuration, and hints for password strength validation.
  */
 

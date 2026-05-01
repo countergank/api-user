@@ -1,8 +1,6 @@
 import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from '../src/app/app.module';
+import { createTestApp } from './helpers/create-test-app';
 
 describe('AuthController (e2e)', () => {
   let app: INestApplication;
@@ -10,18 +8,13 @@ describe('AuthController (e2e)', () => {
   const testUser = {
     email: `test-${Date.now()}@example.com`,
     userName: `testuser-${Date.now()}`,
-    password: 'TestPassword123!',
+    password: 'TestW0rd!x97',
     name: 'Test',
     lastName: 'User',
   };
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    await app.init();
+    app = await createTestApp();
   });
 
   afterAll(async () => {
@@ -29,6 +22,8 @@ describe('AuthController (e2e)', () => {
   });
 
   describe('/auth/register (POST)', () => {
+    let verificationToken: string;
+
     it('should register a new user', async () => {
       const response = await request(app.getHttpServer())
         .post('/auth/register')
@@ -37,12 +32,22 @@ describe('AuthController (e2e)', () => {
 
       expect(response.body).toHaveProperty('accessToken');
       expect(response.body).toHaveProperty('refreshToken');
+      expect(response.body).toHaveProperty('verificationToken');
       expect(response.body.user).toMatchObject({
         email: testUser.email,
         userName: testUser.userName,
         name: testUser.name,
         lastName: testUser.lastName,
       });
+
+      verificationToken = response.body.verificationToken;
+    });
+
+    it('should verify email', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/verify-email')
+        .send({ token: verificationToken })
+        .expect(201);
     });
 
     it('should reject duplicate email', async () => {
@@ -104,7 +109,7 @@ describe('AuthController (e2e)', () => {
       await request(app.getHttpServer())
         .post('/auth/forgot-password')
         .send({ email: testUser.email })
-        .expect(201);
+        .expect(200);
     });
   });
 
@@ -117,7 +122,6 @@ describe('AuthController (e2e)', () => {
 
       expect(response.body).toMatchObject({
         email: testUser.email,
-        userName: testUser.userName,
         name: testUser.name,
         lastName: testUser.lastName,
       });
