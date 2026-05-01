@@ -109,7 +109,7 @@ describe('AuthController (e2e)', () => {
       await request(app.getHttpServer())
         .post('/auth/forgot-password')
         .send({ email: testUser.email })
-        .expect(201);
+        .expect(200);
     });
   });
 

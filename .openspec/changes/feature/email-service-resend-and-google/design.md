@@ -212,7 +212,56 @@ export class EmailListener {
 **Rationale**:
 - TypeScript interfaces are compile-time only — can't be used as runtime DI tokens
 - Using a string token is NestJS standard for interface-based providers
-- Centralized in `email.module.ts` for consistency
+- Centralized in `email/constants/email.tokens.ts` for consistency
+
+---
+
+## AD-11: Breaking Circular Dependency (Auth ↔ Email)
+
+**Decision**: `AuthService` emits events; `EmailListener` handles them. `AuthModule` does NOT import `EmailModule`.
+
+**Before (coupled)**:
+```
+AuthModule imports EmailModule
+AuthService injects EmailService directly
+→ Circular dependency, requires forwardRef
+```
+
+**After (decoupled)**:
+```
+AuthModule does NOT import EmailModule
+AuthService injects EventEmitter2, emits events
+EmailListener (in EmailModule) handles events via @OnEvent()
+→ Zero circular dependency, no forwardRef needed
+```
+
+**Rationale**:
+- Follows Single Responsibility Principle — AuthService doesn't know about emails
+- Eliminates `forwardRef(() => UserModule)` and `forwardRef(() => AuthModule)`
+- Adding new reactions (analytics, notifications) requires zero changes to auth
+
+---
+
+## AD-12: Password Hashing on Reset
+
+**Decision**: Use `UserService.hashPassword()` before updating the user's password in `AuthService.resetPassword()`.
+
+**Flow**:
+```
+resetPassword(token, newPassword)
+  → hashPassword(newPassword) → returns hashed string
+  → userService.update(userId, { password: hashed })
+      → UserRepository.update() detects password field
+          → user.set(data); user.save() → triggers pre-save hook
+              → password is properly hashed
+```
+
+**Rationale**:
+- Direct `findByIdAndUpdate()` does NOT trigger pre-save hooks
+- Using `.save()` ensures the hash logic in the entity/repository runs
+- Keeps hashing logic centralized in `EncodeService`
+
+---
 
 ## Component Design
 

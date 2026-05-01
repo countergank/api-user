@@ -351,15 +351,40 @@ All email endpoints MUST have complete Swagger documentation using the project's
 - `pendingEmailToken` (string, optional)
 - `pendingEmailExpires` (Date, optional)
 
-### S7.11 — Email Listener
+### S7.11 — Avoid Circular Dependencies
+**MUST** ensure `AuthModule` does NOT import `EmailModule`.
+**AND** `AuthService` MUST NOT inject `EmailService`.
+**MUST** use event-driven pattern (S7.1) to decouple.
 
-**MUST** create `EmailListener` decorated with `@Injectable()` and registered in `EmailModule`.
-**MUST** use `@OnEvent('event.name')` for each domain event.
-**MUST** handle errors gracefully — listener failure MUST NOT crash the original operation.
+### S7.12 — EmailListener Error Handling
+**GIVEN** an `EmailListener` event handler fails (e.g., template not found).
+**WHEN** the event is emitted.
+**THEN** the original operation (e.g., registration) MUST NOT fail.
+**AND** the error MUST be logged but NOT re-thrown.
 
 ---
 
-## S8. Error Handling
+## S8. Password Hashing on Reset
+
+### S8.1 — Hash Password in Reset
+**GIVEN** a valid reset token is used.
+**WHEN** `AuthService.resetPassword(token, newPassword)` is called.
+**THEN** `newPassword` MUST be hashed before storing.
+**AND** `UserRepository.update()` MUST use `.save()` to trigger pre-save hooks for hashing.
+
+### S8.2 — AuthResponse Update
+**MUST** update `AuthResponse` interface to include:
+- `user.id` (string)
+- `user.userName` (string)
+- `verificationToken` (optional string, present when `isActive: false`)
+
+**GIVEN** a new user registers.
+**WHEN** `AuthService.register()` completes.
+**THEN** the response MUST include `verificationToken` for e2e test flows.
+
+---
+
+## S9. Error Handling
 
 ### S8.1 — Provider Failure
 

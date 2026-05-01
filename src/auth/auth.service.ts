@@ -124,8 +124,11 @@ export class AuthService {
       throw new BadRequestException('Invalid or expired reset token');
     }
 
+    // Hash the new password before updating
+    const hashedPassword = await this.userService.hashPassword(newPassword);
+
     await this.userService.update(user.id, {
-      password: newPassword,
+      password: hashedPassword,
       resetPasswordToken: undefined,
       resetPasswordExpires: undefined,
     } as any);

@@ -1,7 +1,8 @@
-import { randomUUID } from 'node:crypto';
 import { ConflictException, Injectable } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { plainToInstance } from 'class-transformer';
 import { CreateUserDTO } from '../dto/create-user.dto';
+import { EncodeService } from '../../encode/encode.service';
 import { User, UserRole } from '../entities/user.entity';
 import {
   UserEmailAlreadyExistsError,
@@ -12,7 +13,10 @@ import { UserRepository } from '../repository/user.repository';
 
 @Injectable()
 export class UserService {
-  constructor(private readonly userRepository: UserRepository) {}
+  constructor(
+    private readonly userRepository: UserRepository,
+    private readonly encodeService: EncodeService,
+  ) {}
 
   async create(createUserDTO: CreateUserDTO): Promise<User> {
     const [usernameAlreadyExists, emailAlreadyExists] = await Promise.all([
@@ -91,7 +95,11 @@ export class UserService {
   }
 
   async validatePassword(password: string, hashedPassword: string): Promise<boolean> {
-    return this.userRepository.validatePassword(password, hashedPassword);
+    return this.encodeService.compare(password, hashedPassword);
+  }
+
+  async hashPassword(password: string): Promise<string> {
+    return this.encodeService.hash(password);
   }
 
   async existsByEmailOrUsername(email: string, userName: string): Promise<boolean> {
@@ -102,7 +110,10 @@ export class UserService {
     return emailExists || usernameExists;
   }
 
-  async requestEmailChange(userId: string, newEmail: string): Promise<{ token: string; expires: Date; user: User }> {
+  async requestEmailChange(
+    userId: string,
+    newEmail: string,
+  ): Promise<{ token: string; expires: Date; user: User }> {
     const existing = await this.findByEmail(newEmail);
     if (existing) {
       throw new ConflictException('Email already in use');

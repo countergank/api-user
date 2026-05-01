@@ -112,6 +112,15 @@ export class UserRepository implements OnApplicationBootstrap {
   }
 
   async update(id: string, data: Partial<User>): Promise<User> {
+    // If password is being updated, use save() to trigger pre-save hooks for hashing
+    if (data.password) {
+      const user = await this.userModel.findById(id).exec();
+      if (!user) {
+        throw new Error(`User ${id} not found`);
+      }
+      user.set(data);
+      return user.save();
+    }
     return this.userModel.findByIdAndUpdate(id, data, { new: true }).exec();
   }
 

@@ -78,24 +78,24 @@
 - [x] 9.4 `EmailProvider` interface fixed with injection token
 - [x] 9.5 Linting clean on new code
 
-## Phase 10: Event-Driven Refactoring (NEW — AD-9)
+## Phase 10: Event-Driven Refactoring (COMPLETED — AD-9)
 
-- [ ] 10.1 Create email event constants (`src/email/constants/email.events.ts`)
+- [x] 10.1 Create email event constants (`src/email/constants/email.events.ts`)
   - `USER_REGISTERED`, `FORGOT_PASSWORD`, `PASSWORD_CHANGED`, `EMAIL_CHANGE_REQUESTED`, `EMAIL_CHANGE_CONFIRMED`, `RESEND_VERIFICATION`
-- [ ] 10.2 Create TypeScript interfaces for each event payload
-- [ ] 10.3 Create `EmailListener` (`src/email/listeners/email.listener.ts`) with `@OnEvent()` handlers
-- [ ] 10.4 Register `EmailListener` in `EmailModule` providers
-- [ ] 10.5 Modify `AuthService` to emit events instead of calling `EmailService`
-  - `register()` → emit `user.registered`
-  - `forgotPassword()` → emit `auth.forgot-password`
-  - `resetPassword()` → emit `auth.password-changed`
-  - `changeEmail()` → emit `user.email-change-requested`
-  - `confirmEmailChange()` → emit `user.email-change-confirmed`
-  - `resendVerification()` → emit `auth.resend-verification`
-- [ ] 10.6 Remove `EmailService` injection from `AuthService`
-- [ ] 10.7 Remove `EmailModule` import from `AuthModule`
-- [ ] 10.8 Remove `forwardRef` from `AuthModule` ↔ `UserModule` circular dependency
-- [ ] 10.9 Update `UserProfileController` to emit event instead of calling `AuthService.notifyPasswordChanged()`
-- [ ] 10.10 Verify type check passes
-- [ ] 10.11 Verify all tests pass
-- [ ] 10.12 Run linting and formatting
+- [x] 10.2 Create TypeScript interfaces for each event payload
+  - `src/email/interfaces/email-events.interface.ts`
+- [x] 10.3 Create `EmailListener` (`src/email/listeners/email.listener.ts`) with `@OnEvent()` handlers
+- [x] 10.4 Register `EmailListener` in `EmailModule` providers
+- [x] 10.5 Modify `AuthService` to emit events instead of calling `EmailService`
+  - `register()` → emit `USER_REGISTERED`
+  - `forgotPassword()` → emit `FORGOT_PASSWORD`
+  - `resetPassword()` → emit `PASSWORD_CHANGED` (with hashed password)
+  - `confirmEmailChange()` → emit `EMAIL_CHANGE_CONFIRMED`
+  - `resendVerification()` → emit `RESEND_VERIFICATION`
+- [x] 10.6 Remove `EmailService` injection from `AuthService`
+- [x] 10.7 Remove `EmailModule` import from `AuthModule`
+- [x] 10.8 Remove `forwardRef` from `AuthModule` ↔ `UserModule` circular dependency
+- [x] 10.9 Update `UserProfileController` to emit `PASSWORD_CHANGED` event
+- [x] 10.10 Verify type check passes
+- [x] 10.11 Verify all tests pass (99 unit + 32 e2e)
+- [x] 10.12 Run linting and formatting
