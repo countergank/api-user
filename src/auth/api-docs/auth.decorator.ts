@@ -197,8 +197,7 @@ export function ApplyResendVerificationDoc() {
   return applyDecorators(
     ApiOperation({
       summary: 'Reenviar email de verificación',
-      description:
-        'Reenvía el link de verificación al email del usuario. No revela si el email existe.',
+      description: 'Reenvía el link de verificación al email del usuario. No revela si el email existe.',
     }),
     ApiExtraModels(ResendVerificationRequest, ResendVerificationResponse),
     ApiResponse({
@@ -216,4 +215,3 @@ export function ApplyResendVerificationDoc() {
     }),
   );
 }
-

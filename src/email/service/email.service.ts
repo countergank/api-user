@@ -32,11 +32,7 @@ export class EmailService {
     });
   }
 
-  async sendBySlug(
-    slug: string,
-    to: string,
-    variables: Record<string, string> = {},
-  ): Promise<{ status: string }> {
+  async sendBySlug(slug: string, to: string, variables: Record<string, string> = {}): Promise<{ status: string }> {
     const template = await this.templateService.resolve(slug);
     const { subject, html } = this.templateService.render(template, variables);
 

@@ -12,9 +12,7 @@ export function createEmailProvider(): EmailProvider {
 
   const ProviderClass = PROVIDER_MAP[provider];
   if (!ProviderClass) {
-    throw new Error(
-      `Unsupported email provider: "${provider}". Supported: ${Object.keys(PROVIDER_MAP).join(', ')}`,
-    );
+    throw new Error(`Unsupported email provider: "${provider}". Supported: ${Object.keys(PROVIDER_MAP).join(', ')}`);
   }
 
   return new ProviderClass();

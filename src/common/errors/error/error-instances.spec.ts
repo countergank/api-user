@@ -6,7 +6,7 @@ describe(GenericError.name, () => {
     const error = new GenericError();
 
     expect(error).toBeInstanceOf(GenericError);
-    expect(error.message).toBe(ErrorMessages[ErrorCodes.Base]);
+    expect(error.message).toBe(ErrorMessages[ErrorCodes.Base].es);
     expect(error.code.includes(ErrorCodes.Base)).toBeTruthy();
   });
 });

@@ -2,6 +2,10 @@ export enum ErrorCodes {
   Base = '000',
 }
 
-export enum ErrorMessages {
-  '000' = 'Error genérico',
-}
+export const ErrorMessages = {
+  '000': {
+    es: 'Error genérico',
+    en: 'Generic error',
+    pt: 'Erro genérico',
+  },
+};

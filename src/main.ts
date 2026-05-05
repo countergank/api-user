@@ -6,6 +6,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import hyperid from 'hyperid';
+import { HttpAdapterHost } from '@nestjs/core';
 import { AppModule } from './app/app.module';
 import { ErrorFilter } from './common/errors/error-filter';
 import { isProd } from './common/utils';

@@ -26,13 +26,6 @@ export class EmailController {
   @Post('send-direct')
   @ApplySendDirectEmailDoc()
   async sendDirect(@Body() dto: SendDirectEmailDto): Promise<{ status: string }> {
-    return this.emailService.sendDirect(
-      dto.to,
-      dto.subject,
-      dto.html,
-      dto.metadata,
-      dto.from,
-      dto.replyTo,
-    );
+    return this.emailService.sendDirect(dto.to, dto.subject, dto.html, dto.metadata, dto.from, dto.replyTo);
   }
 }

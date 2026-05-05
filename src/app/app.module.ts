@@ -9,6 +9,7 @@ import { UserModule } from '../user/user.module';
 import { AuthModule } from '../auth/auth.module';
 import { RbacModule } from '../rbac/rbac.module';
 import { EmailModule } from '../email/email.module';
+import { I18nModule } from '../common/i18n/i18n.module';
 import { AppController } from './controller/app.controller';
 import { AppService } from './service/app.service';
 
@@ -19,6 +20,7 @@ import { AppService } from './service/app.service';
     ConfigModule.forRoot(ConfigModuleOption),
     MongooseModule.forRootAsync({ useClass: MongooseModuleOption }),
     EventEmitterModule.forRoot(),
+    I18nModule,
     UserModule,
     AuthModule,
     RbacModule,

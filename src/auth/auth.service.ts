@@ -212,10 +212,7 @@ export class AuthService {
     }
   }
 
-  private generateAuthResponse(
-    user: User,
-    verificationToken?: string,
-  ): AuthResponse {
+  private generateAuthResponse(user: User, verificationToken?: string): AuthResponse {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,

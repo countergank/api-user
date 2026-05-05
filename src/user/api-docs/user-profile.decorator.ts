@@ -94,8 +94,7 @@ export function ApplyChangeEmailDoc() {
   return applyDecorators(
     ApiOperation({
       summary: 'Cambiar email',
-      description:
-        'Solicita el cambio de email. Se envía un email de confirmación a la nueva dirección.',
+      description: 'Solicita el cambio de email. Se envía un email de confirmación a la nueva dirección.',
     }),
     ApiBearerAuth(),
     ApiExtraModels(ChangeEmailRequest, ChangeEmailResponse),

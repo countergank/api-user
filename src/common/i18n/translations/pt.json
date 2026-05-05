@@ -1,0 +1,43 @@
+{
+  "errors": {
+    "USER_NOT_FOUND": "Usuário não encontrado",
+    "INVALID_CREDENTIALS": "Credenciais inválidas",
+    "INTERNAL_ERROR": "Erro interno do servidor",
+    "VALIDATION_ERROR": "Erro de validação",
+    "EMAIL_ALREADY_EXISTS": "O email já está registrado",
+    "USER_ALREADY_EXISTS": "O usuário já existe",
+    "INVALID_TOKEN": "Token inválido",
+    "TOKEN_EXPIRED": "Token expirado",
+    "FORBIDDEN": "Acesso negado",
+    "BAD_REQUEST": "Solicitação incorreta"
+  },
+  "validation": {
+    "IS_EMAIL": "deve ser um email válido",
+    "IS_NOT_EMPTY": "não deve estar vazio",
+    "MIN_LENGTH": "deve ter pelo menos $constraint1 caracteres",
+    "MAX_LENGTH": "não deve exceder $constraint1 caracteres",
+    "IS_STRONG_PASSWORD": "deve ser uma senha forte"
+  },
+  "password": {
+    "PASSWORD_TOO_SHORT": "A senha deve ter pelo menos 8 caracteres",
+    "PASSWORD_TOO_LONG": "A senha não pode exceder 64 caracteres",
+    "PASSWORD_NO_LOWERCASE": "A senha deve conter pelo menos uma letra minúscula",
+    "PASSWORD_NO_UPPERCASE": "A senha deve conter pelo menos uma letra maiúscula",
+    "PASSWORD_NO_NUMBER": "A senha deve conter pelo menos um número",
+    "PASSWORD_NO_SPECIAL": "A senha deve conter pelo menos um caractere especial (@$!%*?&)",
+    "PASSWORD_REPEATED_CHARS": "A senha não pode ter caracteres consecutivos repetidos",
+    "PASSWORD_COMMON_SEQUENCE": "A senha não pode conter sequências comuns como 123, abc, qwe, asd, zxc",
+    "PASSWORD_HINT_PT": "A senha deve ter: mínimo 8 caracteres, máximo 64, pelo menos uma maiúscula, uma minúscula, um número e um caractere especial (@$!%*?&)"
+  },
+  "email": {
+    "welcome_subject": "Bem-vindo {{userName}} — Verifique sua conta",
+    "password_reset_subject": "Redefinição de Senha",
+    "email_change_subject": "Confirmação de mudança de email",
+    "password_changed_subject": "Sua senha foi alterada"
+  },
+  "messages": {
+    "welcome": "Bem-vindo, {{username}}!",
+    "goodbye": "Até logo",
+    "password_reset": "Sua senha foi redefinida"
+  }
+}

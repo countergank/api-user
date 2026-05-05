@@ -22,7 +22,8 @@ export function CreateUserDoc() {
     ApiBearerAuth(),
     ApiOperation({
       summary: 'Crear nuevo usuario (Admin)',
-      description: 'Crea un nuevo usuario en el sistema. Solo accesible por administradores.',
+      description:
+        'Crea un nuevo usuario en el sistema. Solo accesible por administradores.\n\n**i18n Support**: Use `Accept-Language` header (es, en, pt) to receive messages in your preferred language.',
     }),
     ApiExtraModels(CreateUserDTO, UserResponse),
     ApiResponse({

@@ -102,12 +102,13 @@ export class PasswordStrengthValidator implements ValidatorConstraintInterface {
     return errors;
   }
 
-  defaultMessage(args: ValidationArguments): string {
+  defaultMessage(_args: ValidationArguments): string {
     // Try to get stored errors from validation
     const errors: string[] = (this as any).__validationErrors || [];
 
     if (errors.length > 0) {
       // Return code:message format for easier testing
+      // The ErrorFilter will translate this using I18nService
       const code = errors[0];
       const message = PASSWORD_MESSAGES[code]?.es || code;
       return `${code}: ${message}`;
@@ -125,8 +126,9 @@ export class PasswordStrengthValidator implements ValidatorConstraintInterface {
     return errorCodes.map((code) => {
       const validationError = new ValidationError();
       validationError.property = 'password';
+      // Return the translation key - ErrorFilter will translate using I18nService
       validationError.constraints = {
-        passwordStrength: PASSWORD_MESSAGES[code]?.es || code,
+        passwordStrength: `validation.${PASSWORD_MESSAGES[code]?.es || code}`,
       };
       validationError.children = [];
       return validationError;
