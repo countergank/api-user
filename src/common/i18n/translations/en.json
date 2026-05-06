@@ -24,11 +24,11 @@
     "PASSWORD_NO_LOWERCASE": "Password must contain at least one lowercase letter",
     "PASSWORD_NO_UPPERCASE": "Password must contain at least one uppercase letter",
     "PASSWORD_NO_NUMBER": "Password must contain at least one number",
-    "PASSWORD_NO_SPECIAL": "Password must contain at least one special character (@$!%*?&)",
+    "PASSWORD_NO_SPECIAL": "Password must contain at least one non-alphanumeric character",
     "PASSWORD_REPEATED_CHARS": "Password cannot have consecutive repeated characters",
     "PASSWORD_COMMON_SEQUENCE": "Password cannot contain common sequences like 123, abc, qwe, asd, zxc",
-    "PASSWORD_HINT_EN": "Password must have: minimum 8 characters, maximum 64, at least one uppercase, one lowercase, one number and one special character (@$!%*?&)",
-    "PASSWORD_HINT_PT": "A senha deve ter: mínimo 8 caracteres, máximo 64, pelo menos uma maiúscula, uma minúscula, um número e um caractere especial (@$!%*?&)"
+    "PASSWORD_HINT_EN": "Password must have: minimum 8 characters, maximum 64, at least one uppercase, one lowercase, one number and one non-alphanumeric character",
+    "PASSWORD_HINT_PT": "A senha deve ter: mínimo 8 caracteres, máximo 64, pelo menos uma maiúscula, uma minúscula, um número e um caractere não alfanumérico"
   },
   "email": {
     "welcome_subject": "Welcome {{userName}} — Verify your account",

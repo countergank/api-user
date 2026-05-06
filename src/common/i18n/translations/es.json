@@ -24,11 +24,11 @@
     "PASSWORD_NO_LOWERCASE": "La contraseña debe contener al menos una letra minúscula",
     "PASSWORD_NO_UPPERCASE": "La contraseña debe contener al menos una letra mayúscula",
     "PASSWORD_NO_NUMBER": "La contraseña debe contener al menos un número",
-    "PASSWORD_NO_SPECIAL": "La contraseña debe contener al menos un carácter especial (@$!%*?&)",
+    "PASSWORD_NO_SPECIAL": "La contraseña debe contener al menos un carácter no alfanumérico",
     "PASSWORD_REPEATED_CHARS": "La contraseña no puede tener caracteres consecutivos repetidos",
     "PASSWORD_COMMON_SEQUENCE": "La contraseña no puede contener secuencias comunes como 123, abc, qwe, asd, zxc",
-    "PASSWORD_HINT_ES": "La contraseña debe tener: mínimo 8 caracteres, máximo 64, al menos una mayúscula, una minúscula, un número y un carácter especial (@$!%*?&)",
-    "PASSWORD_HINT_EN": "Password must have: minimum 8 characters, maximum 64, at least one uppercase, one lowercase, one number and one special character (@$!%*?&)"
+    "PASSWORD_HINT_ES": "La contraseña debe tener: mínimo 8 caracteres, máximo 64, al menos una mayúscula, una minúscula, un número y un carácter no alfanumérico",
+    "PASSWORD_HINT_EN": "Password must have: minimum 8 characters, maximum 64, at least one uppercase, one lowercase, one number and one non-alphanumeric character"
   },
   "email": {
     "welcome_subject": "¡Bienvenido {{userName}} — Verifica tu cuenta",

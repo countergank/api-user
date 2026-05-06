@@ -37,8 +37,10 @@ export class I18nService implements II18nService {
   getLanguage(): SupportedLanguage {
     try {
       const ctx = I18nContext.current();
+      this.logger.debug(`I18nContext.current() → ${ctx?.lang || 'undefined'}`);
       if (ctx && ctx.lang) return ctx.lang as SupportedLanguage;
     } catch {}
+    this.logger.debug(`Falling back to default: ${DEFAULT_LANGUAGE}`);
     return DEFAULT_LANGUAGE;
   }
 

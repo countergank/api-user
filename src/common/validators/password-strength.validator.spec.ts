@@ -92,8 +92,9 @@ describe(PasswordStrengthValidator.name, () => {
         expect(validator.validate('Xyzdefgh1')).toBe(false);
       });
 
-      it('should reject passwords with non-allowed special characters', () => {
-        expect(validator.validate('Xyzdefgh1#')).toBe(false);
+      it('should accept passwords with any non-alphanumeric character', () => {
+        expect(validator.validate('Xyzdefgh1#')).toBe(true);
+        expect(validator.validate('Xyzdefgh1.')).toBe(true);
       });
     });
 

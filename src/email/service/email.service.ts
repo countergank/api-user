@@ -35,6 +35,7 @@ export class EmailService {
   }
 
   async sendBySlug(slug: string, to: string, variables: Record<string, string> = {}, lang?: string): Promise<{ status: string }> {
+    Logger.log(`📧 sendBySlug("${slug}") lang="${lang}"`, EmailService.name);
     const template = await this.templateService.resolve(slug, lang);
     const { subject, html } = this.templateService.render(template, variables);
 

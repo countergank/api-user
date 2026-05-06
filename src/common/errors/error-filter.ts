@@ -76,7 +76,9 @@ export class ErrorFilter implements ExceptionFilter {
     if (!this.i18nService) return undefined;
     try {
       const lang = this.getLangFromRequest(request);
-      return await this.i18nService.translate(key, lang);
+      const result = await this.i18nService.translate(key, lang);
+      // Only return translation if it actually resolved (different from key)
+      return result !== key ? result : undefined;
     } catch {
       return undefined;
     }
@@ -87,8 +89,9 @@ export class ErrorFilter implements ExceptionFilter {
     try {
       const lang = this.getLangFromRequest(request);
       let prefix = msg.startsWith('PASSWORD_') ? 'password' : 'validation';
-      const translated = await this.i18nService.translate(`${prefix}.${msg}`, lang);
-      return translated || msg;
+      const key = `${prefix}.${msg}`;
+      const translated = await this.i18nService.translate(key, lang);
+      return translated !== key ? translated : msg;
     } catch {
       return msg;
     }

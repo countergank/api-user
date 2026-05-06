@@ -4,6 +4,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { EmailEvents } from '../../email/constants/email.events';
 import { EncodeService } from '../../encode/encode.service';
+import { getRequestLang } from '../../common/i18n/request-lang.helper';
 import { ApplyChangeEmailDoc, ApplyChangePasswordDoc, ApplyGetProfileDoc, ApplyUpdateProfileDoc } from '../api-docs';
 import { ChangePasswordDTO } from '../dto/change-password.dto';
 import { UserService } from '../service/user.service';
@@ -66,6 +67,7 @@ export class UserProfileController {
       userId: user.id,
       email: user.email,
       name: user.name,
+      lang: getRequestLang(req),
     });
 
     return { message: 'Password changed successfully' };
@@ -83,6 +85,7 @@ export class UserProfileController {
       newEmail: body.email,
       name: user.name,
       pendingEmailToken: token,
+      lang: getRequestLang(req),
     });
 
     return { message: 'Confirmation email sent to the new address' };

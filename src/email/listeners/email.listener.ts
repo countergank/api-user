@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { CustomLogger } from '../../common/logger';
 import { EmailEvents } from '../constants/email.events';
@@ -34,6 +34,7 @@ export class EmailListener {
   @OnEvent(EmailEvents.FORGOT_PASSWORD)
   async handleForgotPassword(payload: ForgotPasswordEvent): Promise<void> {
     try {
+      Logger.log(`📨 Listener: payload.lang="${payload.lang}"`, EmailListener.name);
       const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${payload.resetToken}`;
       await this.emailService.sendBySlug('password-reset', payload.email, {
         userName: payload.name,
@@ -73,7 +74,7 @@ export class EmailListener {
     try {
       await this.emailService.sendBySlug('password-changed', payload.email, {
         userName: payload.name,
-      });
+      }, payload.lang);
     } catch (error) {
       this.logger.error(`Failed to send email change notification to ${payload.email}: ${(error as Error).message}`);
     }
@@ -86,7 +87,7 @@ export class EmailListener {
       await this.emailService.sendBySlug('welcome', payload.email, {
         userName: payload.name,
         verificationLink,
-      });
+      }, payload.lang);
     } catch (error) {
       this.logger.error(`Failed to resend verification email to ${payload.email}: ${(error as Error).message}`);
     }

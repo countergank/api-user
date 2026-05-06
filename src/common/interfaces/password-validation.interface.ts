@@ -54,9 +54,9 @@ export const PASSWORD_MESSAGES = {
     pt: 'A senha deve conter pelo menos um número',
   },
   [PASSWORD_ERROR_CODES.SPECIAL_CHAR]: {
-    es: 'La contraseña debe contener al menos un carácter especial (@$!%*?&)',
-    en: 'Password must contain at least one special character (@$!%*?&)',
-    pt: 'A senha deve conter pelo menos um caractere especial (@$!%*?&)',
+    es: 'La contraseña debe contener al menos un carácter no alfanumérico',
+    en: 'Password must contain at least one non-alphanumeric character',
+    pt: 'A senha deve conter pelo menos um caractere não alfanumérico',
   },
   [PASSWORD_ERROR_CODES.CONSECUTIVE]: {
     es: 'La contraseña no puede tener caracteres consecutivos repetidos',
@@ -71,7 +71,7 @@ export const PASSWORD_MESSAGES = {
 } as const;
 
 export const PASSWORD_HINTS = {
-  es: 'La contraseña debe tener: mínimo 8 caracteres, máximo 64, al menos una mayúscula, una minúscula, un número y un carácter especial (@$!%*?&)',
-  en: 'Password must have: minimum 8 characters, maximum 64, at least one uppercase, one lowercase, one number and one special character (@$!%*?&)',
-  pt: 'A senha deve ter: mínimo 8 caracteres, máximo 64, pelo menos uma maiúscula, uma minúscula, um número e um caractere especial (@$!%*?&)',
+  es: 'La contraseña debe tener: mínimo 8 caracteres, máximo 64, al menos una mayúscula, una minúscula, un número y un carácter no alfanumérico',
+  en: 'Password must have: minimum 8 characters, maximum 64, at least one uppercase, one lowercase, one number and one non-alphanumeric character',
+  pt: 'A senha deve ter: mínimo 8 caracteres, máximo 64, pelo menos uma maiúscula, uma minúscula, um número e um caractere não alfanumérico',
 } as const;

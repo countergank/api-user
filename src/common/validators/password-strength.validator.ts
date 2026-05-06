@@ -64,9 +64,8 @@ export class PasswordStrengthValidator implements ValidatorConstraintInterface {
       errors.push(PASSWORD_ERROR_CODES.NUMBER);
     }
 
-    // Rule 5: At least 1 special char
-    const specialCharRegex = new RegExp(`[${PASSWORD_RULES.SPECIAL_CHARS}]`);
-    if (!specialCharRegex.test(password)) {
+    // Rule 5: At least 1 non-alphanumeric character
+    if (!/[^a-zA-Z0-9]/.test(password)) {
       errors.push(PASSWORD_ERROR_CODES.SPECIAL_CHAR);
     }
 

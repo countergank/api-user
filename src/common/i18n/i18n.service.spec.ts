@@ -36,6 +36,7 @@ describe('I18nService (unit)', () => {
             ['pt', { password: { PASSWORD_TOO_SHORT: 'Senha curta' } }],
           ]);
           (svc as any).nestI18nService = { translate: jest.fn().mockResolvedValue('fallback') };
+          (svc as any).logger = { debug: jest.fn(), log: jest.fn() };
           return svc;
         },
       })
