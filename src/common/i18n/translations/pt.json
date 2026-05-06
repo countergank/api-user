@@ -39,5 +39,14 @@
     "welcome": "Bem-vindo, {{username}}!",
     "goodbye": "Até logo",
     "password_reset": "Sua senha foi redefinida"
+  },
+  "rbac": {
+    "admin": "Administrador com acesso total",
+    "user": "Usuário padrão",
+    "viewer": "Somente leitura",
+    "user:create": "Criar usuários",
+    "user:read": "Ler usuários",
+    "user:update": "Atualizar usuários",
+    "user:delete": "Excluir usuários"
   }
 }

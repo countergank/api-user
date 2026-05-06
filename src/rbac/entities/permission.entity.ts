@@ -4,10 +4,6 @@ import { Base } from '../../common/class/base';
 
 export enum PermissionCategory {
   USER = 'user',
-  TIMER = 'timer',
-  ORGANIZATION = 'organization',
-  INTEGRATION = 'integration',
-  STATISTICS = 'statistics',
   SYSTEM = 'system',
 }
 

@@ -1,7 +1,9 @@
-import { Controller, Get, Put, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Put, Param, Body, UseGuards, Inject } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RoleService } from '../../rbac/services/role.service';
+import { I18nService } from '../../common/i18n/i18n.service';
+import { translateRbacItems } from '../../common/i18n/rbac-translate.helper';
 import { ApplyFindAllRolesDoc, ApplyUpdateRolePermissionsDoc } from '../api-docs';
 
 /**
@@ -14,19 +16,22 @@ import { ApplyFindAllRolesDoc, ApplyUpdateRolePermissionsDoc } from '../api-docs
 @Controller('roles')
 @UseGuards(JwtAuthGuard)
 export class RoleController {
-  constructor(private roleService: RoleService) {}
+  constructor(
+    private roleService: RoleService,
+    @Inject(I18nService) private i18n: I18nService,
+  ) {}
 
   @Get()
   @ApplyFindAllRolesDoc()
   async findAll() {
     const roles = await this.roleService.findAll();
-    return { roles };
+    return { roles: await translateRbacItems(roles, this.i18n) };
   }
 
   @Put(':id/permissions')
   @ApplyUpdateRolePermissionsDoc()
   async updatePermissions(@Param('id') id: string, @Body() body: { permissionIds: string[] }) {
     const role = await this.roleService.updatePermissions(id, body.permissionIds);
-    return { role };
+    return { role: (await translateRbacItems([role], this.i18n))[0] };
   }
 }

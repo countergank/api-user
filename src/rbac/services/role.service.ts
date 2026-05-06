@@ -4,25 +4,38 @@ import { Model } from 'mongoose';
 import { Role } from '../entities/role.entity';
 import { UserRole } from '../../user/entities/user.entity';
 
+// ── Default permissions per role ──────────────────────
+export const ADMIN_PERMISSIONS = ['*'];
+
+export const USER_PERMISSIONS = [
+  'user:read',
+  'user:update',
+];
+
+export const VIEWER_PERMISSIONS = [
+  'user:read',
+];
+// ───────────────────────────────────────────────────────
+
 export const DEFAULT_ROLES = [
   {
     name: UserRole.ADMIN,
     description: 'Administrator with full access',
-    permissionIds: ['*'], // Wildcard for all
+    permissionIds: ADMIN_PERMISSIONS,
     isSystem: true,
     isDefault: false,
   },
   {
     name: UserRole.USER,
     description: 'Standard user with basic permissions',
-    permissionIds: ['user:read', 'timer:create', 'timer:read', 'timer:update'],
+    permissionIds: USER_PERMISSIONS,
     isSystem: true,
     isDefault: true,
   },
   {
     name: UserRole.VIEWER,
     description: 'Read-only user',
-    permissionIds: ['user:read', 'timer:read', 'organization:read', 'integration:read', 'statistics:read'],
+    permissionIds: VIEWER_PERMISSIONS,
     isSystem: true,
     isDefault: false,
   },
