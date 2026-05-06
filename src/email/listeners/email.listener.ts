@@ -25,7 +25,7 @@ export class EmailListener {
       await this.emailService.sendBySlug('welcome', payload.email, {
         userName: payload.name,
         verificationLink,
-      });
+      }, payload.lang);
     } catch (error) {
       this.logger.error(`Failed to send welcome email to ${payload.email}: ${(error as Error).message}`);
     }
@@ -38,7 +38,7 @@ export class EmailListener {
       await this.emailService.sendBySlug('password-reset', payload.email, {
         userName: payload.name,
         resetLink,
-      });
+      }, payload.lang);
     } catch (error) {
       this.logger.error(`Failed to send password reset email to ${payload.email}: ${(error as Error).message}`);
     }
@@ -49,7 +49,7 @@ export class EmailListener {
     try {
       await this.emailService.sendBySlug('password-changed', payload.email, {
         userName: payload.name,
-      });
+      }, payload.lang);
     } catch (error) {
       this.logger.error(`Failed to send password changed email to ${payload.email}: ${(error as Error).message}`);
     }
@@ -62,7 +62,7 @@ export class EmailListener {
       await this.emailService.sendBySlug('email-change', payload.newEmail, {
         userName: payload.name,
         confirmationLink,
-      });
+      }, payload.lang);
     } catch (error) {
       this.logger.error(`Failed to send email change confirmation to ${payload.newEmail}: ${(error as Error).message}`);
     }

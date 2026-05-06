@@ -57,11 +57,11 @@ async function bootstrap() {
     .setVersion(version)
     .addBearerAuth()
     .addGlobalParameters({
-      name: 'Accept-Language',
+      name: 'accept-language',
       in: 'header',
-      description: 'Idioma de respuesta',
       required: false,
-      schema: { type: 'string', enum: ['es', 'en', 'pt'], default: 'es' },
+      description: 'Idioma: es (Español) | en (English) | pt (Português)',
+      schema: { type: 'string', enum: ['es', 'en', 'pt'] },
     })
     .build();
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);

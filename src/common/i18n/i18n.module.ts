@@ -1,5 +1,5 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
-import { I18nModule as NestI18nModule, QueryResolver, HeaderResolver } from 'nestjs-i18n';
+import { I18nModule as NestI18nModule, AcceptLanguageResolver } from 'nestjs-i18n';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { I18nService } from './i18n.service';
@@ -26,7 +26,7 @@ function resolveTranslationsPath(): string {
         path: resolveTranslationsPath(),
         watch: true,
       },
-      resolvers: [{ use: QueryResolver, options: ['lang'] }, new HeaderResolver(['accept-language'])],
+      resolvers: [AcceptLanguageResolver],
     }),
   ],
   providers: [I18nService],

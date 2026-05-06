@@ -104,9 +104,9 @@ export class EmailTemplateService {
     }
   }
 
-  async resolve(slug: string): Promise<EmailTemplate> {
-    // Get current language from I18nService
-    const lang = this.i18nService.getLanguage() || DEFAULT_LANGUAGE;
+  async resolve(slug: string, lang?: string): Promise<EmailTemplate> {
+    // Use provided language or fall back to I18nService
+    const language = lang || this.i18nService.getLanguage() || DEFAULT_LANGUAGE;
 
     // Try DB first
     const dbTemplate = await this.repository.findBySlug(slug);
@@ -122,11 +122,11 @@ export class EmailTemplateService {
 
     // Load embedded HTML and create a virtual template
     // Try language-specific template first (e.g., templates/en/welcome.html)
-    const content = this.loadDefaultHtml(defaultDef.contentFile, lang);
+    const content = this.loadDefaultHtml(defaultDef.contentFile, language);
 
-    // Get language-specific subject
-    const subjectKey = `email.${slug}_subject`;
-    const subject = (await this.i18nService.translate(subjectKey)) || defaultDef.subject;
+    // Get language-specific subject (replace dashes with underscores for key lookup)
+    const subjectKey = `email.${slug.replace(/-/g, '_')}_subject`;
+    const subject = (await this.i18nService.translate(subjectKey, language)) || defaultDef.subject;
 
     return {
       id: `default-${defaultDef.slug}`,

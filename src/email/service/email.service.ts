@@ -34,8 +34,8 @@ export class EmailService {
     });
   }
 
-  async sendBySlug(slug: string, to: string, variables: Record<string, string> = {}): Promise<{ status: string }> {
-    const template = await this.templateService.resolve(slug);
+  async sendBySlug(slug: string, to: string, variables: Record<string, string> = {}, lang?: string): Promise<{ status: string }> {
+    const template = await this.templateService.resolve(slug, lang);
     const { subject, html } = this.templateService.render(template, variables);
 
     const log = await this.logRepository.create({

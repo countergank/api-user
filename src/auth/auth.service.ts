@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { JwtService } from '@nestjs/jwt';
+import { I18nContext } from 'nestjs-i18n';
 import { EmailEvents } from '../email/constants/email.events';
 import { User, UserRole } from '../user/entities/user.entity';
 import { UserService } from '../user/service/user.service';
@@ -32,6 +33,14 @@ export class AuthService {
     private jwtService: JwtService,
     private eventEmitter: EventEmitter2,
   ) {}
+
+  private getLang(): string | undefined {
+    try {
+      return I18nContext.current()?.lang;
+    } catch {
+      return undefined;
+    }
+  }
 
   async register(
     email: string,
@@ -69,6 +78,7 @@ export class AuthService {
       email: user.email,
       name: user.name,
       verificationToken,
+      lang: this.getLang(),
     });
 
     return this.generateAuthResponse(user, verificationToken);
@@ -115,6 +125,7 @@ export class AuthService {
       email: user.email,
       name: user.name,
       resetToken,
+      lang: this.getLang(),
     });
   }
 
@@ -137,7 +148,7 @@ export class AuthService {
       userId: user.id,
       email: user.email,
       name: user.name,
-    });
+    } as any);
   }
 
   async verifyEmail(token: string): Promise<void> {
@@ -192,6 +203,7 @@ export class AuthService {
       email,
       name,
       verificationToken,
+      lang: this.getLang(),
     });
   }
 
