@@ -74,13 +74,13 @@ describe('I18nMiddleware (unit)', () => {
   it('should fall back to Spanish for unsupported language', () => {
     const req: any = {
       headers: {
-        'accept-language': 'fr,de;q=0.9',  // French & German not supported
+        'accept-language': 'fr,de;q=0.9', // French & German not supported
       },
     };
 
     middleware.use(req, mockResponse, mockNext);
 
-    expect(req.i18nLang).toBe('es');  // Falls back to default
+    expect(req.i18nLang).toBe('es'); // Falls back to default
     expect(mockNext).toHaveBeenCalled();
   });
 
@@ -93,7 +93,7 @@ describe('I18nMiddleware (unit)', () => {
 
     middleware.use(req, mockResponse, mockNext);
 
-    expect(req.i18nLang).toBe('es');  // Falls back to default
+    expect(req.i18nLang).toBe('es'); // Falls back to default
     expect(mockNext).toHaveBeenCalled();
   });
 });

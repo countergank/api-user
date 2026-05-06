@@ -112,16 +112,12 @@ export class AuthService {
       resetPasswordExpires: expires,
     });
 
-
-    const i18nLang = lang;
-    Logger.log(`🔑 forgotPassword → I18nContext.lang="${i18nLang}"`, AuthService.name);
-
     this.eventEmitter.emit(EmailEvents.FORGOT_PASSWORD, {
       userId: user.id,
       email: user.email,
       name: user.name,
       resetToken,
-      lang: i18nLang,
+      lang,
     });
   }
 

@@ -22,10 +22,15 @@ export class EmailListener {
   async handleUserRegistered(payload: UserRegisteredEvent): Promise<void> {
     try {
       const verificationLink = `${process.env.FRONTEND_URL}/verify?token=${payload.verificationToken}`;
-      await this.emailService.sendBySlug('welcome', payload.email, {
-        userName: payload.name,
-        verificationLink,
-      }, payload.lang);
+      await this.emailService.sendBySlug(
+        'welcome',
+        payload.email,
+        {
+          userName: payload.name,
+          verificationLink,
+        },
+        payload.lang,
+      );
     } catch (error) {
       this.logger.error(`Failed to send welcome email to ${payload.email}: ${(error as Error).message}`);
     }
@@ -34,12 +39,16 @@ export class EmailListener {
   @OnEvent(EmailEvents.FORGOT_PASSWORD)
   async handleForgotPassword(payload: ForgotPasswordEvent): Promise<void> {
     try {
-      Logger.log(`📨 Listener: payload.lang="${payload.lang}"`, EmailListener.name);
       const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${payload.resetToken}`;
-      await this.emailService.sendBySlug('password-reset', payload.email, {
-        userName: payload.name,
-        resetLink,
-      }, payload.lang);
+      await this.emailService.sendBySlug(
+        'password-reset',
+        payload.email,
+        {
+          userName: payload.name,
+          resetLink,
+        },
+        payload.lang,
+      );
     } catch (error) {
       this.logger.error(`Failed to send password reset email to ${payload.email}: ${(error as Error).message}`);
     }
@@ -48,9 +57,14 @@ export class EmailListener {
   @OnEvent(EmailEvents.PASSWORD_CHANGED)
   async handlePasswordChanged(payload: PasswordChangedEvent): Promise<void> {
     try {
-      await this.emailService.sendBySlug('password-changed', payload.email, {
-        userName: payload.name,
-      }, payload.lang);
+      await this.emailService.sendBySlug(
+        'password-changed',
+        payload.email,
+        {
+          userName: payload.name,
+        },
+        payload.lang,
+      );
     } catch (error) {
       this.logger.error(`Failed to send password changed email to ${payload.email}: ${(error as Error).message}`);
     }
@@ -60,10 +74,15 @@ export class EmailListener {
   async handleEmailChangeRequested(payload: EmailChangeRequestedEvent): Promise<void> {
     try {
       const confirmationLink = `${process.env.FRONTEND_URL}/confirm-email?token=${payload.pendingEmailToken}`;
-      await this.emailService.sendBySlug('email-change', payload.newEmail, {
-        userName: payload.name,
-        confirmationLink,
-      }, payload.lang);
+      await this.emailService.sendBySlug(
+        'email-change',
+        payload.newEmail,
+        {
+          userName: payload.name,
+          confirmationLink,
+        },
+        payload.lang,
+      );
     } catch (error) {
       this.logger.error(`Failed to send email change confirmation to ${payload.newEmail}: ${(error as Error).message}`);
     }
@@ -72,9 +91,14 @@ export class EmailListener {
   @OnEvent(EmailEvents.EMAIL_CHANGE_CONFIRMED)
   async handleEmailChangeConfirmed(payload: EmailChangeConfirmedEvent): Promise<void> {
     try {
-      await this.emailService.sendBySlug('password-changed', payload.email, {
-        userName: payload.name,
-      }, payload.lang);
+      await this.emailService.sendBySlug(
+        'password-changed',
+        payload.email,
+        {
+          userName: payload.name,
+        },
+        payload.lang,
+      );
     } catch (error) {
       this.logger.error(`Failed to send email change notification to ${payload.email}: ${(error as Error).message}`);
     }
@@ -84,10 +108,15 @@ export class EmailListener {
   async handleResendVerification(payload: ResendVerificationEvent): Promise<void> {
     try {
       const verificationLink = `${process.env.FRONTEND_URL}/verify?token=${payload.verificationToken}`;
-      await this.emailService.sendBySlug('welcome', payload.email, {
-        userName: payload.name,
-        verificationLink,
-      }, payload.lang);
+      await this.emailService.sendBySlug(
+        'welcome',
+        payload.email,
+        {
+          userName: payload.name,
+          verificationLink,
+        },
+        payload.lang,
+      );
     } catch (error) {
       this.logger.error(`Failed to resend verification email to ${payload.email}: ${(error as Error).message}`);
     }

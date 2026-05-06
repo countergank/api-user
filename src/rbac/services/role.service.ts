@@ -7,14 +7,9 @@ import { UserRole } from '../../user/entities/user.entity';
 // ── Default permissions per role ──────────────────────
 export const ADMIN_PERMISSIONS = ['*'];
 
-export const USER_PERMISSIONS = [
-  'user:read',
-  'user:update',
-];
+export const USER_PERMISSIONS = ['user:read', 'user:update'];
 
-export const VIEWER_PERMISSIONS = [
-  'user:read',
-];
+export const VIEWER_PERMISSIONS = ['user:read'];
 // ───────────────────────────────────────────────────────
 
 export const DEFAULT_ROLES = [

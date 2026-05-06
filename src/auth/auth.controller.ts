@@ -27,7 +27,14 @@ export class AuthController {
   @Post('register')
   @ApplyRegisterDoc()
   async register(@Body() dto: RegisterUserDTO, @Req() req: any) {
-    return this.authService.register(dto.email, dto.userName, dto.password, dto.name, dto.lastName, getRequestLang(req));
+    return this.authService.register(
+      dto.email,
+      dto.userName,
+      dto.password,
+      dto.name,
+      dto.lastName,
+      getRequestLang(req),
+    );
   }
 
   @Post('login')

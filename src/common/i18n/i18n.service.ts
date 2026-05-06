@@ -119,9 +119,7 @@ export class I18nService implements II18nService, OnModuleInit {
 
   private interpolate(text: string, params?: Record<string, any>): string {
     if (!params || !text) return text;
-    return text.replace(/\{\{(\w+)\}\}/g, (_, key) =>
-      params[key] !== undefined ? String(params[key]) : `{{${key}}}`,
-    );
+    return text.replace(/\{\{(\w+)\}\}/g, (_, key) => (params[key] !== undefined ? String(params[key]) : `{{${key}}}`));
   }
 
   private setNested(obj: Record<string, any>, key: string, value: string): void {

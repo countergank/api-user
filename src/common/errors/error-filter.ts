@@ -16,7 +16,8 @@ export class ErrorFilter implements ExceptionFilter {
     const request = httpCtx.getRequest<any>();
 
     let status = 500;
-    let message: string | string[] = (await this.translateKey('errors.INTERNAL_ERROR', request)) || 'Internal server error';
+    let message: string | string[] =
+      (await this.translateKey('errors.INTERNAL_ERROR', request)) || 'Internal server error';
 
     if (exception instanceof ErrorBase) {
       status = this.getStatusFromErrorCode(exception.code);
@@ -34,9 +35,7 @@ export class ErrorFilter implements ExceptionFilter {
           const translated: string[] = [];
           for (const msg of resp.message) {
             const parts = String(msg).split('|');
-            const translatedParts = await Promise.all(
-              parts.map((p) => this.translateValidation(p.trim(), request)),
-            );
+            const translatedParts = await Promise.all(parts.map((p) => this.translateValidation(p.trim(), request)));
             translated.push(...translatedParts);
           }
           message = translated;

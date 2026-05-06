@@ -106,12 +106,9 @@ export class EmailTemplateService {
 
   async resolve(slug: string, lang?: string): Promise<EmailTemplate> {
     const language = lang || this.i18nService.getLanguage() || DEFAULT_LANGUAGE;
-    Logger.log(`🔍 resolve("${slug}") → language="${language}"`, EmailTemplateService.name);
 
-    // Try DB first — but only for default language (templates in DB are in Spanish)
     const dbTemplate = await this.repository.findBySlug(slug);
     if (dbTemplate && language === DEFAULT_LANGUAGE) {
-      Logger.log(`📧 Using DB template for "${slug}" (lang=es)`, EmailTemplateService.name);
       return dbTemplate;
     }
 
@@ -123,14 +120,10 @@ export class EmailTemplateService {
 
     // Load language-specific HTML template (e.g., templates/en/welcome.html)
     const content = this.loadDefaultHtml(defaultDef.contentFile, language);
-    Logger.log(`📄 Loaded template: "${defaultDef.contentFile}" lang="${language}" → ${content.length} chars`, EmailTemplateService.name);
 
-    // Translate subject
     const subjectKey = `email.${slug.replace(/-/g, '_')}_subject`;
     const subject = (await this.i18nService.translate(subjectKey, language)) || defaultDef.subject;
-    Logger.log(`📝 Subject "${subjectKey}" → "${subject}"`, EmailTemplateService.name);
 
-    // If we found a DB template, merge translations into it
     if (dbTemplate) {
       return { ...(dbTemplate as any), subject, content };
     }
@@ -182,7 +175,6 @@ export class EmailTemplateService {
     if (lang) {
       for (const base of ['dist', 'src']) {
         const langPath = path.join(process.cwd(), base, 'email', 'templates', lang, filename);
-        Logger.log(`🔎 Checking: ${langPath} (exists: ${fs.existsSync(langPath)})`, EmailTemplateService.name);
         if (fs.existsSync(langPath)) {
           return fs.readFileSync(langPath, 'utf-8');
         }
