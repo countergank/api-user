@@ -50,7 +50,7 @@
     "user:update": "Actualizar usuarios",
     "user:delete": "Eliminar usuarios",
     "role:read": "Leer roles",
-    "role:update": "Actualizar permisos de rol",
+    "role:update": "Actualizar roles",
     "permission:read": "Leer permisos",
     "role:create": "Crear roles",
     "role:delete": "Eliminar roles",

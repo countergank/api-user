@@ -58,10 +58,13 @@
 - [x] Default role permissions cleaned (USER: user:read+update, VIEWER: user:read)
 - [x] PermissionCategory enum cleaned (only USER, SYSTEM)
 - [x] 12 RBAC permissions with translations
+- [x] MongoDB-backed i18n storage with `POST /admin/i18n/reload`
+- [x] `I18nTranslation` entity + auto-seed from JSON on first run
+- [x] Shared helpers: `request-lang.helper.ts`, `rbac-translate.helper.ts`
 
-## Pending — Next SDD Change
+## Pending — Cleanup
 
-- [ ] MongoDB-backed i18n translations (no redeploy needed)
-- [ ] `POST /admin/i18n/reload` endpoint
-- [ ] Remove debug logs
+- [ ] Remove debug logs from EmailTemplateService and AuthService
+- [ ] Run final linter & formatter
+- [ ] Final test run
 - [ ] Commit and archive `feature/internacionalizacion`

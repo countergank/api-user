@@ -49,7 +49,7 @@
     "user:update": "Atualizar usuários",
     "user:delete": "Excluir usuários",
     "role:read": "Ler funções",
-    "role:update": "Atualizar permissões de função",
+    "role:update": "Atualizar funções",
     "permission:read": "Ler permissões",
     "role:create": "Criar funções",
     "role:delete": "Excluir funções",
