@@ -103,18 +103,14 @@ export class PasswordStrengthValidator implements ValidatorConstraintInterface {
   }
 
   defaultMessage(_args: ValidationArguments): string {
-    // Try to get stored errors from validation
     const errors: string[] = (this as any).__validationErrors || [];
 
     if (errors.length > 0) {
-      // Return code:message format for easier testing
-      // The ErrorFilter will translate this using I18nService
-      const code = errors[0];
-      const message = PASSWORD_MESSAGES[code]?.es || code;
-      return `${code}: ${message}`;
+      // Return ALL error codes joined — ErrorFilter will split & translate each
+      return errors.join('|');
     }
 
-    return 'PASSWORD_INVALID: La contraseña no cumple con los requisitos de seguridad';
+    return 'PASSWORD_INVALID';
   }
 
   /**

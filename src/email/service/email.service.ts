@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { EmailProvider } from '../interfaces/email-provider.interface';
 import { EMAIL_PROVIDER_TOKEN } from '../constants/email.tokens';
@@ -16,6 +16,8 @@ export interface EmailSendEvent {
 
 @Injectable()
 export class EmailService {
+  private readonly logger = new Logger(EmailService.name);
+
   constructor(
     @Inject(EMAIL_PROVIDER_TOKEN)
     private readonly provider: EmailProvider,
@@ -26,8 +28,8 @@ export class EmailService {
     this.eventEmitter.on('email.send', async (event: EmailSendEvent) => {
       try {
         await this.processSend(event);
-      } catch {
-        // Silently fail in tests/non-prod environments
+      } catch (error) {
+        this.logger.error(`Failed to send email to ${event.to}: ${error}`, (error as any)?.stack);
       }
     });
   }

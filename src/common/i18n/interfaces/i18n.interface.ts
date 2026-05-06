@@ -23,7 +23,7 @@ export interface II18nService {
    * @param params - Optional parameters for interpolation
    * @returns The translated string
    */
-  translate(key: string, lang?: string, params?: Record<string, any>): string;
+  translate(key: string, lang?: string, params?: Record<string, any>): Promise<string>;
 
   /**
    * Get the current active language

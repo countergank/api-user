@@ -10,36 +10,38 @@ export class ErrorFilter implements ExceptionFilter {
     private readonly i18nService?: I18nService,
   ) {}
 
-  catch(exception: ErrorBase | Error, host: ArgumentsHost) {
-    const ctx = host.switchToHttp();
-    const response = ctx.getResponse<any>();
+  async catch(exception: ErrorBase | Error, host: ArgumentsHost) {
+    const httpCtx = host.switchToHttp();
+    const response = httpCtx.getResponse<any>();
+    const request = httpCtx.getRequest<any>();
 
     let status = 500;
-    let message: string | string[] = this.i18nService?.translate('errors.INTERNAL_ERROR') || 'Internal server error';
+    let message: string | string[] = (await this.translateKey('errors.INTERNAL_ERROR', request)) || 'Internal server error';
 
     if (exception instanceof ErrorBase) {
       status = this.getStatusFromErrorCode(exception.code);
-      // Translate the error message using the error code
       const errorPublic = exception.getErrorPublic();
       const translationKey = `errors.${errorPublic.code}`;
-      message = this.i18nService?.translate(translationKey) || errorPublic.message;
+      message = (await this.translateKey(translationKey, request)) || errorPublic.message;
     } else if (exception instanceof HttpException) {
       status = exception.getStatus();
       const exceptionResponse = exception.getResponse();
 
-      // Handle validation errors from ValidationPipe
       if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
-        const response = exceptionResponse as any;
-        if (Array.isArray(response.message)) {
-          // Translate validation messages
-          const lang = this.i18nService?.getLanguage() || 'es';
-          message = response.message.map((msg: string) => {
-            // Try to translate the message
-            const translated = this.i18nService?.translate(`validation.${msg}`, lang);
-            return translated && translated !== `validation.${msg}` ? translated : msg;
-          });
-        } else if (response.message) {
-          message = this.i18nService?.translate(`errors.${response.message}`, undefined, response.message) || response.message;
+        const resp = exceptionResponse as any;
+        if (Array.isArray(resp.message)) {
+          // Translate each message; messages may contain | to indicate multiple errors
+          const translated: string[] = [];
+          for (const msg of resp.message) {
+            const parts = String(msg).split('|');
+            const translatedParts = await Promise.all(
+              parts.map((p) => this.translateValidation(p.trim(), request)),
+            );
+            translated.push(...translatedParts);
+          }
+          message = translated;
+        } else if (resp.message) {
+          message = (await this.translateKey(`errors.${resp.message}`, request)) || resp.message;
         }
       } else {
         message = exception.message;
@@ -68,5 +70,34 @@ export class ErrorFilter implements ExceptionFilter {
     if (code.includes('001')) return 404;
     if (code.includes('002') || code.includes('003')) return 400;
     return 500;
+  }
+
+  private async translateKey(key: string, request: any): Promise<string | undefined> {
+    if (!this.i18nService) return undefined;
+    try {
+      const lang = this.getLangFromRequest(request);
+      return await this.i18nService.translate(key, lang);
+    } catch {
+      return undefined;
+    }
+  }
+
+  private async translateValidation(msg: string, request: any): Promise<string> {
+    if (!this.i18nService) return msg;
+    try {
+      const lang = this.getLangFromRequest(request);
+      let prefix = msg.startsWith('PASSWORD_') ? 'password' : 'validation';
+      const translated = await this.i18nService.translate(`${prefix}.${msg}`, lang);
+      return translated || msg;
+    } catch {
+      return msg;
+    }
+  }
+
+  private getLangFromRequest(request: any): string {
+    const header = request?.headers?.['accept-language'];
+    if (!header) return 'es';
+    const first = header.split(',')[0]?.trim()?.toLowerCase()?.slice(0, 2);
+    return ['es', 'en', 'pt'].includes(first) ? first : 'es';
   }
 }

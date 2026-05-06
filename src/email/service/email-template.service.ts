@@ -126,7 +126,7 @@ export class EmailTemplateService {
 
     // Get language-specific subject
     const subjectKey = `email.${slug}_subject`;
-    const subject = this.i18nService.translate(subjectKey) || defaultDef.subject;
+    const subject = (await this.i18nService.translate(subjectKey)) || defaultDef.subject;
 
     return {
       id: `default-${defaultDef.slug}`,
