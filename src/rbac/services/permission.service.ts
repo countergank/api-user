@@ -8,6 +8,14 @@ export const DEFAULT_PERMISSIONS = [
   { name: 'user:read', description: 'Read users', category: PermissionCategory.USER },
   { name: 'user:update', description: 'Update users', category: PermissionCategory.USER },
   { name: 'user:delete', description: 'Delete users', category: PermissionCategory.USER },
+  { name: 'role:create', description: 'Create roles', category: PermissionCategory.SYSTEM },
+  { name: 'role:read', description: 'Read roles', category: PermissionCategory.SYSTEM },
+  { name: 'role:update', description: 'Update roles', category: PermissionCategory.SYSTEM },
+  { name: 'role:delete', description: 'Delete roles', category: PermissionCategory.SYSTEM },
+  { name: 'permission:create', description: 'Create permissions', category: PermissionCategory.SYSTEM },
+  { name: 'permission:read', description: 'Read permissions', category: PermissionCategory.SYSTEM },
+  { name: 'permission:update', description: 'Update permissions', category: PermissionCategory.SYSTEM },
+  { name: 'permission:delete', description: 'Delete permissions', category: PermissionCategory.SYSTEM },
 ];
 
 @Injectable()

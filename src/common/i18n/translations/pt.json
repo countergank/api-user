@@ -47,6 +47,14 @@
     "user:create": "Criar usuários",
     "user:read": "Ler usuários",
     "user:update": "Atualizar usuários",
-    "user:delete": "Excluir usuários"
+    "user:delete": "Excluir usuários",
+    "role:read": "Ler funções",
+    "role:update": "Atualizar permissões de função",
+    "permission:read": "Ler permissões",
+    "role:create": "Criar funções",
+    "role:delete": "Excluir funções",
+    "permission:create": "Criar permissões",
+    "permission:update": "Atualizar permissões",
+    "permission:delete": "Excluir permissões"
   }
 }
