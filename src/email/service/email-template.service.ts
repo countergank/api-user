@@ -1,10 +1,12 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, ConflictException, BadRequestException, Inject } from '@nestjs/common';
 import { CreateTemplateDto } from '../dto/create-template.dto';
 import { UpdateTemplateDto } from '../dto/update-template.dto';
 import { EmailTemplate } from '../entities/email-template.entity';
 import { EmailTemplateRepository } from '../repository/email-template.repository';
+import { I18nService } from '../../common/i18n/i18n.service';
+import { SupportedLanguage, DEFAULT_LANGUAGE } from '../../common/i18n/interfaces/i18n.interface';
 
 interface DefaultTemplate {
   slug: string;
@@ -47,7 +49,11 @@ const DEFAULT_TEMPLATES: DefaultTemplate[] = [
 
 @Injectable()
 export class EmailTemplateService {
-  constructor(private readonly repository: EmailTemplateRepository) {}
+  constructor(
+    private readonly repository: EmailTemplateRepository,
+    @Inject(I18nService)
+    private readonly i18nService: I18nService,
+  ) {}
 
   async create(dto: CreateTemplateDto): Promise<EmailTemplate> {
     const exists = await this.repository.existsBySlug(dto.slug);
@@ -98,26 +104,35 @@ export class EmailTemplateService {
     }
   }
 
-  async resolve(slug: string): Promise<EmailTemplate> {
-    // Try DB first
+  async resolve(slug: string, lang?: string): Promise<EmailTemplate> {
+    const language = lang || this.i18nService.getLanguage() || DEFAULT_LANGUAGE;
+
     const dbTemplate = await this.repository.findBySlug(slug);
-    if (dbTemplate) {
+    if (dbTemplate && language === DEFAULT_LANGUAGE) {
       return dbTemplate;
     }
 
-    // Fall back to default
+    // Fall back to default definition
     const defaultDef = DEFAULT_TEMPLATES.find((t) => t.slug === slug);
     if (!defaultDef) {
       throw new NotFoundException(`Template "${slug}" not found in database and no default exists`);
     }
 
-    // Load embedded HTML and create a virtual template
-    const content = this.loadDefaultHtml(defaultDef.contentFile);
+    // Load language-specific HTML template (e.g., templates/en/welcome.html)
+    const content = this.loadDefaultHtml(defaultDef.contentFile, language);
+
+    const subjectKey = `email.${slug.replace(/-/g, '_')}_subject`;
+    const subject = (await this.i18nService.translate(subjectKey, language)) || defaultDef.subject;
+
+    if (dbTemplate) {
+      return { ...(dbTemplate as any), subject, content };
+    }
+
     return {
       id: `default-${defaultDef.slug}`,
       name: defaultDef.name,
       slug: defaultDef.slug,
-      subject: defaultDef.subject,
+      subject: subject,
       content,
       variables: defaultDef.variables,
       isActive: true,
@@ -155,7 +170,18 @@ export class EmailTemplateService {
     });
   }
 
-  private loadDefaultHtml(filename: string): string {
+  private loadDefaultHtml(filename: string, lang?: string): string {
+    // Try language-specific path (e.g., templates/en/filename) in dist/ then src/
+    if (lang) {
+      for (const base of ['dist', 'src']) {
+        const langPath = path.join(process.cwd(), base, 'email', 'templates', lang, filename);
+        if (fs.existsSync(langPath)) {
+          return fs.readFileSync(langPath, 'utf-8');
+        }
+      }
+    }
+
+    // Fall back to defaults directory
     const distPath = path.join(process.cwd(), 'dist', 'email', 'templates', 'defaults', filename);
     const srcPath = path.join(process.cwd(), 'src', 'email', 'templates', 'defaults', filename);
 

@@ -52,6 +52,8 @@
     "mongodb": "^6.8.0",
     "mongodb-memory-server": "^10.0.0",
     "mongoose": "^8.5.1",
+    "nestjs-cls": "^6.2.0",
+    "nestjs-i18n": "^10.8.3",
     "nodemailer": "^8.0.7",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
@@ -98,7 +100,8 @@
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "collectCoverageFrom": [
-      "**/*.{!(module),}.(t|j)s"
+      "**/*.{!(module),}.(t|j)s",
+      "test/**/*.{t|j)s"
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",

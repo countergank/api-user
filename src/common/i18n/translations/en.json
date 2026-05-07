@@ -1,0 +1,61 @@
+{
+  "errors": {
+    "USER_NOT_FOUND": "User not found",
+    "INVALID_CREDENTIALS": "Invalid credentials",
+    "INTERNAL_ERROR": "Internal server error",
+    "VALIDATION_ERROR": "Validation error",
+    "EMAIL_ALREADY_EXISTS": "Email is already registered",
+    "USER_ALREADY_EXISTS": "User already exists",
+    "INVALID_TOKEN": "Invalid token",
+    "TOKEN_EXPIRED": "Token expired",
+    "FORBIDDEN": "Access denied",
+    "BAD_REQUEST": "Bad request"
+  },
+  "validation": {
+    "IS_EMAIL": "must be a valid email",
+    "IS_NOT_EMPTY": "must not be empty",
+    "MIN_LENGTH": "must be at least $constraint1 characters",
+    "MAX_LENGTH": "must not exceed $constraint1 characters",
+    "IS_STRONG_PASSWORD": "must be a strong password"
+  },
+  "password": {
+    "PASSWORD_TOO_SHORT": "Password must have at least 8 characters",
+    "PASSWORD_TOO_LONG": "Password cannot exceed 64 characters",
+    "PASSWORD_NO_LOWERCASE": "Password must contain at least one lowercase letter",
+    "PASSWORD_NO_UPPERCASE": "Password must contain at least one uppercase letter",
+    "PASSWORD_NO_NUMBER": "Password must contain at least one number",
+    "PASSWORD_NO_SPECIAL": "Password must contain at least one non-alphanumeric character",
+    "PASSWORD_REPEATED_CHARS": "Password cannot have consecutive repeated characters",
+    "PASSWORD_COMMON_SEQUENCE": "Password cannot contain common sequences like 123, abc, qwe, asd, zxc",
+    "PASSWORD_HINT_EN": "Password must have: minimum 8 characters, maximum 64, at least one uppercase, one lowercase, one number and one non-alphanumeric character",
+    "PASSWORD_HINT_PT": "A senha deve ter: mínimo 8 caracteres, máximo 64, pelo menos uma maiúscula, uma minúscula, um número e um caractere não alfanumérico"
+  },
+  "email": {
+    "welcome_subject": "Welcome {{userName}} — Verify your account",
+    "password_reset_subject": "Password Reset",
+    "email_change_subject": "Email Change Confirmation",
+    "password_changed_subject": "Your password was changed"
+  },
+  "messages": {
+    "welcome": "Welcome, {{username}}!",
+    "goodbye": "Goodbye",
+    "password_reset": "Your password has been reset"
+  },
+  "rbac": {
+    "admin": "Administrator with full access",
+    "user": "Standard user with basic permissions",
+    "viewer": "Read-only user",
+    "user:create": "Create users",
+    "user:read": "Read users",
+    "user:update": "Update users",
+    "user:delete": "Delete users",
+    "role:read": "Read roles",
+    "role:update": "Update roles",
+    "permission:read": "Read permissions",
+    "role:create": "Create roles",
+    "role:delete": "Delete roles",
+    "permission:create": "Create permissions",
+    "permission:update": "Update permissions",
+    "permission:delete": "Delete permissions"
+  }
+}

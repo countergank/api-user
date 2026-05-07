@@ -1,0 +1,61 @@
+{
+  "errors": {
+    "USER_NOT_FOUND": "Usuario no encontrado",
+    "INVALID_CREDENTIALS": "Credenciales inválidas",
+    "INTERNAL_ERROR": "Error interno del servidor",
+    "VALIDATION_ERROR": "Error de validación",
+    "EMAIL_ALREADY_EXISTS": "El email ya está registrado",
+    "USER_ALREADY_EXISTS": "El usuario ya existe",
+    "INVALID_TOKEN": "Token inválido",
+    "TOKEN_EXPIRED": "Token expirado",
+    "FORBIDDEN": "Acceso denegado",
+    "BAD_REQUEST": "Solicitud incorrecta"
+  },
+  "validation": {
+    "IS_EMAIL": "debe ser un email válido",
+    "IS_NOT_EMPTY": "no debe estar vacío",
+    "MIN_LENGTH": "debe tener al menos $constraint1 caracteres",
+    "MAX_LENGTH": "no debe exceder $constraint1 caracteres",
+    "IS_STRONG_PASSWORD": "debe ser una contraseña segura"
+  },
+  "password": {
+    "PASSWORD_TOO_SHORT": "La contraseña debe tener al menos 8 caracteres",
+    "PASSWORD_TOO_LONG": "La contraseña no puede exceder 64 caracteres",
+    "PASSWORD_NO_LOWERCASE": "La contraseña debe contener al menos una letra minúscula",
+    "PASSWORD_NO_UPPERCASE": "La contraseña debe contener al menos una letra mayúscula",
+    "PASSWORD_NO_NUMBER": "La contraseña debe contener al menos un número",
+    "PASSWORD_NO_SPECIAL": "La contraseña debe contener al menos un carácter no alfanumérico",
+    "PASSWORD_REPEATED_CHARS": "La contraseña no puede tener caracteres consecutivos repetidos",
+    "PASSWORD_COMMON_SEQUENCE": "La contraseña no puede contener secuencias comunes como 123, abc, qwe, asd, zxc",
+    "PASSWORD_HINT_ES": "La contraseña debe tener: mínimo 8 caracteres, máximo 64, al menos una mayúscula, una minúscula, un número y un carácter no alfanumérico",
+    "PASSWORD_HINT_EN": "Password must have: minimum 8 characters, maximum 64, at least one uppercase, one lowercase, one number and one non-alphanumeric character"
+  },
+  "email": {
+    "welcome_subject": "¡Bienvenido {{userName}} — Verifica tu cuenta",
+    "password_reset_subject": "Recuperación de contraseña",
+    "email_change_subject": "Confirmación de cambio de email",
+    "password_changed_subject": "Tu contraseña fue cambiada"
+  },
+  "messages": {
+    "welcome": "¡Bienvenido, {{username}}!",
+    "goodbye": "Hasta luego",
+    "password_reset": "Tu contraseña ha sido restablecida"
+  },
+  "rbac": {
+    "admin": "Administrador con acceso total",
+    "user": "Usuario estándar",
+    "viewer": "Solo lectura",
+    "user:create": "Crear usuarios",
+    "user:read": "Leer usuarios",
+    "user:update": "Actualizar usuarios",
+    "user:delete": "Eliminar usuarios",
+    "role:read": "Leer roles",
+    "role:update": "Actualizar roles",
+    "permission:read": "Leer permisos",
+    "role:create": "Crear roles",
+    "role:delete": "Eliminar roles",
+    "permission:create": "Crear permisos",
+    "permission:update": "Actualizar permisos",
+    "permission:delete": "Eliminar permisos"
+  }
+}

@@ -64,9 +64,8 @@ export class PasswordStrengthValidator implements ValidatorConstraintInterface {
       errors.push(PASSWORD_ERROR_CODES.NUMBER);
     }
 
-    // Rule 5: At least 1 special char
-    const specialCharRegex = new RegExp(`[${PASSWORD_RULES.SPECIAL_CHARS}]`);
-    if (!specialCharRegex.test(password)) {
+    // Rule 5: At least 1 non-alphanumeric character
+    if (!/[^a-zA-Z0-9]/.test(password)) {
       errors.push(PASSWORD_ERROR_CODES.SPECIAL_CHAR);
     }
 
@@ -102,18 +101,15 @@ export class PasswordStrengthValidator implements ValidatorConstraintInterface {
     return errors;
   }
 
-  defaultMessage(args: ValidationArguments): string {
-    // Try to get stored errors from validation
+  defaultMessage(_args: ValidationArguments): string {
     const errors: string[] = (this as any).__validationErrors || [];
 
     if (errors.length > 0) {
-      // Return code:message format for easier testing
-      const code = errors[0];
-      const message = PASSWORD_MESSAGES[code]?.es || code;
-      return `${code}: ${message}`;
+      // Return ALL error codes joined — ErrorFilter will split & translate each
+      return errors.join('|');
     }
 
-    return 'PASSWORD_INVALID: La contraseña no cumple con los requisitos de seguridad';
+    return 'PASSWORD_INVALID';
   }
 
   /**
@@ -125,8 +121,9 @@ export class PasswordStrengthValidator implements ValidatorConstraintInterface {
     return errorCodes.map((code) => {
       const validationError = new ValidationError();
       validationError.property = 'password';
+      // Return the translation key - ErrorFilter will translate using I18nService
       validationError.constraints = {
-        passwordStrength: PASSWORD_MESSAGES[code]?.es || code,
+        passwordStrength: `validation.${PASSWORD_MESSAGES[code]?.es || code}`,
       };
       validationError.children = [];
       return validationError;

@@ -12,6 +12,7 @@ import { EmailTemplateRepository } from './repository/email-template.repository'
 import { EmailLogRepository } from './repository/email-log.repository';
 import { EmailListener } from './listeners/email.listener';
 import { EMAIL_PROVIDER_TOKEN } from './constants/email.tokens';
+import { I18nModule } from '../common/i18n/i18n.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { EMAIL_PROVIDER_TOKEN } from './constants/email.tokens';
       { name: EmailTemplate.name, schema: EmailTemplateSchema },
       { name: EmailLog.name, schema: EmailLogSchema },
     ]),
+    I18nModule,
   ],
   controllers: [EmailController, EmailTemplateController],
   providers: [

@@ -3,6 +3,7 @@ export interface UserRegisteredEvent {
   email: string;
   name: string;
   verificationToken: string;
+  lang?: string;
 }
 
 export interface ForgotPasswordEvent {
@@ -10,12 +11,14 @@ export interface ForgotPasswordEvent {
   email: string;
   name: string;
   resetToken: string;
+  lang?: string;
 }
 
 export interface PasswordChangedEvent {
   userId: string;
   email: string;
   name: string;
+  lang?: string;
 }
 
 export interface EmailChangeRequestedEvent {
@@ -23,12 +26,14 @@ export interface EmailChangeRequestedEvent {
   newEmail: string;
   name: string;
   pendingEmailToken: string;
+  lang?: string;
 }
 
 export interface EmailChangeConfirmedEvent {
   userId: string;
   email: string;
   name: string;
+  lang?: string;
 }
 
 export interface ResendVerificationEvent {
@@ -36,4 +41,5 @@ export interface ResendVerificationEvent {
   email: string;
   name: string;
   verificationToken: string;
+  lang?: string;
 }

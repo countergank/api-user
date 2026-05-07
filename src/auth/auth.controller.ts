@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, Post } from '@nestjs/common';
+import { Body, Controller, HttpCode, Post, Req } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import {
   ApplyConfirmEmailChangeDoc,
@@ -12,6 +12,7 @@ import {
 } from './api-docs';
 import { AuthService } from './auth.service';
 import { RegisterUserDTO } from './dto/register-user.dto';
+import { getRequestLang } from '../common/i18n/request-lang.helper';
 
 /**
  * Controller para manejo de autenticación de usuarios.
@@ -25,8 +26,15 @@ export class AuthController {
 
   @Post('register')
   @ApplyRegisterDoc()
-  async register(@Body() dto: RegisterUserDTO) {
-    return this.authService.register(dto.email, dto.userName, dto.password, dto.name, dto.lastName);
+  async register(@Body() dto: RegisterUserDTO, @Req() req: any) {
+    return this.authService.register(
+      dto.email,
+      dto.userName,
+      dto.password,
+      dto.name,
+      dto.lastName,
+      getRequestLang(req),
+    );
   }
 
   @Post('login')
@@ -39,15 +47,15 @@ export class AuthController {
   @Post('forgot-password')
   @HttpCode(200)
   @ApplyForgotPasswordDoc()
-  async forgotPassword(@Body() body: { email: string }) {
-    await this.authService.forgotPassword(body.email);
+  async forgotPassword(@Body() body: { email: string }, @Req() req: any) {
+    await this.authService.forgotPassword(body.email, getRequestLang(req));
     return { message: 'If the email exists, a reset link has been sent' };
   }
 
   @Post('reset-password')
   @ApplyResetPasswordDoc()
-  async resetPassword(@Body() body: { token: string; newPassword: string }) {
-    await this.authService.resetPassword(body.token, body.newPassword);
+  async resetPassword(@Body() body: { token: string; newPassword: string }, @Req() req: any) {
+    await this.authService.resetPassword(body.token, body.newPassword, getRequestLang(req));
     return { message: 'Password reset successfully' };
   }
 
@@ -67,20 +75,20 @@ export class AuthController {
 
   @Post('confirm-email-change')
   @ApplyConfirmEmailChangeDoc()
-  async confirmEmailChange(@Body() body: { token: string }) {
-    await this.authService.confirmEmailChange(body.token);
+  async confirmEmailChange(@Body() body: { token: string }, @Req() req: any) {
+    await this.authService.confirmEmailChange(body.token, getRequestLang(req));
     return { message: 'Email changed successfully' };
   }
 
   @Post('resend-verification')
   @ApplyResendVerificationDoc()
-  async resendVerification(@Body() body: { email: string }) {
+  async resendVerification(@Body() body: { email: string }, @Req() req: any) {
     const user = await this.authService.findUserByEmail(body.email);
     if (!user) {
       return { message: 'If the email exists, a verification link has been sent' };
     }
 
-    await this.authService.resendVerification(user.id, user.email, user.name);
+    await this.authService.resendVerification(user.id, user.email, user.name, getRequestLang(req));
 
     return { message: 'If the email exists, a verification link has been sent' };
   }

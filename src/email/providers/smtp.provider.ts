@@ -11,9 +11,7 @@ export class SmtpProvider implements EmailProvider {
     const pass = process.env.EMAIL_PASS;
 
     if (!host || !port || !user || !pass) {
-      throw new Error(
-        'EMAIL_HOST, EMAIL_PORT, EMAIL_USER, and EMAIL_PASS are required when using SMTP provider',
-      );
+      throw new Error('EMAIL_HOST, EMAIL_PORT, EMAIL_USER, and EMAIL_PASS are required when using SMTP provider');
     }
 
     this.transporter = nodemailer.createTransport({

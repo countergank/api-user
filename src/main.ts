@@ -6,8 +6,10 @@ import { ValidationPipe } from '@nestjs/common';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import hyperid from 'hyperid';
+import { HttpAdapterHost } from '@nestjs/core';
 import { AppModule } from './app/app.module';
 import { ErrorFilter } from './common/errors/error-filter';
+import { I18nService } from './common/i18n/i18n.service';
 import { isProd } from './common/utils';
 
 async function bootstrap() {
@@ -26,7 +28,8 @@ async function bootstrap() {
   );
 
   app.enableCors();
-  app.useGlobalFilters(new ErrorFilter());
+  const i18nService = app.get(I18nService);
+  app.useGlobalFilters(new ErrorFilter(i18nService));
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -53,6 +56,13 @@ async function bootstrap() {
     .setDescription(description)
     .setVersion(version)
     .addBearerAuth()
+    .addGlobalParameters({
+      name: 'accept-language',
+      in: 'header',
+      required: false,
+      description: 'Idioma: es (Español) | en (English) | pt (Português)',
+      schema: { type: 'string', enum: ['es', 'en', 'pt'] },
+    })
     .build();
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('/docs', app, swaggerDocument, { customSiteTitle: `${String(name).toUpperCase()} Docs` });

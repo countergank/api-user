@@ -92,8 +92,9 @@ describe(PasswordStrengthValidator.name, () => {
         expect(validator.validate('Xyzdefgh1')).toBe(false);
       });
 
-      it('should reject passwords with non-allowed special characters', () => {
-        expect(validator.validate('Xyzdefgh1#')).toBe(false);
+      it('should accept passwords with any non-alphanumeric character', () => {
+        expect(validator.validate('Xyzdefgh1#')).toBe(true);
+        expect(validator.validate('Xyzdefgh1.')).toBe(true);
       });
     });
 
@@ -232,10 +233,13 @@ describe(PasswordStrengthValidator.name, () => {
   });
 
   describe('defaultMessage()', () => {
-    it('should return code:message format', () => {
+    it('should return all error codes joined by |', () => {
+      // First validate a weak password to populate errors
+      validator.validate('123');
       const message = validator.defaultMessage({ property: 'password' } as any);
-      expect(message).toContain(':');
       expect(message).toContain('PASSWORD_');
+      expect(message).toContain('|');
+      expect(message).not.toContain('contraseña');
     });
   });
 });

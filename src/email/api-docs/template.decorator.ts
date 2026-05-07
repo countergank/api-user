@@ -19,11 +19,7 @@ import {
 } from '@nestjs/swagger';
 import { BadRequestDTO } from '../../common/dto/bad-request.dto';
 import { InternalErrorDTO } from '../../common/dto/internal-error.dto';
-import {
-  CreateTemplateRequest,
-  TemplateResponse,
-  UpdateTemplateRequest,
-} from './examples/template.examples';
+import { CreateTemplateRequest, TemplateResponse, UpdateTemplateRequest } from './examples/template.examples';
 
 export function ApplyCreateTemplateDoc() {
   return applyDecorators(

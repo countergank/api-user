@@ -6,7 +6,7 @@ export class GenericError extends ErrorBase {
   constructor(e?: unknown) {
     const errorGroup = ErrorBaseEnum.Common;
     const code = ErrorCodes.Base;
-    const message = ErrorMessages[code];
+    const message = ErrorMessages[code].es; // Use Spanish as default
     const error = e ?? message;
     super(errorGroup, code, error);
     Object.setPrototypeOf(this, GenericError.prototype);

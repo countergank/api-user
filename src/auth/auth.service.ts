@@ -1,7 +1,7 @@
-import { randomUUID } from 'node:crypto';
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { JwtService } from '@nestjs/jwt';
+import { randomUUID } from 'node:crypto';
 import { EmailEvents } from '../email/constants/email.events';
 import { User, UserRole } from '../user/entities/user.entity';
 import { UserService } from '../user/service/user.service';
@@ -39,6 +39,7 @@ export class AuthService {
     password: string,
     name: string,
     lastName: string,
+    lang?: string,
   ): Promise<AuthResponse> {
     const existing = await this.userService.existsByEmailOrUsername(email, userName);
     if (existing) {
@@ -69,6 +70,7 @@ export class AuthService {
       email: user.email,
       name: user.name,
       verificationToken,
+      lang: lang,
     });
 
     return this.generateAuthResponse(user, verificationToken);
@@ -96,7 +98,7 @@ export class AuthService {
     return this.userService.findById(userId);
   }
 
-  async forgotPassword(email: string): Promise<void> {
+  async forgotPassword(email: string, lang?: string): Promise<void> {
     const user = await this.userService.findByEmail(email);
     if (!user) {
       return;
@@ -108,17 +110,18 @@ export class AuthService {
     await this.userService.update(user.id, {
       resetPasswordToken: resetToken,
       resetPasswordExpires: expires,
-    } as any);
+    });
 
     this.eventEmitter.emit(EmailEvents.FORGOT_PASSWORD, {
       userId: user.id,
       email: user.email,
       name: user.name,
       resetToken,
+      lang,
     });
   }
 
-  async resetPassword(token: string, newPassword: string): Promise<void> {
+  async resetPassword(token: string, newPassword: string, lang?: string): Promise<void> {
     const user = await this.userService.findByResetToken(token);
     if (!user || !user.resetPasswordExpires || user.resetPasswordExpires < new Date()) {
       throw new BadRequestException('Invalid or expired reset token');
@@ -137,7 +140,8 @@ export class AuthService {
       userId: user.id,
       email: user.email,
       name: user.name,
-    });
+      lang: lang,
+    } as any);
   }
 
   async verifyEmail(token: string): Promise<void> {
@@ -153,7 +157,7 @@ export class AuthService {
     } as any);
   }
 
-  async confirmEmailChange(token: string): Promise<void> {
+  async confirmEmailChange(token: string, lang?: string): Promise<void> {
     const user = await this.userService.findByPendingEmailToken(token);
     if (!user || !user.pendingEmailExpires || user.pendingEmailExpires < new Date()) {
       throw new BadRequestException('Invalid or expired confirmation token');
@@ -175,10 +179,11 @@ export class AuthService {
       userId: user.id,
       email: newEmail,
       name: user.name,
+      lang: lang,
     });
   }
 
-  async resendVerification(userId: string, email: string, name: string): Promise<void> {
+  async resendVerification(userId: string, email: string, name: string, lang?: string): Promise<void> {
     const verificationToken = randomUUID();
     const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
@@ -192,6 +197,7 @@ export class AuthService {
       email,
       name,
       verificationToken,
+      lang: lang,
     });
   }
 
@@ -212,10 +218,7 @@ export class AuthService {
     }
   }
 
-  private generateAuthResponse(
-    user: User,
-    verificationToken?: string,
-  ): AuthResponse {
+  private generateAuthResponse(user: User, verificationToken?: string): AuthResponse {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
