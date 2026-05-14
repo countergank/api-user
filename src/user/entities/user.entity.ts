@@ -65,6 +65,9 @@ export class User extends Base {
 
   @Prop({ type: Date, default: undefined })
   lockedUntil?: Date;
+
+  @Prop({ type: Date, default: undefined })
+  deletedAt?: Date;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

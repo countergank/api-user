@@ -57,10 +57,22 @@ export class UserPopulateError extends ErrorBase {
   }
 }
 
+export class UserAlreadyDeletedError extends ErrorBase {
+  constructor(e?: unknown) {
+    const errorGroup = ErrorBaseEnum.User;
+    const code = ErrorCodes.UserAlreadyDeleted;
+    const message = ErrorMessages[code].es; // Use Spanish as default
+    const error = e ?? message;
+    super(errorGroup, code, error);
+    Object.setPrototypeOf(this, UserAlreadyDeletedError.prototype);
+  }
+}
+
 export const UserErrors = [
   new UserError().getErrorPublic(),
   new UserEmailAlreadyExistsError().getErrorPublic(),
   new UserNameAlreadyExistsError().getErrorPublic(),
   new UserNotFoundError().getErrorPublic(),
   new UserPopulateError().getErrorPublic(),
+  new UserAlreadyDeletedError().getErrorPublic(),
 ];

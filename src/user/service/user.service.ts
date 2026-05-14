@@ -2,9 +2,14 @@ import { ConflictException, Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { plainToInstance } from 'class-transformer';
 import { CreateUserDTO } from '../dto/create-user.dto';
+import { UpdateUserDTO } from '../dto/update-user.dto';
+import { PaginationQueryDTO } from '../dto/pagination-query.dto';
+import { PaginatedUserResponseDTO } from '../dto/paginated-user-response.dto';
+import { UserDTO } from '../dto/user.dto';
 import { EncodeService } from '../../encode/encode.service';
 import { User, UserRole } from '../entities/user.entity';
 import {
+  UserAlreadyDeletedError,
   UserEmailAlreadyExistsError,
   UserNameAlreadyExistsError,
   UserNotFoundError,
@@ -135,5 +140,72 @@ export class UserService {
       failedLoginAttempts: 0,
       lockedUntil: undefined,
     });
+  }
+
+  async updateUser(id: string, dto: UpdateUserDTO): Promise<User> {
+    const user = await this.userRepository.findById(id);
+    if (!user) {
+      throw new UserNotFoundError();
+    }
+
+    if (dto.email) {
+      const emailConflict = await this.userRepository.existsByEmailExcludingSelf(dto.email, id);
+      if (emailConflict) {
+        throw new UserEmailAlreadyExistsError();
+      }
+    }
+
+    if (dto.userName) {
+      const nameConflict = await this.userRepository.existsByNameExcludingSelf(dto.userName, id);
+      if (nameConflict) {
+        throw new UserNameAlreadyExistsError();
+      }
+    }
+
+    return this.userRepository.update(id, dto);
+  }
+
+  async deleteUser(id: string): Promise<{ message: string; userId: string }> {
+    const user = await this.userRepository.findById(id);
+    if (!user) {
+      throw new UserNotFoundError();
+    }
+
+    // Idempotent: if already soft-deleted, return success without modifying
+    if (user.deletedAt) {
+      return { message: 'User soft-deleted', userId: id };
+    }
+
+    await this.userRepository.softDelete(id);
+    return { message: 'User soft-deleted', userId: id };
+  }
+
+  async toggleActiveUser(id: string): Promise<User> {
+    const user = await this.userRepository.findById(id);
+    if (!user) {
+      throw new UserNotFoundError();
+    }
+
+    if (user.deletedAt) {
+      throw new UserAlreadyDeletedError();
+    }
+
+    const newIsActive = !user.isActive;
+    return this.userRepository.update(id, { isActive: newIsActive });
+  }
+
+  async findPaginated(filters: PaginationQueryDTO): Promise<PaginatedUserResponseDTO<UserDTO>> {
+    const { users, total } = await this.userRepository.findPaginated({
+      page: filters.page,
+      limit: filters.limit,
+      sortBy: filters.sortBy,
+      sortOrder: filters.sortOrder,
+      role: filters.role,
+      isActive: filters.isActive,
+      search: filters.search,
+    });
+
+    const data = users.map((user) => UserDTO.of(user));
+    return PaginatedUserResponseDTO.of(data, total, filters.page, filters.limit);
   }
 }

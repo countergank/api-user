@@ -7,6 +7,7 @@ export class UserMock extends User {
   email = 'leandrojaviercepeda@gmail.com';
   userName = 'leandrojaviercepeda';
   password = 'root';
+  isActive = true;
 
   randomize(): UserMock {
     this.name = faker.person.firstName();

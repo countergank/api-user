@@ -232,10 +232,157 @@ See `openspec/specs/account-lockout/spec.md` for complete scenarios and i18n tra
 
 ---
 
+## Domain: admin-user-update
+
+### Overview
+
+Enable administrators to partially update user profile fields (name, lastName, email, userName, role, permissions) via `PATCH /admin/users/:id`, with uniqueness validation for email and userName that excludes the user being updated.
+
+### Requirements
+
+| ID | Requirement | Description |
+|----|-------------|-------------|
+| R1 | Endpoint Contract | `PATCH /admin/users/:id` accepts JSON body conforming to `UpdateUserDTO` (all fields optional) |
+| R2 | Allowed Fields | Accepts: `name`, `lastName`, `email`, `userName`, `role`, `permissions`. Password SHALL NOT be accepted |
+| R3 | Uniqueness Validation | Email conflicts → HTTP 400 code `003`; userName conflicts → HTTP 400 code `002`. Excludes self by ID |
+| R4 | Response | Success returns HTTP 200 with updated `UserDTO` |
+| R5 | Not Found | Non-existent ID returns HTTP 400 with code `001` |
+| R6 | Validation | Request body validated by class-validator; invalid payloads → HTTP 400 |
+| R7 | Guard | Protected by `JwtAuthGuard` and `RolesGuard`, requiring `admin` role |
+
+### Error Codes
+
+| Status | Code | Description |
+|--------|------|-------------|
+| 400 | 001 | User not found |
+| 400 | 002 | UserName already exists |
+| 400 | 003 | Email already exists |
+
+### Affected Endpoints
+
+| Method | Path | Auth | Role | Description |
+|--------|------|------|------|-------------|
+| PATCH | /admin/users/:id | Yes | Admin | Partial update user profile |
+
+### Full Spec
+
+See `openspec/specs/admin-user-update/spec.md` for complete scenarios (12 scenarios).
+
+---
+
+## Domain: admin-user-delete
+
+### Overview
+
+Enable administrators to soft-delete users via `DELETE /admin/users/:id`, setting `isActive=false` and recording a `deletedAt` timestamp. The operation SHALL be idempotent.
+
+### Requirements
+
+| ID | Requirement | Description |
+|----|-------------|-------------|
+| R1 | Endpoint Contract | `DELETE /admin/users/:id` performs soft delete |
+| R2 | Soft Delete Behavior | Sets `isActive=false` and `deletedAt=new Date()` on the user document |
+| R3 | Idempotency | Already-deleted users return HTTP 200 without modifying `deletedAt` |
+| R4 | Response | Success returns HTTP 200 with `{ message: string, userId: string }` |
+| R5 | Not Found | Non-existent ID returns HTTP 400 with code `001` |
+| R6 | Guard | Protected by `JwtAuthGuard` and `RolesGuard`, requiring `admin` role |
+
+### Error Codes
+
+| Status | Code | Description |
+|--------|------|-------------|
+| 400 | 001 | User not found |
+
+### Affected Endpoints
+
+| Method | Path | Auth | Role | Description |
+|--------|------|------|------|-------------|
+| DELETE | /admin/users/:id | Yes | Admin | Soft-delete user |
+
+### Full Spec
+
+See `openspec/specs/admin-user-delete/spec.md` for complete scenarios (4 scenarios).
+
+---
+
+## Domain: admin-user-toggle-active
+
+### Overview
+
+Enable administrators to toggle a user's `isActive` status via `PATCH /admin/users/:id/active`. Rejects attempts to toggle soft-deleted users.
+
+### Requirements
+
+| ID | Requirement | Description |
+|----|-------------|-------------|
+| R1 | Endpoint Contract | `PATCH /admin/users/:id/active` toggles the `isActive` boolean |
+| R2 | Toggle Behavior | If `isActive=true` → `false`; if `false` → `true` |
+| R3 | Soft-Deleted Guard | Soft-deleted users (`deletedAt` set) return HTTP 400 with code `005` |
+| R4 | Response | Success returns HTTP 200 with updated `UserDTO` |
+| R5 | Not Found | Non-existent ID returns HTTP 400 with code `001` |
+| R6 | Guard | Protected by `JwtAuthGuard` and `RolesGuard`, requiring `admin` role |
+
+### Error Codes
+
+| Status | Code | Description |
+|--------|------|-------------|
+| 400 | 001 | User not found |
+| 400 | 005 | User already deleted (cannot toggle) |
+
+### Affected Endpoints
+
+| Method | Path | Auth | Role | Description |
+|--------|------|------|------|-------------|
+| PATCH | /admin/users/:id/active | Yes | Admin | Toggle user active status |
+
+### Full Spec
+
+See `openspec/specs/admin-user-toggle-active/spec.md` for complete scenarios (4 scenarios).
+
+---
+
+## Domain: admin-user-pagination
+
+### Overview
+
+Enhance `GET /admin/users` to support pagination, filtering, text search, and sorting via query parameters. When no pagination params are present, the endpoint retains backward compatibility.
+
+### Requirements
+
+| ID | Requirement | Description |
+|----|-------------|-------------|
+| R1 | Endpoint Contract | `GET /admin/users` accepts optional query params: page, limit, sortBy, sortOrder, role, isActive, search |
+| R2 | Backward Compatibility | When `page` is absent, returns `UserDTO[]` (plain array, existing behavior) |
+| R3 | Paginated Response | Returns `{ data, total, page, limit, totalPages }` when `page` present |
+| R4 | Text Search | `search` performs case-insensitive regex across name, lastName, email, userName via MongoDB `$or` |
+| R5 | Filter Combination | `role`, `isActive`, and `search` filters combine with AND logic |
+| R6 | Sorting | `sortBy`/`sortOrder` control sort; invalid `sortBy` returns HTTP 400 |
+| R7 | Invalid Page | `page < 1` returns HTTP 400 with validation error |
+| R8 | Empty Results | No matches returns HTTP 200 with `data: []`, `total: 0`, `totalPages: 0` |
+| R9 | Guard | Protected by `JwtAuthGuard` and `RolesGuard`, requiring `admin` role |
+
+### Error Codes
+
+| Status | Code | Description |
+|--------|------|-------------|
+| 400 | — | Validation errors (invalid page, sortBy, limit, etc.) |
+
+### Affected Endpoints
+
+| Method | Path | Auth | Role | Description |
+|--------|------|------|------|-------------|
+| GET | /admin/users | Yes | Admin | Paginated/filtered user listing |
+
+### Full Spec
+
+See `openspec/specs/admin-user-pagination/spec.md` for complete scenarios (14 scenarios).
+
+---
+
 ## Metadata
 
 | Property | Value |
 |----------|-------|
-| Last Updated | 2026-05-13 |
-| Total Domains | 11 |
-| Fully Documented | 3 (password-validation, rate-limiting, account-lockout) |
+| Last Updated | 2026-05-14 |
+| Total Domains | 15 |
+| Fully Documented | 7 (password-validation, rate-limiting, account-lockout, admin-user-update, admin-user-delete, admin-user-toggle-active, admin-user-pagination) |

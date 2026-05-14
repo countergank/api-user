@@ -6,6 +6,7 @@ import { isLocal } from '../../common/utils';
 import { EncodeService } from '../../encode/encode.service';
 import { User, UserRole } from '../entities/user.entity';
 import { UserPopulateError } from '../errors/error-instances.error';
+import { SORTABLE_FIELDS } from '../dto/pagination-query.dto';
 
 @Injectable()
 export class UserRepository implements OnApplicationBootstrap {
@@ -46,6 +47,16 @@ export class UserRepository implements OnApplicationBootstrap {
 
   async existsByEmail(email: string): Promise<boolean> {
     const exists = await this.userModel.exists({ email }).exec();
+    return Boolean(exists);
+  }
+
+  async existsByEmailExcludingSelf(email: string, excludeId: string): Promise<boolean> {
+    const exists = await this.userModel.exists({ email, _id: { $ne: excludeId } }).exec();
+    return Boolean(exists);
+  }
+
+  async existsByNameExcludingSelf(name: string, excludeId: string): Promise<boolean> {
+    const exists = await this.userModel.exists({ name, _id: { $ne: excludeId } }).exec();
     return Boolean(exists);
   }
 
@@ -126,5 +137,63 @@ export class UserRepository implements OnApplicationBootstrap {
 
   async validatePassword(password: string, hashedPassword: string): Promise<boolean> {
     return this.encodeService.compare(password, hashedPassword);
+  }
+
+  async findPaginated(filters: {
+    page: number;
+    limit: number;
+    sortBy: string;
+    sortOrder: string;
+    role?: string;
+    isActive?: boolean;
+    search?: string;
+  }): Promise<{ users: User[]; total: number }> {
+    const mongoFilter: Record<string, unknown> = { deletedAt: { $exists: false } };
+    const andConditions: Record<string, unknown>[] = [];
+
+    if (filters.role) {
+      andConditions.push({ role: filters.role });
+    }
+    if (filters.isActive !== undefined) {
+      andConditions.push({ isActive: filters.isActive });
+    }
+    if (filters.search) {
+      const searchRegex = new RegExp(filters.search, 'i');
+      andConditions.push({
+        $or: [
+          { name: searchRegex },
+          { lastName: searchRegex },
+          { email: searchRegex },
+          { userName: searchRegex },
+        ],
+      });
+    }
+
+    if (andConditions.length > 0) {
+      mongoFilter.$and = andConditions;
+    }
+
+    const sortBy = SORTABLE_FIELDS.includes(filters.sortBy) ? filters.sortBy : 'createdAt';
+    const sortOrder = filters.sortOrder === 'asc' ? 1 : -1;
+
+    const skip = (filters.page - 1) * filters.limit;
+
+    const [users, total] = await Promise.all([
+      this.userModel
+        .find(mongoFilter)
+        .sort({ [sortBy]: sortOrder })
+        .skip(skip)
+        .limit(filters.limit)
+        .exec(),
+      this.userModel.countDocuments(mongoFilter).exec(),
+    ]);
+
+    return { users, total };
+  }
+
+  async softDelete(id: string): Promise<User> {
+    return this.userModel
+      .findByIdAndUpdate(id, { isActive: false, deletedAt: new Date() }, { new: true })
+      .exec();
   }
 }
