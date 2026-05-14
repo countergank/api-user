@@ -162,7 +162,12 @@ export class UserService {
       }
     }
 
-    return this.userRepository.update(id, dto);
+    // Strip undefined values to avoid unintentionally unsetting fields
+    const updateData = Object.fromEntries(
+      Object.entries(dto).filter(([_, v]) => v !== undefined),
+    );
+
+    return this.userRepository.update(id, updateData);
   }
 
   async deleteUser(id: string): Promise<{ message: string; userId: string }> {

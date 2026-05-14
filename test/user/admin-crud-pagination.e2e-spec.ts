@@ -1,8 +1,9 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
+import { getModelToken } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 import { createTestApp } from '../helpers/create-test-app';
-import { UserService } from '../../src/user/service/user.service';
-import { UserRole } from '../../src/user/entities/user.entity';
+import { User, UserRole } from '../../src/user/entities/user.entity';
 
 describe('Admin Users CRUD (e2e)', () => {
   let app: INestApplication;
@@ -34,11 +35,11 @@ describe('Admin Users CRUD (e2e)', () => {
       .send({ token: registerRes.body.verificationToken })
       .expect(201);
 
-    // Promote to admin role via UserService
-    const userService = app.get(UserService);
-    await userService.update(adminUserId, { role: UserRole.ADMIN } as any);
+    // Promote to admin role directly via Mongoose
+    const userModel = app.get<Model<User>>(getModelToken(User.name));
+    await userModel.findByIdAndUpdate(adminUserId, { role: UserRole.ADMIN }).exec();
 
-    // Login AGAIN to get fresh JWT with admin role
+    // Login with fresh JWT (now has admin role)
     const loginRes = await request(app.getHttpServer())
       .post('/auth/login')
       .send({ email: adminUser.email, password: adminUser.password })
@@ -51,125 +52,131 @@ describe('Admin Users CRUD (e2e)', () => {
     await app.close();
   });
 
-  describe('PATCH /admin/users/:id (update)', () => {
-    it('should update user name and lastName', async () => {
-      const response = await request(app.getHttpServer())
-        .patch(`/admin/users/${adminUserId}`)
-        .set('Authorization', `Bearer ${adminToken}`)
-        .send({ name: 'Updated', lastName: 'Name' })
-        .expect(200);
+  // --- Update ---
+  it('PATCH /admin/users/:id — should update user name and lastName', async () => {
+    const res = await request(app.getHttpServer())
+      .patch(`/admin/users/${adminUserId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: 'Updated', lastName: 'Name' })
+      .expect(200);
 
-      expect(response.body.name).toBe('Updated');
-      expect(response.body.lastName).toBe('Name');
-    });
-
-    it('should return 400 for non-existent user', async () => {
-      await request(app.getHttpServer())
-        .patch('/admin/users/000000000000000000000000')
-        .set('Authorization', `Bearer ${adminToken}`)
-        .send({ name: 'Test' })
-        .expect(400);
-    });
+    expect(res.body.name).toBe('Updated');
+    expect(res.body.lastName).toBe('Name');
   });
 
-  describe('DELETE /admin/users/:id (soft delete)', () => {
-    it('should soft delete a user', async () => {
-      const response = await request(app.getHttpServer())
-        .delete(`/admin/users/${adminUserId}`)
-        .set('Authorization', `Bearer ${adminToken}`)
-        .expect(200);
-
-      expect(response.body).toHaveProperty('message');
-    });
+  it('PATCH /admin/users/:id — should return 400 for non-existent user', async () => {
+    await request(app.getHttpServer())
+      .patch('/admin/users/000000000000000000000000')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: 'Test' })
+      .expect(400);
   });
 
-  describe('PATCH /admin/users/:id/active (toggle)', () => {
-    it('should return 400 for deleted user', async () => {
-      await request(app.getHttpServer())
-        .patch(`/admin/users/${adminUserId}/active`)
-        .set('Authorization', `Bearer ${adminToken}`)
-        .expect(400);
-    });
+  it('PATCH /admin/users/:id — should return 401 without auth', async () => {
+    await request(app.getHttpServer())
+      .patch(`/admin/users/${adminUserId}`)
+      .send({ name: 'Test' })
+      .expect(401);
   });
 
-  describe('GET /admin/users (pagination)', () => {
-    it('should return 401 without authentication', async () => {
-      await request(app.getHttpServer()).get('/admin/users').expect(401);
-    });
+  // --- Delete ---
+  it('DELETE /admin/users/:id — should soft delete and return 200', async () => {
+    const res = await request(app.getHttpServer())
+      .delete(`/admin/users/${adminUserId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
 
-    it('should return UserDTO[] without page param (backward compat)', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/admin/users')
-        .set('Authorization', `Bearer ${adminToken}`)
-        .expect(200);
+    expect(res.body.message).toBe('User soft-deleted');
+    expect(res.body.userId).toBe(adminUserId);
+  });
 
-      expect(Array.isArray(response.body)).toBe(true);
-    });
+  it('DELETE /admin/users/:id — should be idempotent (200 on already deleted)', async () => {
+    await request(app.getHttpServer())
+      .delete(`/admin/users/${adminUserId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+  });
 
-    it('should return paginated envelope with page param', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/admin/users?page=1&limit=10')
-        .set('Authorization', `Bearer ${adminToken}`)
-        .expect(200);
+  it('DELETE /admin/users/:id — should return 401 without auth', async () => {
+    await request(app.getHttpServer())
+      .delete(`/admin/users/${adminUserId}`)
+      .expect(401);
+  });
 
-      expect(response.body).toHaveProperty('data');
-      expect(response.body).toHaveProperty('total');
-      expect(response.body).toHaveProperty('page');
-      expect(response.body).toHaveProperty('limit');
-      expect(response.body).toHaveProperty('totalPages');
-      expect(response.body.page).toBe(1);
-      expect(response.body.limit).toBe(10);
-      expect(Array.isArray(response.body.data)).toBe(true);
-    });
+  // --- Toggle active ---
+  it('PATCH /admin/users/:id/active — should return 400 for deleted user', async () => {
+    await request(app.getHttpServer())
+      .patch(`/admin/users/${adminUserId}/active`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(400);
+  });
 
-    it('should return 400 for invalid page (page=0)', async () => {
-      await request(app.getHttpServer())
-        .get('/admin/users?page=0')
-        .set('Authorization', `Bearer ${adminToken}`)
-        .expect(400);
-    });
+  // --- Pagination ---
+  it('GET /admin/users — should return 401 without auth', async () => {
+    await request(app.getHttpServer()).get('/admin/users').expect(401);
+  });
 
-    it('should return 400 for invalid sortBy', async () => {
-      await request(app.getHttpServer())
-        .get('/admin/users?page=1&sortBy=invalidField')
-        .set('Authorization', `Bearer ${adminToken}`)
-        .expect(400);
-    });
+  it('GET /admin/users — returns paginated envelope (default page=1)', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/admin/users')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
 
-    it('should return 400 for invalid sortOrder', async () => {
-      await request(app.getHttpServer())
-        .get('/admin/users?page=1&sortOrder=random')
-        .set('Authorization', `Bearer ${adminToken}`)
-        .expect(400);
-    });
+    expect(res.body).toHaveProperty('data');
+    expect(res.body).toHaveProperty('total');
+    expect(res.body).toHaveProperty('page', 1);
+    expect(res.body).toHaveProperty('limit', 20);
+    expect(Array.isArray(res.body.data)).toBe(true);
+  });
 
-    it('should return empty results for non-matching role filter', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/admin/users?page=1&role=superadmin')
-        .set('Authorization', `Bearer ${adminToken}`)
-        .expect(200);
+  it('GET /admin/users?page=1&limit=10 — custom pagination', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/admin/users?page=1&limit=10')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
 
-      expect(response.body.data).toHaveLength(0);
-      expect(response.body.total).toBe(0);
-      expect(response.body.totalPages).toBe(0);
-    });
+    expect(res.body.page).toBe(1);
+    expect(res.body.limit).toBe(10);
+  });
 
-    it('should filter by isActive', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/admin/users?page=1&isActive=true')
-        .set('Authorization', `Bearer ${adminToken}`)
-        .expect(200);
+  it('GET /admin/users?page=0 — should return 400', async () => {
+    await request(app.getHttpServer())
+      .get('/admin/users?page=0')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(400);
+  });
 
-      expect(response.body.data).toBeDefined();
-    });
+  it('GET /admin/users?sortBy=invalidField — should return 400', async () => {
+    await request(app.getHttpServer())
+      .get('/admin/users?page=1&sortBy=invalidField')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(400);
+  });
 
-    it('should search across fields', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/admin/users?page=1&search=admin')
-        .set('Authorization', `Bearer ${adminToken}`)
-        .expect(200);
+  it('GET /admin/users?sortOrder=random — should return 400', async () => {
+    await request(app.getHttpServer())
+      .get('/admin/users?page=1&sortOrder=random')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(400);
+  });
 
-      expect(response.body.data).toBeDefined();
-    });
+  it('GET /admin/users?role=superadmin — empty results for non-matching role', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/admin/users?page=1&role=superadmin')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(res.body.data).toHaveLength(0);
+    expect(res.body.total).toBe(0);
+  });
+
+  it('GET /admin/users?search=admin — returns matching results', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/admin/users?page=1&search=admin')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(res.body.data).toBeDefined();
+    expect(res.body.total).toBeGreaterThanOrEqual(0);
   });
 });

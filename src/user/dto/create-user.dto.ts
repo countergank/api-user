@@ -64,14 +64,15 @@ export class CreateUserDTO {
 
   @ApiProperty({
     example: 'user',
-    description: 'Rol del usuario (admin, user, viewer)',
+    description: 'Rol del usuario (admin, user, viewer). Default: user',
     enum: UserRole,
     enumName: 'UserRole',
     required: false,
+    default: 'user',
   })
   @IsOptional()
   @IsEnum(UserRole)
-  role: UserRole = UserRole.USER;
+  role?: UserRole;
 
   toEntity(): User {
     const user = new User();
@@ -80,7 +81,7 @@ export class CreateUserDTO {
     user.email = this.email;
     user.userName = this.userName;
     user.password = this.password;
-    user.role = this.role;
+    user.role = this.role || UserRole.USER;
     return user;
   }
 }
