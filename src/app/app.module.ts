@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { ConfigModuleOption } from '../config/custom-module-options/config-module-option';
 import { MongooseModuleOption } from '../config/custom-module-options/mongoose-module-option';
 import { ExampleMicroservice } from '../config/custom-providers/microservices';
@@ -20,6 +21,18 @@ import { AppService } from './service/app.service';
     ConfigModule.forRoot(ConfigModuleOption),
     MongooseModule.forRootAsync({ useClass: MongooseModuleOption }),
     EventEmitterModule.forRoot(),
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        throttlers: [
+          {
+            ttl: config.get<number>('THROTTLE_TTL', 60),
+            limit: config.get<number>('THROTTLE_LIMIT', 10),
+          },
+        ],
+      }),
+    }),
     I18nModule,
     UserModule,
     AuthModule,

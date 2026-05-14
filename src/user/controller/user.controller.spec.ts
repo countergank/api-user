@@ -1,4 +1,4 @@
-import { BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import { BadRequestException, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Mock } from '../../../test/helpers';
 import { CreateUserResponseDTO } from '../dto/create-user-response.dto';
@@ -83,6 +83,28 @@ describe(UserController.name, () => {
     it(`should return a ${InternalServerErrorException.name}`, async () => {
       jest.spyOn(userService, 'findAll').mockRejectedValueOnce(new Error('Error from test'));
       await expect(controller.findAll()).rejects.toThrow(InternalServerErrorException);
+    });
+  });
+
+  describe(`${UserController.name}.${UserController.prototype.unlock.name}`, () => {
+    const user = new UserMock();
+    it(`should unlock a locked account and return success message`, async () => {
+      jest.spyOn(userService, 'unlockUser').mockResolvedValue(user);
+      const result = await controller.unlock(user.id);
+      expect(result).toEqual({
+        message: 'Account unlocked',
+        userId: user.id,
+      });
+    });
+
+    it(`should return a ${UserNotFoundError.name}`, async () => {
+      jest.spyOn(userService, 'unlockUser').mockRejectedValueOnce(new UserNotFoundError());
+      await expect(controller.unlock(user.id)).rejects.toThrow(BadRequestException);
+    });
+
+    it(`should return a ${InternalServerErrorException.name}`, async () => {
+      jest.spyOn(userService, 'unlockUser').mockRejectedValueOnce(new Error('Error from test'));
+      await expect(controller.unlock(user.id)).rejects.toThrow(InternalServerErrorException);
     });
   });
 });

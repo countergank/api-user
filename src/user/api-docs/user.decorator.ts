@@ -82,3 +82,28 @@ export function FindAllUserDoc() {
     ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
   );
 }
+
+export function UnlockUserDoc() {
+  return applyDecorators(
+    ApiTags('users'),
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Desbloquear cuenta de usuario (Admin)',
+      description:
+        'Resetea los intentos fallidos de login y desbloquea una cuenta bloqueada. Solo accesible por administradores.\n\n**i18n Support**: Use `Accept-Language` header (es, en, pt) to receive messages in your preferred language.',
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Cuenta desbloqueada exitosamente',
+      schema: {
+        example: {
+          message: 'Account unlocked',
+          userId: '507f191e810c19729de860ea',
+        },
+      },
+    }),
+    ApiBadRequestResponse({ description: 'Usuario no encontrado', type: BadRequestDTO }),
+    ApiResponse({ status: 403, description: 'Acceso denegado. Se requiere rol admin.' }),
+    ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
+  );
+}

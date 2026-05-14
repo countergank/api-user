@@ -44,6 +44,7 @@
     "@nestjs/platform-express": "^10.3.10",
     "@nestjs/platform-fastify": "^10.3.10",
     "@nestjs/swagger": "^7.4.0",
+    "@nestjs/throttler": "^5.2.0",
     "@types/passport-local": "^1.0.38",
     "bcryptjs": "^2.4.3",
     "class-transformer": "^0.5.1",

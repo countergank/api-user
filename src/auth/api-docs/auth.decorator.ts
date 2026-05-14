@@ -27,6 +27,30 @@ import {
   ChangeEmailResponse,
 } from './examples/verification.examples';
 
+const RateLimitResponse = {
+  status: 429,
+  description: 'Too many requests. Retry after the specified duration in the Retry-After header.',
+  schema: {
+    example: {
+      statusCode: 429,
+      error: 'Too Many Requests',
+      message: 'Too many requests. Please try again in 45 seconds.',
+    },
+  },
+};
+
+const AccountLockedResponse = {
+  status: 423,
+  description: 'Account is temporarily locked due to too many failed login attempts.',
+  schema: {
+    example: {
+      statusCode: 423,
+      error: 'Locked',
+      message: 'Account is temporarily locked due to too many failed login attempts. Please try again later or contact support.',
+    },
+  },
+};
+
 export function ApplyRegisterDoc() {
   return applyDecorators(
     ApiOperation({
@@ -43,6 +67,7 @@ export function ApplyRegisterDoc() {
     }),
     ApiBadRequestResponse({ description: 'Email o nombre de usuario ya existe', type: BadRequestDTO }),
     ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
+    ApiResponse(RateLimitResponse),
     ApiBody({
       schema: {
         $ref: getSchemaPath(RegisterRequest),
@@ -66,7 +91,9 @@ export function ApplyLoginDoc() {
       },
     }),
     ApiUnauthorizedResponse({ description: 'Credenciales inválidas' }),
+    ApiResponse(AccountLockedResponse),
     ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
+    ApiResponse(RateLimitResponse),
     ApiBody({
       schema: {
         $ref: getSchemaPath(LoginRequest),
@@ -89,6 +116,7 @@ export function ApplyForgotPasswordDoc() {
         example: { message: 'If the email exists, a reset link has been sent' },
       },
     }),
+    ApiResponse(RateLimitResponse),
     ApiBody({
       schema: {
         $ref: getSchemaPath(ForgotPasswordRequest),
@@ -113,6 +141,7 @@ export function ApplyResetPasswordDoc() {
     }),
     ApiBadRequestResponse({ description: 'Token inválido o expirado', type: BadRequestDTO }),
     ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
+    ApiResponse(RateLimitResponse),
     ApiBody({
       schema: {
         $ref: getSchemaPath(ResetPasswordRequest),
@@ -137,6 +166,7 @@ export function ApplyRefreshDoc() {
     }),
     ApiUnauthorizedResponse({ description: 'Refresh token inválido' }),
     ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
+    ApiResponse(RateLimitResponse),
     ApiBody({
       schema: {
         $ref: getSchemaPath(RefreshRequest),
@@ -161,6 +191,7 @@ export function ApplyVerifyEmailDoc() {
     }),
     ApiBadRequestResponse({ description: 'Token inválido o expirado', type: BadRequestDTO }),
     ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
+    ApiResponse(RateLimitResponse),
     ApiBody({
       schema: {
         $ref: getSchemaPath(VerifyEmailRequest),
@@ -185,6 +216,7 @@ export function ApplyConfirmEmailChangeDoc() {
     }),
     ApiBadRequestResponse({ description: 'Token inválido o expirado', type: BadRequestDTO }),
     ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
+    ApiResponse(RateLimitResponse),
     ApiBody({
       schema: {
         $ref: getSchemaPath(ConfirmEmailChangeRequest),
@@ -208,6 +240,7 @@ export function ApplyResendVerificationDoc() {
       },
     }),
     ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
+    ApiResponse(RateLimitResponse),
     ApiBody({
       schema: {
         $ref: getSchemaPath(ResendVerificationRequest),

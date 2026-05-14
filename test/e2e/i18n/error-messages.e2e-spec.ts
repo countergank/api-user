@@ -30,11 +30,16 @@ describe('Error Messages i18n (e2e)', () => {
   describe('Error messages in Spanish (default)', () => {
     it('should return Spanish error for invalid registration', async () => {
       const response = await request(app.getHttpServer())
-        .post('/api/user/register')  // Adjust endpoint as needed
-        .send({})
+        .post('/auth/register')
+        .send({
+          email: 'invalid-email',
+          userName: 'test',
+          password: 'weak',
+          name: 'Test',
+          lastName: 'User',
+        })
         .expect(400);
 
-      // Should have error structure
       expect(response.body).toHaveProperty('message');
       expect(response.body).toHaveProperty('statusCode');
     });
@@ -43,9 +48,15 @@ describe('Error Messages i18n (e2e)', () => {
   describe('Error messages in English', () => {
     it('should return English error for invalid registration', async () => {
       const response = await request(app.getHttpServer())
-        .post('/api/user/register')  // Adjust endpoint as needed
+        .post('/auth/register')
         .set('Accept-Language', 'en')
-        .send({})
+        .send({
+          email: 'invalid-email',
+          userName: 'test',
+          password: 'weak',
+          name: 'Test',
+          lastName: 'User',
+        })
         .expect(400);
 
       expect(response.body).toHaveProperty('message');
@@ -56,9 +67,15 @@ describe('Error Messages i18n (e2e)', () => {
   describe('Error messages in Portuguese', () => {
     it('should return Portuguese error for invalid registration', async () => {
       const response = await request(app.getHttpServer())
-        .post('/api/user/register')  // Adjust endpoint as needed
+        .post('/auth/register')
         .set('Accept-Language', 'pt')
-        .send({})
+        .send({
+          email: 'invalid-email',
+          userName: 'test',
+          password: 'weak',
+          name: 'Test',
+          lastName: 'User',
+        })
         .expect(400);
 
       expect(response.body).toHaveProperty('message');

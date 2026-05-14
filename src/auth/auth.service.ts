@@ -1,10 +1,12 @@
 import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { JwtService } from '@nestjs/jwt';
 import { randomUUID } from 'node:crypto';
 import { EmailEvents } from '../email/constants/email.events';
 import { User, UserRole } from '../user/entities/user.entity';
 import { UserService } from '../user/service/user.service';
+import { AccountLockedException } from '../common/errors/account-locked.exception';
 
 export interface JwtPayload {
   sub: string;
@@ -31,6 +33,7 @@ export class AuthService {
     private userService: UserService,
     private jwtService: JwtService,
     private eventEmitter: EventEmitter2,
+    private configService: ConfigService,
   ) {}
 
   async register(
@@ -82,9 +85,35 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    // Check lockout BEFORE password validation (security: skip bcrypt if locked)
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      throw new AccountLockedException();
+    }
+
     const isValid = await this.userService.validatePassword(password, user.password);
     if (!isValid) {
+      const failedAttempts = (user.failedLoginAttempts || 0) + 1;
+      const maxAttempts = this.configService.get<number>('MAX_LOGIN_ATTEMPTS', 5);
+      const lockoutDuration = this.configService.get<number>('LOCKOUT_DURATION_MINUTES', 15);
+
+      const updateData: { failedLoginAttempts: number; lockedUntil?: Date } = {
+        failedLoginAttempts: failedAttempts,
+      };
+
+      if (failedAttempts >= maxAttempts) {
+        updateData.lockedUntil = new Date(Date.now() + lockoutDuration * 60 * 1000);
+      }
+
+      await this.userService.update(user.id, updateData);
       throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // Successful login: reset lockout state if it existed
+    if (user.failedLoginAttempts > 0 || user.lockedUntil) {
+      await this.userService.update(user.id, {
+        failedLoginAttempts: 0,
+        lockedUntil: undefined,
+      });
     }
 
     if (!user.isActive) {
