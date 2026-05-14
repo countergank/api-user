@@ -145,10 +145,97 @@ NestJS architecture patterns and conventions.
 
 ---
 
+## Domain: rate-limiting
+
+### Overview
+
+Request throttling for public auth endpoints using `@nestjs/throttler` with in-memory storage. Protects login, register, forgot-password, and other auth endpoints against abuse. Limits are configurable via environment variables, with stricter thresholds on login and forgot-password than on register and verification endpoints.
+
+### Requirements
+
+| ID | Requirement | Description |
+|----|-------------|-------------|
+| RL-01 | Login endpoint rate-limited | POST /auth/login MUST return 429 Too Many Requests when the per-IP limit is exceeded |
+| RL-02 | Register endpoint rate-limited | POST /auth/register MUST return 429 when the per-IP limit is exceeded |
+| RL-03 | Forgot-password endpoint rate-limited | POST /auth/forgot-password MUST return 429 when the per-IP limit is exceeded |
+| RL-04 | Configurable via environment variables | All throttle limits and TTLs MUST be configurable via env vars |
+| RL-05 | Retry-After header on 429 | Every 429 response MUST include a `Retry-After` header |
+| RL-06 | Stricter limits on login | Login and forgot-password MUST have lower limits than register/verify |
+| RL-07 | Valid requests within limit pass | Requests within limit MUST be processed normally |
+| RL-08 | Throttler applied to all auth endpoints | All 8 public auth endpoints MUST have `@Throttle()` decorators |
+| RL-09 | ThrottlerModule registered in AppModule | `ThrottlerModule.forRoot()` MUST be registered |
+| RL-10 | i18n error message for rate limit | 429 responses MUST include i18n-translated `errors.RATE_LIMITED` |
+
+### Error Codes
+
+| Status | Code | i18n Key | Description |
+|--------|------|----------|-------------|
+| 429 | RATE_LIMITED | `errors.RATE_LIMITED` | Too many requests |
+
+### Affected Endpoints
+
+| Method | Path | Throttle Default |
+|--------|------|-----------------|
+| POST | /auth/login | 5 req / 60s |
+| POST | /auth/forgot-password | 3 req / 60s |
+| POST | /auth/register | 10 req / 60s |
+| POST | /auth/reset-password | 10 req / 60s |
+| POST | /auth/verify-email | 10 req / 60s |
+| POST | /auth/confirm-email-change | 10 req / 60s |
+| POST | /auth/resend-verification | 10 req / 60s |
+| POST | /auth/refresh | 10 req / 60s |
+
+### Full Spec
+
+See `openspec/specs/rate-limiting/spec.md` for complete scenarios and i18n translation keys.
+
+---
+
+## Domain: account-lockout
+
+### Overview
+
+Consecutive failed-login tracking and account lockout mechanism. After N consecutive failed login attempts, the account is locked for a configurable duration. Locked accounts return HTTP 423. Auto-unlock after duration expires. Admin manual unlock via dedicated endpoint.
+
+### Requirements
+
+| ID | Requirement | Description |
+|----|-------------|-------------|
+| AL-01 | Lock after N consecutive failures | After `LOCKOUT_MAX_ATTEMPTS` (default 5) consecutive failures, account MUST lock |
+| AL-02 | Counter resets on success | Successful login MUST reset `failedLoginAttempts` and clear `lockedUntil` |
+| AL-03 | Locked returns distinct error | Locked account MUST return HTTP 423 with `ACCOUNT_LOCKED`, not 401 |
+| AL-04 | Auto-unlock after duration | After `LOCKOUT_DURATION_MINUTES` (default 15), account auto-unlocks |
+| AL-05 | Configurable duration | `LOCKOUT_MAX_ATTEMPTS` and `LOCKOUT_DURATION_MINUTES` via env vars |
+| AL-06 | Admin manual unlock | Admin endpoint resets counter and clears lockout |
+| AL-07 | Non-existent user no lock | Failed attempts for unknown emails MUST NOT create/increment counters |
+| AL-08 | Lockout visible in admin views | `failedLoginAttempts` and `lockedUntil` visible in admin user views |
+| AL-09 | Lockout fields on User entity | User entity includes `failedLoginAttempts` and `lockedUntil` |
+| AL-10 | i18n for lockout | 423 responses include `errors.ACCOUNT_LOCKED` in es/en/pt |
+| AL-11 | AccountLockedException class | `AccountLockedException` (extends `HttpException`, HTTP 423) |
+
+### Error Codes
+
+| Status | Code | i18n Key | Description |
+|--------|------|----------|-------------|
+| 423 | ACCOUNT_LOCKED | `errors.ACCOUNT_LOCKED` | Account temporarily locked |
+
+### Affected Endpoints
+
+| Method | Path | Auth | Role | Description |
+|--------|------|------|------|-------------|
+| POST | /auth/login | No | — | Lockout check before credential validation |
+| POST | /auth/admin/unlock/:userId | Yes | Admin | Manually unlock a locked account |
+
+### Full Spec
+
+See `openspec/specs/account-lockout/spec.md` for complete scenarios and i18n translation keys.
+
+---
+
 ## Metadata
 
 | Property | Value |
 |----------|-------|
-| Last Updated | 2026-04-27 |
-| Total Domains | 9 |
-| Fully Documented | 1 (password-validation) |
+| Last Updated | 2026-05-13 |
+| Total Domains | 11 |
+| Fully Documented | 3 (password-validation, rate-limiting, account-lockout) |

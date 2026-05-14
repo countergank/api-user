@@ -15,6 +15,20 @@ process.env.ENCRYPTION_PASSWORD = 'test_encryption_password_32chars!';
 process.env.DEBUG = 'false';
 process.env.EXAMPLE_MICROSERVICE_ENABLED = 'false';
 
+// Rate limiting — low limits for integration testing
+process.env.LOGIN_THROTTLE_LIMIT = '3';
+process.env.LOGIN_THROTTLE_TTL = '60';
+process.env.REGISTER_THROTTLE_LIMIT = '3';
+process.env.REGISTER_THROTTLE_TTL = '60';
+process.env.THROTTLE_LIMIT = '5';
+process.env.THROTTLE_TTL = '60';
+process.env.FORGOT_PASSWORD_THROTTLE_LIMIT = '3';
+process.env.FORGOT_PASSWORD_THROTTLE_TTL = '60';
+
+// Account lockout — low threshold for testing
+process.env.MAX_LOGIN_ATTEMPTS = '3';
+process.env.LOCKOUT_DURATION_MINUTES = '1';
+
 // Try to load from .env file if available
 const possibleEnvFiles = [
   path.resolve(__dirname, '.env.local.testing'),

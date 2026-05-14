@@ -118,6 +118,48 @@ class EnvironmentVariables {
   @IsString()
   @IsOptional()
   PASSWORD_RESET_TOKEN_EXPIRATION_HOURS: string;
+
+  // Rate limiting
+  @IsString()
+  @IsOptional()
+  THROTTLE_TTL: string;
+
+  @IsString()
+  @IsOptional()
+  THROTTLE_LIMIT: string;
+
+  @IsString()
+  @IsOptional()
+  LOGIN_THROTTLE_TTL: string;
+
+  @IsString()
+  @IsOptional()
+  LOGIN_THROTTLE_LIMIT: string;
+
+  @IsString()
+  @IsOptional()
+  REGISTER_THROTTLE_TTL: string;
+
+  @IsString()
+  @IsOptional()
+  REGISTER_THROTTLE_LIMIT: string;
+
+  @IsString()
+  @IsOptional()
+  FORGOT_PASSWORD_THROTTLE_TTL: string;
+
+  @IsString()
+  @IsOptional()
+  FORGOT_PASSWORD_THROTTLE_LIMIT: string;
+
+  // Account lockout
+  @IsString()
+  @IsOptional()
+  MAX_LOGIN_ATTEMPTS: string;
+
+  @IsString()
+  @IsOptional()
+  LOCKOUT_DURATION_MINUTES: string;
 }
 
 export function validate(config: Record<string, unknown>) {

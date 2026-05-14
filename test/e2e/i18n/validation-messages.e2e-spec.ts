@@ -30,50 +30,56 @@ describe('Validation Messages i18n (e2e)', () => {
   describe('Password validation messages in Spanish (default)', () => {
     it('should return Spanish validation messages for weak password', async () => {
       const response = await request(app.getHttpServer())
-        .post('/api/user/register')  // Adjust endpoint as needed
+        .post('/auth/register')
         .send({
           email: 'test@example.com',
-          password: 'weak',  // Too short, no uppercase, etc.
+          userName: 'test',
+          password: 'weak',
+          name: 'Test',
+          lastName: 'User',
         })
         .expect(400);
 
       expect(response.body).toHaveProperty('message');
       expect(response.body).toHaveProperty('statusCode');
-      // In a real test, you'd verify the message contains Spanish text
     });
   });
 
   describe('Password validation messages in English', () => {
     it('should return English validation messages for weak password', async () => {
       const response = await request(app.getHttpServer())
-        .post('/api/user/register')  // Adjust endpoint as needed
+        .post('/auth/register')
         .set('Accept-Language', 'en')
         .send({
           email: 'test@example.com',
+          userName: 'test',
           password: 'weak',
+          name: 'Test',
+          lastName: 'User',
         })
         .expect(400);
 
       expect(response.body).toHaveProperty('message');
       expect(response.body).toHaveProperty('statusCode');
-      // In a real test, you'd verify the message contains English text
     });
   });
 
   describe('Password validation messages in Portuguese', () => {
     it('should return Portuguese validation messages for weak password', async () => {
       const response = await request(app.getHttpServer())
-        .post('/api/user/register')  // Adjust endpoint as needed
+        .post('/auth/register')
         .set('Accept-Language', 'pt')
         .send({
           email: 'test@example.com',
+          userName: 'test',
           password: 'weak',
+          name: 'Test',
+          lastName: 'User',
         })
         .expect(400);
 
       expect(response.body).toHaveProperty('message');
       expect(response.body).toHaveProperty('statusCode');
-      // In a real test, you'd verify the message contains Portuguese text
     });
   });
 });

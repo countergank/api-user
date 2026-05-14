@@ -59,6 +59,12 @@ export class User extends Base {
 
   @Prop()
   pendingEmailExpires?: Date;
+
+  @Prop({ default: 0 })
+  failedLoginAttempts: number;
+
+  @Prop({ type: Date, default: undefined })
+  lockedUntil?: Date;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

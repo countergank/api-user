@@ -9,7 +9,9 @@
     "INVALID_TOKEN": "Invalid token",
     "TOKEN_EXPIRED": "Token expired",
     "FORBIDDEN": "Access denied",
-    "BAD_REQUEST": "Bad request"
+    "BAD_REQUEST": "Bad request",
+    "RATE_LIMITED": "Too many requests. Please try again in {{retryAfter}} seconds.",
+    "ACCOUNT_LOCKED": "Account is temporarily locked due to too many failed login attempts. Please try again later or contact support."
   },
   "validation": {
     "IS_EMAIL": "must be a valid email",

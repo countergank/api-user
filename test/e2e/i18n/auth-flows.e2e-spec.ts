@@ -28,53 +28,61 @@ describe('Auth Flows i18n (e2e)', () => {
   });
 
   describe('Registration flow with different languages', () => {
-    it('should handle registration in Spanish (default)', async () => {
+    it('should handle registration error in Spanish (default)', async () => {
       const response = await request(app.getHttpServer())
-        .post('/api/user/register')  // Adjust endpoint as needed
+        .post('/auth/register')
         .send({
-          // Send invalid data to trigger validation
           email: 'invalid-email',
+          userName: 'test',
+          password: 'weak',
+          name: 'Test',
+          lastName: 'User',
         })
         .expect(400);
 
       expect(response.body).toHaveProperty('message');
       expect(response.body).toHaveProperty('statusCode');
-      // In a real test, you'd verify the message is in Spanish
     });
 
-    it('should handle registration in English', async () => {
+    it('should handle registration error in English', async () => {
       const response = await request(app.getHttpServer())
-        .post('/api/user/register')  // Adjust endpoint as needed
+        .post('/auth/register')
         .set('Accept-Language', 'en')
         .send({
           email: 'invalid-email',
+          userName: 'test',
+          password: 'weak',
+          name: 'Test',
+          lastName: 'User',
         })
         .expect(400);
 
       expect(response.body).toHaveProperty('message');
       expect(response.body).toHaveProperty('statusCode');
-      // In a real test, you'd verify the message is in English
     });
 
-    it('should handle registration in Portuguese', async () => {
+    it('should handle registration error in Portuguese', async () => {
       const response = await request(app.getHttpServer())
-        .post('/api/user/register')  // Adjust endpoint as needed
+        .post('/auth/register')
         .set('Accept-Language', 'pt')
         .send({
           email: 'invalid-email',
+          userName: 'test',
+          password: 'weak',
+          name: 'Test',
+          lastName: 'User',
         })
         .expect(400);
 
       expect(response.body).toHaveProperty('message');
       expect(response.body).toHaveProperty('statusCode');
-      // In a real test, you'd verify the message is in Portuguese
     });
   });
 
   describe('Login flow with different languages', () => {
     it('should handle login error in Spanish (default)', async () => {
       const response = await request(app.getHttpServer())
-        .post('/api/auth/login')  // Adjust endpoint as needed
+        .post('/auth/login')
         .send({
           email: 'nonexistent@test.com',
           password: 'wrongpassword',
@@ -87,7 +95,7 @@ describe('Auth Flows i18n (e2e)', () => {
 
     it('should handle login error in English', async () => {
       const response = await request(app.getHttpServer())
-        .post('/api/auth/login')  // Adjust endpoint as needed
+        .post('/auth/login')
         .set('Accept-Language', 'en')
         .send({
           email: 'nonexistent@test.com',

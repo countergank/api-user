@@ -5,6 +5,7 @@ import {
   Get,
   InternalServerErrorException,
   Param,
+  Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
@@ -13,7 +14,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { UserRole } from '../entities/user.entity';
-import { CreateUserDoc, FindAllUserDoc, FindByIdUserDoc } from '../api-docs/user.decorator';
+import { CreateUserDoc, FindAllUserDoc, FindByIdUserDoc, UnlockUserDoc } from '../api-docs/user.decorator';
 import { CreateUserResponseDTO } from '../dto/create-user-response.dto';
 import { CreateUserDTO } from '../dto/create-user.dto';
 import { UserDTO } from '../dto/user.dto';
@@ -86,6 +87,22 @@ export class UserController {
       const users: User[] = await this.userService.findAll();
       return users.map((user) => UserDTO.of(user));
     } catch (error) {
+      const err = error as Error;
+      this.logger.error(err.message, err.stack);
+      throw new InternalServerErrorException();
+    }
+  }
+
+  @UnlockUserDoc()
+  @Patch(':id/unlock')
+  async unlock(@Param('id') id: string): Promise<{ message: string; userId: string }> {
+    try {
+      await this.userService.unlockUser(id);
+      return { message: 'Account unlocked', userId: id };
+    } catch (error) {
+      if (error instanceof UserNotFoundError) {
+        throw new BadRequestException(error.getErrorPublic());
+      }
       const err = error as Error;
       this.logger.error(err.message, err.stack);
       throw new InternalServerErrorException();

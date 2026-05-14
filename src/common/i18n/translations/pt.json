@@ -9,7 +9,9 @@
     "INVALID_TOKEN": "Token inválido",
     "TOKEN_EXPIRED": "Token expirado",
     "FORBIDDEN": "Acesso negado",
-    "BAD_REQUEST": "Solicitação incorreta"
+    "BAD_REQUEST": "Solicitação incorreta",
+    "RATE_LIMITED": "Muitas solicitações. Por favor tente novamente em {{retryAfter}} segundos.",
+    "ACCOUNT_LOCKED": "A conta está temporariamente bloqueada devido a muitas tentativas falhas de login. Por favor tente novamente mais tarde ou entre em contato com o suporte."
   },
   "validation": {
     "IS_EMAIL": "deve ser um email válido",

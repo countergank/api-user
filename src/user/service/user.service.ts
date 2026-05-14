@@ -128,4 +128,12 @@ export class UserService {
 
     return { token, expires, user };
   }
+
+  async unlockUser(userId: string): Promise<User> {
+    const user = await this.findById(userId);
+    return this.update(userId, {
+      failedLoginAttempts: 0,
+      lockedUntil: undefined,
+    });
+  }
 }
