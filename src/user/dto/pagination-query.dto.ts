@@ -25,7 +25,7 @@ export class PaginationQueryDTO {
   })
   @IsOptional()
   @Type(() => Number)
-  @Min(1)
+  @Min(1, { message: 'PAGE_MIN' })
   page?: number = 1;
 
   @ApiPropertyOptional({
@@ -35,8 +35,8 @@ export class PaginationQueryDTO {
   })
   @IsOptional()
   @Type(() => Number)
-  @Min(1)
-  @Max(100)
+  @Min(1, { message: 'LIMIT_MIN' })
+  @Max(100, { message: 'LIMIT_MAX' })
   limit?: number = 20;
 
   @ApiPropertyOptional({
@@ -46,7 +46,7 @@ export class PaginationQueryDTO {
     enum: SORTABLE_FIELDS,
   })
   @IsOptional()
-  @IsIn(SORTABLE_FIELDS)
+  @IsIn(SORTABLE_FIELDS, { message: 'SORT_BY_INVALID' })
   sortBy?: string = 'createdAt';
 
   @ApiPropertyOptional({
@@ -56,7 +56,7 @@ export class PaginationQueryDTO {
     enum: ['asc', 'desc'],
   })
   @IsOptional()
-  @IsIn(['asc', 'desc'])
+  @IsIn(['asc', 'desc'], { message: 'SORT_ORDER_INVALID' })
   sortOrder?: string = 'desc';
 
   @ApiPropertyOptional({
@@ -77,7 +77,7 @@ export class PaginationQueryDTO {
     if (value === 'false') return false;
     return value;
   })
-  @IsBoolean()
+  @IsBoolean({ message: 'IS_ACTIVE_BOOLEAN' })
   isActive?: boolean;
 
   @ApiPropertyOptional({
