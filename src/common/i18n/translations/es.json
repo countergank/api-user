@@ -6,12 +6,15 @@
     "VALIDATION_ERROR": "Error de validación",
     "EMAIL_ALREADY_EXISTS": "El email ya está registrado",
     "USER_ALREADY_EXISTS": "El usuario ya existe",
-    "INVALID_TOKEN": "Token inválido",
+    "INVALID_TOKEN": "Token inválido o expirado",
     "TOKEN_EXPIRED": "Token expirado",
     "FORBIDDEN": "Acceso denegado",
     "BAD_REQUEST": "Solicitud incorrecta",
     "RATE_LIMITED": "Demasiadas solicitudes. Por favor intenta de nuevo en {{retryAfter}} segundos.",
-    "ACCOUNT_LOCKED": "La cuenta está temporalmente bloqueada debido a demasiados intentos fallidos de inicio de sesión. Por favor intenta más tarde o contacta a soporte."
+    "ACCOUNT_LOCKED": "La cuenta está temporalmente bloqueada debido a demasiados intentos fallidos de inicio de sesión. Por favor intenta más tarde o contacta a soporte.",
+    "EXPIRED_RESET_TOKEN": "Token de restablecimiento inválido o expirado",
+    "EXPIRED_VERIFICATION_TOKEN": "Token de verificación inválido o expirado",
+    "EXPIRED_CONFIRMATION_TOKEN": "Token de confirmación inválido o expirado"
   },
   "validation": {
     "IS_EMAIL": "debe ser un email válido",

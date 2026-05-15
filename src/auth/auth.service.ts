@@ -112,7 +112,7 @@ export class AuthService {
     if (user.failedLoginAttempts > 0 || user.lockedUntil) {
       await this.userService.update(user.id, {
         failedLoginAttempts: 0,
-        lockedUntil: undefined,
+        lockedUntil: null as any,
       });
     }
 
@@ -153,7 +153,7 @@ export class AuthService {
   async resetPassword(token: string, newPassword: string, lang?: string): Promise<void> {
     const user = await this.userService.findByResetToken(token);
     if (!user || !user.resetPasswordExpires || user.resetPasswordExpires < new Date()) {
-      throw new BadRequestException('Invalid or expired reset token');
+      throw new BadRequestException('EXPIRED_RESET_TOKEN');
     }
 
     // Hash the new password before updating
@@ -176,7 +176,7 @@ export class AuthService {
   async verifyEmail(token: string): Promise<void> {
     const user = await this.userService.findByEmailVerificationToken(token);
     if (!user || !user.emailVerificationExpires || user.emailVerificationExpires < new Date()) {
-      throw new BadRequestException('Invalid or expired verification token');
+      throw new BadRequestException('EXPIRED_VERIFICATION_TOKEN');
     }
 
     await this.userService.update(user.id, {
@@ -189,7 +189,7 @@ export class AuthService {
   async confirmEmailChange(token: string, lang?: string): Promise<void> {
     const user = await this.userService.findByPendingEmailToken(token);
     if (!user || !user.pendingEmailExpires || user.pendingEmailExpires < new Date()) {
-      throw new BadRequestException('Invalid or expired confirmation token');
+      throw new BadRequestException('EXPIRED_CONFIRMATION_TOKEN');
     }
 
     const newEmail = user.pendingEmail;

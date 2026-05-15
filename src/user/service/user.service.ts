@@ -138,7 +138,7 @@ export class UserService {
     const user = await this.findById(userId);
     return this.update(userId, {
       failedLoginAttempts: 0,
-      lockedUntil: undefined,
+      lockedUntil: null as any,
     });
   }
 

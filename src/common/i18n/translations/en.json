@@ -6,12 +6,15 @@
     "VALIDATION_ERROR": "Validation error",
     "EMAIL_ALREADY_EXISTS": "Email is already registered",
     "USER_ALREADY_EXISTS": "User already exists",
-    "INVALID_TOKEN": "Invalid token",
+    "INVALID_TOKEN": "Invalid or expired token",
     "TOKEN_EXPIRED": "Token expired",
     "FORBIDDEN": "Access denied",
     "BAD_REQUEST": "Bad request",
     "RATE_LIMITED": "Too many requests. Please try again in {{retryAfter}} seconds.",
-    "ACCOUNT_LOCKED": "Account is temporarily locked due to too many failed login attempts. Please try again later or contact support."
+    "ACCOUNT_LOCKED": "Account is temporarily locked due to too many failed login attempts. Please try again later or contact support.",
+    "EXPIRED_RESET_TOKEN": "Invalid or expired reset token",
+    "EXPIRED_VERIFICATION_TOKEN": "Invalid or expired verification token",
+    "EXPIRED_CONFIRMATION_TOKEN": "Invalid or expired confirmation token"
   },
   "validation": {
     "IS_EMAIL": "must be a valid email",
