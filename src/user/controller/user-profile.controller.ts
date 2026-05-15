@@ -1,10 +1,11 @@
-import { BadRequestException, Body, Controller, Get, HttpCode, Patch, Post, Request, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, HttpCode, Inject, Patch, Post, Request, UseGuards } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { EmailEvents } from '../../email/constants/email.events';
 import { EncodeService } from '../../encode/encode.service';
 import { getRequestLang } from '../../common/i18n/request-lang.helper';
+import { I18nService } from '../../common/i18n/i18n.service';
 import { ApplyChangeEmailDoc, ApplyChangePasswordDoc, ApplyGetProfileDoc, ApplyUpdateProfileDoc } from '../api-docs';
 import { ChangePasswordDTO } from '../dto/change-password.dto';
 import { UserService } from '../service/user.service';
@@ -22,7 +23,12 @@ export class UserProfileController {
     private userService: UserService,
     private encodeService: EncodeService,
     private eventEmitter: EventEmitter2,
+    @Inject(I18nService) private i18n: I18nService,
   ) {}
+
+  private async t(key: string, req: any): Promise<string> {
+    return this.i18n.translate(key, getRequestLang(req));
+  }
 
   @Get('profile')
   @ApplyGetProfileDoc()
@@ -70,7 +76,7 @@ export class UserProfileController {
       lang: getRequestLang(req),
     });
 
-    return { message: 'Password changed successfully' };
+    return { message: await this.t('messages.password_changed', req) };
   }
 
   @Post('change-email')
@@ -88,6 +94,6 @@ export class UserProfileController {
       lang: getRequestLang(req),
     });
 
-    return { message: 'Confirmation email sent to the new address' };
+    return { message: await this.t('messages.email_change_sent', req) };
   }
 }

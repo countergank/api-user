@@ -142,7 +142,7 @@ describe(UserService.name, () => {
       jest.spyOn(userRepository, 'findById').mockResolvedValue(user);
       jest.spyOn(userRepository, 'softDelete').mockResolvedValue({ ...user, isActive: false, deletedAt: new Date() });
       const result = await service.deleteUser(user.id);
-      expect(result).toEqual({ message: 'User soft-deleted', userId: user.id });
+      expect(result).toEqual({ userId: user.id });
       expect(userRepository.softDelete).toHaveBeenCalledWith(user.id);
     });
 
@@ -151,7 +151,7 @@ describe(UserService.name, () => {
       const deletedUser = { ...user, deletedAt: new Date(), isActive: false };
       jest.spyOn(userRepository, 'findById').mockResolvedValue(deletedUser);
       const result = await service.deleteUser(user.id);
-      expect(result).toEqual({ message: 'User soft-deleted', userId: user.id });
+      expect(result).toEqual({ userId: user.id });
       expect(userRepository.softDelete).not.toHaveBeenCalled();
     });
 

@@ -1,4 +1,4 @@
-import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer, Global } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { I18nModule as NestI18nModule, AcceptLanguageResolver } from 'nestjs-i18n';
 import * as path from 'node:path';
@@ -21,6 +21,7 @@ function resolveTranslationsPath(): string {
   return distPath;
 }
 
+@Global()
 @Module({
   imports: [
     NestI18nModule.forRoot({

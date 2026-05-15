@@ -46,7 +46,16 @@
   "messages": {
     "welcome": "Bem-vindo, {{username}}!",
     "goodbye": "Até logo",
-    "password_reset": "Sua senha foi redefinida"
+    "password_reset": "Sua senha foi redefinida",
+    "forgot_password_sent": "Se o email existir, um link de redefinição foi enviado",
+    "password_reset_success": "Senha redefinida com sucesso",
+    "email_verified": "Email verificado com sucesso",
+    "email_changed": "Email alterado com sucesso",
+    "password_changed": "Senha alterada com sucesso",
+    "email_change_sent": "Email de confirmação enviado para o novo endereço",
+    "verification_resent": "Se o email existir, um link de verificação foi enviado",
+    "account_unlocked": "Conta desbloqueada",
+    "user_deleted": "Usuário excluído"
   },
   "rbac": {
     "admin": "Administrador com acesso total",

@@ -35,6 +35,9 @@ describe(UserController.name, () => {
 
     controller = module.get<UserController>(UserController);
     userService = module.get<UserService>(UserService);
+
+    // Mock i18n translate to echo the key (tests verify structure, not language)
+    (controller as any).i18n = { translate: jest.fn().mockImplementation((key: string) => Promise.resolve(key)) };
   });
 
   it(`${UserController.name} should be defined`, () => {
@@ -155,21 +158,21 @@ describe(UserController.name, () => {
     const user = new UserMock();
     it(`should unlock a locked account and return success message`, async () => {
       jest.spyOn(userService, 'unlockUser').mockResolvedValue(user);
-      const result = await controller.unlock(user.id);
+      const result = await controller.unlock(user.id, { headers: {} });
       expect(result).toEqual({
-        message: 'Account unlocked',
+        message: 'messages.account_unlocked',
         userId: user.id,
       });
     });
 
     it(`should return a ${UserNotFoundError.name}`, async () => {
       jest.spyOn(userService, 'unlockUser').mockRejectedValueOnce(new UserNotFoundError());
-      await expect(controller.unlock(user.id)).rejects.toThrow(BadRequestException);
+      await expect(controller.unlock(user.id, { headers: {} })).rejects.toThrow(BadRequestException);
     });
 
     it(`should return a ${InternalServerErrorException.name}`, async () => {
       jest.spyOn(userService, 'unlockUser').mockRejectedValueOnce(new Error('Error from test'));
-      await expect(controller.unlock(user.id)).rejects.toThrow(InternalServerErrorException);
+      await expect(controller.unlock(user.id, { headers: {} })).rejects.toThrow(InternalServerErrorException);
     });
   });
 
@@ -215,29 +218,27 @@ describe(UserController.name, () => {
     });
 
     it(`should delete a user and return confirmation`, async () => {
-      jest.spyOn(userService, 'deleteUser').mockResolvedValue({ message: 'User soft-deleted', userId: user.id });
-      const result = await controller.delete(user.id);
-      expect(result).toEqual({ message: 'User soft-deleted', userId: user.id });
+      jest.spyOn(userService, 'deleteUser').mockResolvedValue({ userId: user.id });
+      const result = await controller.delete(user.id, { headers: {} });
+      expect(result).toEqual({ message: 'messages.user_deleted', userId: user.id });
     });
 
     it(`should return idempotent success on already-deleted user`, async () => {
-      jest.spyOn(userService, 'deleteUser').mockResolvedValue({ message: 'User soft-deleted', userId: user.id });
-      const result = await controller.delete(user.id);
-      expect(result).toEqual({ message: 'User soft-deleted', userId: user.id });
+      jest.spyOn(userService, 'deleteUser').mockResolvedValue({ userId: user.id });
+      const result = await controller.delete(user.id, { headers: {} });
+      expect(result).toEqual({ message: 'messages.user_deleted', userId: user.id });
     });
 
-    it(`should return ${BadRequestException.name} when ${UserNotFoundError.name}`, async () => {
-      jest.spyOn(userService, 'deleteUser').mockImplementation(() => {
-        throw new UserNotFoundError();
-      });
-      await expect(controller.delete(user.id)).rejects.toThrow(BadRequestException);
+    it(`should return a ${UserNotFoundError.name}`, async () => {
+      jest.spyOn(userService, 'deleteUser').mockRejectedValueOnce(new UserNotFoundError());
+      await expect(controller.delete(user.id, { headers: {} })).rejects.toThrow(BadRequestException);
     });
 
     it(`should return ${InternalServerErrorException.name} on unexpected error`, async () => {
       jest.spyOn(userService, 'deleteUser').mockImplementation(() => {
         throw new Error('DB connection lost');
       });
-      await expect(controller.delete(user.id)).rejects.toThrow(InternalServerErrorException);
+      await expect(controller.delete(user.id, { headers: {} })).rejects.toThrow(InternalServerErrorException);
     });
   });
 

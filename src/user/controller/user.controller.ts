@@ -4,11 +4,13 @@ import {
   Controller,
   Delete,
   Get,
+  Inject,
   InternalServerErrorException,
   Param,
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { CustomLogger } from '../../common/logger';
@@ -39,6 +41,8 @@ import {
   UserNotFoundError,
 } from '../errors/error-instances.error';
 import { UserService } from '../service/user.service';
+import { I18nService } from '../../common/i18n/i18n.service';
+import { getRequestLang } from '../../common/i18n/request-lang.helper';
 
 /**
  * Controller para gestión de usuarios (ADMIN).
@@ -51,7 +55,14 @@ import { UserService } from '../service/user.service';
 @Roles(UserRole.ADMIN)
 export class UserController {
   private readonly logger = new CustomLogger(UserController.name);
-  constructor(private readonly userService: UserService) {}
+  constructor(
+    private readonly userService: UserService,
+    @Inject(I18nService) private i18n: I18nService,
+  ) {}
+
+  private async t(key: string, req: any): Promise<string> {
+    return this.i18n.translate(key, getRequestLang(req));
+  }
 
   @CreateUserDoc()
   @Post()
@@ -115,10 +126,10 @@ export class UserController {
 
   @UnlockUserDoc()
   @Patch(':id/unlock')
-  async unlock(@Param('id') id: string): Promise<{ message: string; userId: string }> {
+  async unlock(@Param('id') id: string, @Req() req: any): Promise<{ message: string; userId: string }> {
     try {
       await this.userService.unlockUser(id);
-      return { message: 'Account unlocked', userId: id };
+      return { message: await this.t('messages.account_unlocked', req), userId: id };
     } catch (error) {
       if (error instanceof UserNotFoundError) {
         throw new BadRequestException(error.getErrorPublic());
@@ -151,9 +162,10 @@ export class UserController {
 
   @DeleteUserDoc()
   @Delete(':id')
-  async delete(@Param('id') id: string): Promise<{ message: string; userId: string }> {
+  async delete(@Param('id') id: string, @Req() req: any): Promise<{ message: string; userId: string }> {
     try {
-      return this.userService.deleteUser(id);
+      const result = await this.userService.deleteUser(id);
+      return { message: await this.t('messages.user_deleted', req), userId: result.userId };
     } catch (error) {
       if (error instanceof UserNotFoundError) {
         throw new BadRequestException(error.getErrorPublic());

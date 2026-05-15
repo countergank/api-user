@@ -47,7 +47,16 @@
   "messages": {
     "welcome": "Welcome, {{username}}!",
     "goodbye": "Goodbye",
-    "password_reset": "Your password has been reset"
+    "password_reset": "Your password has been reset",
+    "forgot_password_sent": "If the email exists, a reset link has been sent",
+    "password_reset_success": "Password reset successfully",
+    "email_verified": "Email verified successfully",
+    "email_changed": "Email changed successfully",
+    "password_changed": "Password changed successfully",
+    "email_change_sent": "Confirmation email sent to the new address",
+    "verification_resent": "If the email exists, a verification link has been sent",
+    "account_unlocked": "Account unlocked",
+    "user_deleted": "User deleted"
   },
   "rbac": {
     "admin": "Administrator with full access",

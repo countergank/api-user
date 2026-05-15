@@ -170,19 +170,18 @@ export class UserService {
     return this.userRepository.update(id, updateData);
   }
 
-  async deleteUser(id: string): Promise<{ message: string; userId: string }> {
+  async deleteUser(id: string): Promise<{ userId: string }> {
     const user = await this.userRepository.findById(id);
     if (!user) {
       throw new UserNotFoundError();
     }
 
     // Idempotent: if already soft-deleted, return success without modifying
-    if (user.deletedAt) {
-      return { message: 'User soft-deleted', userId: id };
+    if (!user.deletedAt) {
+      await this.userRepository.softDelete(id);
     }
 
-    await this.userRepository.softDelete(id);
-    return { message: 'User soft-deleted', userId: id };
+    return { userId: id };
   }
 
   async toggleActiveUser(id: string): Promise<User> {
