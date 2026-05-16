@@ -11,6 +11,7 @@ import { I18nTranslation } from './entities/i18n-translation.entity';
 export class I18nService implements II18nService, OnModuleInit {
   private readonly logger = new Logger(I18nService.name);
   private translations: Map<string, Record<string, any>> = new Map();
+  private loadedJsonCache: Map<string, Record<string, any>> = new Map();
 
   constructor(
     @Inject(NestI18nService)
@@ -20,6 +21,8 @@ export class I18nService implements II18nService, OnModuleInit {
   ) {}
 
   async onModuleInit() {
+    // Load JSON first to populate the cache, then load MongoDB (which may have custom overrides)
+    await this.seedFromJson();
     await this.loadFromMongo();
   }
 
@@ -73,6 +76,43 @@ export class I18nService implements II18nService, OnModuleInit {
     }
 
     this.logger.log(`Loaded ${docs.length} translations from MongoDB`);
+
+    // Merge JSON file keys that don't exist in MongoDB (new keys added in development)
+    await this.mergeJsonKeys();
+  }
+
+  /** Merge new keys from JSON files without overwriting MongoDB values */
+  private async mergeJsonKeys(): Promise<void> {
+    for (const [lang, data] of this.loadedJsonCache.entries()) {
+      if (!this.translations.has(lang)) {
+        this.translations.set(lang, data);
+        continue;
+      }
+      // Deep merge: JSON keys don't overwrite existing MongoDB keys
+      this.deepMerge(this.translations.get(lang)!, data);
+    }
+
+    // Also attempt to insert new keys into MongoDB
+    for (const [lang, data] of this.loadedJsonCache.entries()) {
+      const bulk = this.flattenTranslations(data, lang);
+      if (bulk.length > 0) {
+        await this.i18nModel.insertMany(bulk, { ordered: false }).catch(() => {});
+      }
+    }
+  }
+
+  private deepMerge(target: Record<string, any>, source: Record<string, any>): void {
+    for (const [key, value] of Object.entries(source)) {
+      if (value === undefined) continue;
+      if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+        if (!target[key] || typeof target[key] !== 'object') {
+          target[key] = {};
+        }
+        this.deepMerge(target[key], value);
+      } else if (target[key] === undefined) {
+        target[key] = value;
+      }
+    }
   }
 
   private async seedFromJson(): Promise<void> {
@@ -89,6 +129,7 @@ export class I18nService implements II18nService, OnModuleInit {
         try {
           const data = JSON.parse(fs.readFileSync(fullPath, 'utf-8'));
           this.translations.set(lang, data);
+          this.loadedJsonCache.set(lang, data);
 
           // Also insert into MongoDB
           const bulk = this.flattenTranslations(data, lang);

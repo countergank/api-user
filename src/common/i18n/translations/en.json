@@ -14,7 +14,8 @@
     "ACCOUNT_LOCKED": "Account is temporarily locked due to too many failed login attempts. Please try again later or contact support.",
     "EXPIRED_RESET_TOKEN": "Invalid or expired reset token",
     "EXPIRED_VERIFICATION_TOKEN": "Invalid or expired verification token",
-    "EXPIRED_CONFIRMATION_TOKEN": "Invalid or expired confirmation token"
+    "EXPIRED_CONFIRMATION_TOKEN": "Invalid or expired confirmation token",
+    "INVALID_USER_ID": "Invalid user ID"
   },
   "validation": {
     "IS_EMAIL": "must be a valid email",
@@ -59,7 +60,8 @@
     "email_change_sent": "Confirmation email sent to the new address",
     "verification_resent": "If the email exists, a verification link has been sent",
     "account_unlocked": "Account unlocked",
-    "user_deleted": "User deleted"
+    "user_deleted": "User deleted",
+    "translations_reloaded": "Translations reloaded from MongoDB"
   },
   "rbac": {
     "admin": "Administrator with full access",

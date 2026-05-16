@@ -14,7 +14,8 @@
     "ACCOUNT_LOCKED": "La cuenta está temporalmente bloqueada debido a demasiados intentos fallidos de inicio de sesión. Por favor intenta más tarde o contacta a soporte.",
     "EXPIRED_RESET_TOKEN": "Token de restablecimiento inválido o expirado",
     "EXPIRED_VERIFICATION_TOKEN": "Token de verificación inválido o expirado",
-    "EXPIRED_CONFIRMATION_TOKEN": "Token de confirmación inválido o expirado"
+    "EXPIRED_CONFIRMATION_TOKEN": "Token de confirmación inválido o expirado",
+    "INVALID_USER_ID": "ID de usuario inválido"
   },
   "validation": {
     "IS_EMAIL": "debe ser un email válido",
@@ -59,7 +60,8 @@
     "email_change_sent": "Email de confirmación enviado a la nueva dirección",
     "verification_resent": "Si el email existe, se envió un enlace de verificación",
     "account_unlocked": "Cuenta desbloqueada",
-    "user_deleted": "Usuario eliminado"
+    "user_deleted": "Usuario eliminado",
+    "translations_reloaded": "Traducciones recargadas desde MongoDB"
   },
   "rbac": {
     "admin": "Administrador con acceso total",

@@ -148,7 +148,7 @@ export class UserRepository implements OnApplicationBootstrap {
     isActive?: boolean;
     search?: string;
   }): Promise<{ users: User[]; total: number }> {
-    const mongoFilter: Record<string, unknown> = { deletedAt: { $exists: false } };
+    const mongoFilter: Record<string, unknown> = {};
     const andConditions: Record<string, unknown>[] = [];
 
     if (filters.role) {
@@ -156,6 +156,9 @@ export class UserRepository implements OnApplicationBootstrap {
     }
     if (filters.isActive !== undefined) {
       andConditions.push({ isActive: filters.isActive });
+    } else {
+      // Default: exclude soft-deleted users when no isActive filter is specified
+      mongoFilter.deletedAt = { $exists: false };
     }
     if (filters.search) {
       const searchRegex = new RegExp(filters.search, 'i');

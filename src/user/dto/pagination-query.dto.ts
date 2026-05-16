@@ -72,10 +72,11 @@ export class PaginationQueryDTO {
     description: 'Filtrar por estado activo',
   })
   @IsOptional()
+  @Type(() => String)
   @Transform(({ value }) => {
     if (value === 'true') return true;
     if (value === 'false') return false;
-    return value;
+    return undefined;
   })
   @IsBoolean({ message: 'IS_ACTIVE_BOOLEAN' })
   isActive?: boolean;

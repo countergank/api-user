@@ -13,6 +13,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import mongoose from 'mongoose';
 import { CustomLogger } from '../../common/logger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -99,6 +100,9 @@ export class UserController {
       if (error instanceof UserNotFoundError) {
         throw new BadRequestException(error.getErrorPublic());
       }
+      if (error instanceof mongoose.Error.CastError) {
+        throw new BadRequestException('INVALID_USER_ID');
+      }
       const err = error as Error;
       this.logger.error(err.message, err.stack);
       throw new InternalServerErrorException();
@@ -134,6 +138,9 @@ export class UserController {
       if (error instanceof UserNotFoundError) {
         throw new BadRequestException(error.getErrorPublic());
       }
+      if (error instanceof mongoose.Error.CastError) {
+        throw new BadRequestException('INVALID_USER_ID');
+      }
       const err = error as Error;
       this.logger.error(err.message, err.stack);
       throw new InternalServerErrorException();
@@ -154,6 +161,9 @@ export class UserController {
       ) {
         throw new BadRequestException(error.getErrorPublic());
       }
+      if (error instanceof mongoose.Error.CastError) {
+        throw new BadRequestException('INVALID_USER_ID');
+      }
       const err = error as Error;
       this.logger.error(err.message, err.stack);
       throw new InternalServerErrorException();
@@ -170,6 +180,9 @@ export class UserController {
       if (error instanceof UserNotFoundError) {
         throw new BadRequestException(error.getErrorPublic());
       }
+      if (error instanceof mongoose.Error.CastError) {
+        throw new BadRequestException('INVALID_USER_ID');
+      }
       const err = error as Error;
       this.logger.error(err.message, err.stack);
       throw new InternalServerErrorException();
@@ -185,6 +198,9 @@ export class UserController {
     } catch (error) {
       if (error instanceof UserNotFoundError || error instanceof UserAlreadyDeletedError) {
         throw new BadRequestException(error.getErrorPublic());
+      }
+      if (error instanceof mongoose.Error.CastError) {
+        throw new BadRequestException('INVALID_USER_ID');
       }
       const err = error as Error;
       this.logger.error(err.message, err.stack);
