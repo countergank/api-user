@@ -379,10 +379,81 @@ See `openspec/specs/admin-user-pagination/spec.md` for complete scenarios (14 sc
 
 ---
 
+## Domain: i18n-completeness
+
+### Overview
+Complete internationalization (es/en/pt) of all endpoint responses — both success messages and error codes. No hardcoded English strings remain in any controller or service.
+
+### Requirements
+
+| ID | Requirement | Description |
+|----|-------------|-------------|
+| I18N-01 | All success messages internationalized | Every controller returning `{ message }` MUST use i18n translation keys |
+| I18N-02 | All error messages use codes | Exceptions MUST use short i18n-compatible codes (INVALID_CREDENTIALS, not 'Invalid credentials') |
+| I18N-03 | Validation errors internationalized | Class-validator custom messages MUST use i18n-compatible keys |
+| I18N-04 | I18nModule is global | @Global() decorator enables cross-module I18nService injection |
+| I18N-05 | JSON keys merged at startup | New keys added to JSON files are auto-merged into MongoDB translations on startup and reload |
+| I18N-06 | Build copies i18n assets | nest-cli.json assets config copies JSON files to dist/ |
+
+### Error Codes Internationalized
+
+| Code | es | en | pt |
+|------|----|----|-----|
+| INVALID_CREDENTIALS | Credenciales inválidas | Invalid credentials | Credenciais inválidas |
+| ACCOUNT_INACTIVE | La cuenta está inactiva | User account is inactive | A conta está inativa |
+| EMAIL_OR_USERNAME_EXISTS | Email o nombre ya registrado | Email or username already exists | Email ou nome já existe |
+| INVALID_REFRESH_TOKEN | Token de actualización inválido | Invalid refresh token | Token de atualização inválido |
+| NO_PENDING_EMAIL_CHANGE | No hay cambio pendiente | No pending email change found | Nenhuma alteração pendente |
+| CURRENT_PASSWORD_INCORRECT | Contraseña actual incorrecta | Current password is incorrect | Senha atual incorreta |
+| INVALID_USER_ID | ID de usuario inválido | Invalid user ID | ID de usuário inválido |
+
+### Success Messages Internationalized
+
+All `{ message }` responses use `messages.*` keys with es/en/pt translations.
+
+### Implementation
+
+- **I18nService**: `src/common/i18n/i18n.service.ts` — onModuleInit, mergeJsonKeys, deepMerge
+- **I18nModule**: `src/common/i18n/i18n.module.ts` — @Global()
+- **Translations**: `src/common/i18n/translations/{es,en,pt}.json`
+- **Controllers**: AuthController, UserController, UserProfileController — @Inject(I18nService)
+
+### Affected Endpoints
+
+All endpoints returning responses now use translated messages based on Accept-Language header.
+
+---
+
+## Domain: post-implementation-fixes
+
+### Overview
+Bug fixes applied after SDD implementation for admin-crud and rate-limiting features.
+
+### Requirements
+
+| ID | Requirement | Description |
+|----|-------------|-------------|
+| FIX-01 | lockedUntil cleared on unlock | unlockUser() and successful login MUST set lockedUntil to null (not undefined) |
+| FIX-02 | isActive filter works correctly | Query param isActive=false MUST return inactive users, not be converted to true |
+| FIX-03 | isActive filter independent of deletedAt | Explicit isActive filter MUST NOT be blocked by deletedAt exclusion |
+| FIX-04 | CastError → 400 on all :id endpoints | Invalid MongoDB ObjectId MUST return 400 with INVALID_USER_ID, not 500 |
+| FIX-05 | UpdateUserDTO no default role | CreateUserDTO role default MUST NOT leak into UpdateUserDTO via PartialType |
+
+### Implementation
+
+- `src/auth/auth.service.ts` — null for lockedUntil clear
+- `src/user/service/user.service.ts` — null for lockedUntil clear
+- `src/user/dto/pagination-query.dto.ts` — @Type(() => String) + manual @Transform for isActive
+- `src/user/repository/user.repository.ts` — conditional deletedAt filter
+- `src/user/controller/user.controller.ts` — CastError catch in all :id endpoints
+- `src/user/dto/create-user.dto.ts` — removed role TypeScript default
+
+---
+
 ## Metadata
 
 | Property | Value |
 |----------|-------|
-| Last Updated | 2026-05-14 |
-| Total Domains | 15 |
-| Fully Documented | 7 (password-validation, rate-limiting, account-lockout, admin-user-update, admin-user-delete, admin-user-toggle-active, admin-user-pagination) |
+| Last Updated | 2026-05-16 |
+| Total Domains | 17 |
+| Fully Documented | 9 (password-validation, rate-limiting, account-lockout, admin-user-update, admin-user-delete, admin-user-toggle-active, admin-user-pagination, i18n-completeness, post-implementation-fixes) |

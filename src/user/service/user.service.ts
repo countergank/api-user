@@ -118,7 +118,7 @@ export class UserService {
   async requestEmailChange(userId: string, newEmail: string): Promise<{ token: string; expires: Date; user: User }> {
     const existing = await this.findByEmail(newEmail);
     if (existing) {
-      throw new ConflictException('Email already in use');
+      throw new ConflictException('EMAIL_ALREADY_EXISTS');
     }
 
     const user = await this.findById(userId);

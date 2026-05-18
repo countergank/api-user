@@ -46,7 +46,7 @@ export class AuthService {
   ): Promise<AuthResponse> {
     const existing = await this.userService.existsByEmailOrUsername(email, userName);
     if (existing) {
-      throw new BadRequestException('Email or username already exists');
+      throw new BadRequestException('EMAIL_OR_USERNAME_EXISTS');
     }
 
     const user = await this.userService.createWithRole({
@@ -82,7 +82,7 @@ export class AuthService {
   async login(email: string, password: string): Promise<AuthResponse> {
     const user = await this.userService.findByEmail(email);
     if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('INVALID_CREDENTIALS');
     }
 
     // Check lockout BEFORE password validation (security: skip bcrypt if locked)
@@ -105,7 +105,7 @@ export class AuthService {
       }
 
       await this.userService.update(user.id, updateData);
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('INVALID_CREDENTIALS');
     }
 
     // Successful login: reset lockout state if it existed
@@ -117,7 +117,7 @@ export class AuthService {
     }
 
     if (!user.isActive) {
-      throw new UnauthorizedException('User account is inactive');
+      throw new UnauthorizedException('ACCOUNT_INACTIVE');
     }
 
     return this.generateAuthResponse(user);
@@ -194,7 +194,7 @@ export class AuthService {
 
     const newEmail = user.pendingEmail;
     if (!newEmail) {
-      throw new BadRequestException('No pending email change found');
+      throw new BadRequestException('NO_PENDING_EMAIL_CHANGE');
     }
 
     await this.userService.update(user.id, {
@@ -239,11 +239,11 @@ export class AuthService {
       const payload = this.jwtService.verify(refreshToken);
       const user = await this.userService.findById(payload.sub);
       if (!user) {
-        throw new UnauthorizedException('Invalid token');
+        throw new UnauthorizedException('INVALID_TOKEN');
       }
       return this.generateAuthResponse(user);
     } catch {
-      throw new UnauthorizedException('Invalid refresh token');
+      throw new UnauthorizedException('INVALID_REFRESH_TOKEN');
     }
   }
 

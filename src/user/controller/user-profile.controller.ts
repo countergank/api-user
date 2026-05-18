@@ -62,7 +62,7 @@ export class UserProfileController {
     const user = req.user;
     const isValid = await this.encodeService.compare(dto.currentPassword, user.password);
     if (!isValid) {
-      throw new BadRequestException('Current password is incorrect');
+      throw new BadRequestException('CURRENT_PASSWORD_INCORRECT');
     }
 
     await this.userService.update(user.id, {
