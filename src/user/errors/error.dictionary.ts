@@ -4,6 +4,8 @@ export enum ErrorCodes {
   UserNameAlreadyExists = '002',
   UserEmailAlreadyExists = '003',
   UserPopulate = '004',
+  UserAlreadyDeleted = '005',
+  Reserved = '006',
 }
 
 export const ErrorMessages = {
@@ -31,5 +33,10 @@ export const ErrorMessages = {
     es: 'Error User, al poblar base de datos.',
     en: 'User error, populating database.',
     pt: 'Erro de Usuário, ao popular banco de dados.',
+  },
+  '005': {
+    es: 'Error User, el usuario ya fue eliminado.',
+    en: 'User error, user has already been deleted.',
+    pt: 'Erro de Usuário, o usuário já foi excluído.',
   },
 };

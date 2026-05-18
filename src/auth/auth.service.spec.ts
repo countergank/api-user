@@ -70,7 +70,7 @@ describe(AuthService.name, () => {
 
       expect(userService.update).toHaveBeenCalledWith(expiredLockUser.id, {
         failedLoginAttempts: 0,
-        lockedUntil: undefined,
+        lockedUntil: null,
       });
       expect(result).toHaveProperty('accessToken');
       expect(result).toHaveProperty('refreshToken');
@@ -128,7 +128,7 @@ describe(AuthService.name, () => {
 
       expect(userService.update).toHaveBeenCalledWith(user.id, {
         failedLoginAttempts: 0,
-        lockedUntil: undefined,
+        lockedUntil: null,
       });
       expect(result).toHaveProperty('accessToken');
     });

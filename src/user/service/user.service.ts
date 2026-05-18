@@ -2,9 +2,14 @@ import { ConflictException, Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { plainToInstance } from 'class-transformer';
 import { CreateUserDTO } from '../dto/create-user.dto';
+import { UpdateUserDTO } from '../dto/update-user.dto';
+import { PaginationQueryDTO } from '../dto/pagination-query.dto';
+import { PaginatedUserResponseDTO } from '../dto/paginated-user-response.dto';
+import { UserDTO } from '../dto/user.dto';
 import { EncodeService } from '../../encode/encode.service';
 import { User, UserRole } from '../entities/user.entity';
 import {
+  UserAlreadyDeletedError,
   UserEmailAlreadyExistsError,
   UserNameAlreadyExistsError,
   UserNotFoundError,
@@ -113,7 +118,7 @@ export class UserService {
   async requestEmailChange(userId: string, newEmail: string): Promise<{ token: string; expires: Date; user: User }> {
     const existing = await this.findByEmail(newEmail);
     if (existing) {
-      throw new ConflictException('Email already in use');
+      throw new ConflictException('EMAIL_ALREADY_EXISTS');
     }
 
     const user = await this.findById(userId);
@@ -133,7 +138,78 @@ export class UserService {
     const user = await this.findById(userId);
     return this.update(userId, {
       failedLoginAttempts: 0,
-      lockedUntil: undefined,
+      lockedUntil: null as any,
     });
+  }
+
+  async updateUser(id: string, dto: UpdateUserDTO): Promise<User> {
+    const user = await this.userRepository.findById(id);
+    if (!user) {
+      throw new UserNotFoundError();
+    }
+
+    if (dto.email) {
+      const emailConflict = await this.userRepository.existsByEmailExcludingSelf(dto.email, id);
+      if (emailConflict) {
+        throw new UserEmailAlreadyExistsError();
+      }
+    }
+
+    if (dto.userName) {
+      const nameConflict = await this.userRepository.existsByNameExcludingSelf(dto.userName, id);
+      if (nameConflict) {
+        throw new UserNameAlreadyExistsError();
+      }
+    }
+
+    // Strip undefined values to avoid unintentionally unsetting fields
+    const updateData = Object.fromEntries(
+      Object.entries(dto).filter(([_, v]) => v !== undefined),
+    );
+
+    return this.userRepository.update(id, updateData);
+  }
+
+  async deleteUser(id: string): Promise<{ userId: string }> {
+    const user = await this.userRepository.findById(id);
+    if (!user) {
+      throw new UserNotFoundError();
+    }
+
+    // Idempotent: if already soft-deleted, return success without modifying
+    if (!user.deletedAt) {
+      await this.userRepository.softDelete(id);
+    }
+
+    return { userId: id };
+  }
+
+  async toggleActiveUser(id: string): Promise<User> {
+    const user = await this.userRepository.findById(id);
+    if (!user) {
+      throw new UserNotFoundError();
+    }
+
+    if (user.deletedAt) {
+      throw new UserAlreadyDeletedError();
+    }
+
+    const newIsActive = !user.isActive;
+    return this.userRepository.update(id, { isActive: newIsActive });
+  }
+
+  async findPaginated(filters: PaginationQueryDTO): Promise<PaginatedUserResponseDTO<UserDTO>> {
+    const { users, total } = await this.userRepository.findPaginated({
+      page: filters.page,
+      limit: filters.limit,
+      sortBy: filters.sortBy,
+      sortOrder: filters.sortOrder,
+      role: filters.role,
+      isActive: filters.isActive,
+      search: filters.search,
+    });
+
+    const data = users.map((user) => UserDTO.of(user));
+    return PaginatedUserResponseDTO.of(data, total, filters.page, filters.limit);
   }
 }

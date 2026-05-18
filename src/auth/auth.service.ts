@@ -46,7 +46,7 @@ export class AuthService {
   ): Promise<AuthResponse> {
     const existing = await this.userService.existsByEmailOrUsername(email, userName);
     if (existing) {
-      throw new BadRequestException('Email or username already exists');
+      throw new BadRequestException('EMAIL_OR_USERNAME_EXISTS');
     }
 
     const user = await this.userService.createWithRole({
@@ -82,7 +82,7 @@ export class AuthService {
   async login(email: string, password: string): Promise<AuthResponse> {
     const user = await this.userService.findByEmail(email);
     if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('INVALID_CREDENTIALS');
     }
 
     // Check lockout BEFORE password validation (security: skip bcrypt if locked)
@@ -105,19 +105,19 @@ export class AuthService {
       }
 
       await this.userService.update(user.id, updateData);
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('INVALID_CREDENTIALS');
     }
 
     // Successful login: reset lockout state if it existed
     if (user.failedLoginAttempts > 0 || user.lockedUntil) {
       await this.userService.update(user.id, {
         failedLoginAttempts: 0,
-        lockedUntil: undefined,
+        lockedUntil: null as any,
       });
     }
 
     if (!user.isActive) {
-      throw new UnauthorizedException('User account is inactive');
+      throw new UnauthorizedException('ACCOUNT_INACTIVE');
     }
 
     return this.generateAuthResponse(user);
@@ -153,7 +153,7 @@ export class AuthService {
   async resetPassword(token: string, newPassword: string, lang?: string): Promise<void> {
     const user = await this.userService.findByResetToken(token);
     if (!user || !user.resetPasswordExpires || user.resetPasswordExpires < new Date()) {
-      throw new BadRequestException('Invalid or expired reset token');
+      throw new BadRequestException('EXPIRED_RESET_TOKEN');
     }
 
     // Hash the new password before updating
@@ -176,7 +176,7 @@ export class AuthService {
   async verifyEmail(token: string): Promise<void> {
     const user = await this.userService.findByEmailVerificationToken(token);
     if (!user || !user.emailVerificationExpires || user.emailVerificationExpires < new Date()) {
-      throw new BadRequestException('Invalid or expired verification token');
+      throw new BadRequestException('EXPIRED_VERIFICATION_TOKEN');
     }
 
     await this.userService.update(user.id, {
@@ -189,12 +189,12 @@ export class AuthService {
   async confirmEmailChange(token: string, lang?: string): Promise<void> {
     const user = await this.userService.findByPendingEmailToken(token);
     if (!user || !user.pendingEmailExpires || user.pendingEmailExpires < new Date()) {
-      throw new BadRequestException('Invalid or expired confirmation token');
+      throw new BadRequestException('EXPIRED_CONFIRMATION_TOKEN');
     }
 
     const newEmail = user.pendingEmail;
     if (!newEmail) {
-      throw new BadRequestException('No pending email change found');
+      throw new BadRequestException('NO_PENDING_EMAIL_CHANGE');
     }
 
     await this.userService.update(user.id, {
@@ -239,11 +239,11 @@ export class AuthService {
       const payload = this.jwtService.verify(refreshToken);
       const user = await this.userService.findById(payload.sub);
       if (!user) {
-        throw new UnauthorizedException('Invalid token');
+        throw new UnauthorizedException('INVALID_TOKEN');
       }
       return this.generateAuthResponse(user);
     } catch {
-      throw new UnauthorizedException('Invalid refresh token');
+      throw new UnauthorizedException('INVALID_REFRESH_TOKEN');
     }
   }
 

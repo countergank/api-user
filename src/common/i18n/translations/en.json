@@ -6,19 +6,34 @@
     "VALIDATION_ERROR": "Validation error",
     "EMAIL_ALREADY_EXISTS": "Email is already registered",
     "USER_ALREADY_EXISTS": "User already exists",
-    "INVALID_TOKEN": "Invalid token",
+    "EMAIL_OR_USERNAME_EXISTS": "Email or username already exists",
+    "ACCOUNT_INACTIVE": "User account is inactive",
+    "CURRENT_PASSWORD_INCORRECT": "Current password is incorrect",
+    "INVALID_REFRESH_TOKEN": "Invalid refresh token",
+    "NO_PENDING_EMAIL_CHANGE": "No pending email change found",
+    "INVALID_TOKEN": "Invalid or expired token",
     "TOKEN_EXPIRED": "Token expired",
     "FORBIDDEN": "Access denied",
     "BAD_REQUEST": "Bad request",
     "RATE_LIMITED": "Too many requests. Please try again in {{retryAfter}} seconds.",
-    "ACCOUNT_LOCKED": "Account is temporarily locked due to too many failed login attempts. Please try again later or contact support."
+    "ACCOUNT_LOCKED": "Account is temporarily locked due to too many failed login attempts. Please try again later or contact support.",
+    "EXPIRED_RESET_TOKEN": "Invalid or expired reset token",
+    "EXPIRED_VERIFICATION_TOKEN": "Invalid or expired verification token",
+    "EXPIRED_CONFIRMATION_TOKEN": "Invalid or expired confirmation token",
+    "INVALID_USER_ID": "Invalid user ID"
   },
   "validation": {
     "IS_EMAIL": "must be a valid email",
     "IS_NOT_EMPTY": "must not be empty",
     "MIN_LENGTH": "must be at least $constraint1 characters",
     "MAX_LENGTH": "must not exceed $constraint1 characters",
-    "IS_STRONG_PASSWORD": "must be a strong password"
+    "IS_STRONG_PASSWORD": "must be a strong password",
+    "PAGE_MIN": "page must be greater than or equal to 1",
+    "LIMIT_MIN": "limit must be greater than or equal to 1",
+    "LIMIT_MAX": "limit must not be greater than 100",
+    "SORT_BY_INVALID": "sort field is not valid",
+    "SORT_ORDER_INVALID": "sort order must be 'asc' or 'desc'",
+    "IS_ACTIVE_BOOLEAN": "isActive must be a boolean value (true or false)"
   },
   "password": {
     "PASSWORD_TOO_SHORT": "Password must have at least 8 characters",
@@ -41,7 +56,17 @@
   "messages": {
     "welcome": "Welcome, {{username}}!",
     "goodbye": "Goodbye",
-    "password_reset": "Your password has been reset"
+    "password_reset": "Your password has been reset",
+    "forgot_password_sent": "If the email exists, a reset link has been sent",
+    "password_reset_success": "Password reset successfully",
+    "email_verified": "Email verified successfully",
+    "email_changed": "Email changed successfully",
+    "password_changed": "Password changed successfully",
+    "email_change_sent": "Confirmation email sent to the new address",
+    "verification_resent": "If the email exists, a verification link has been sent",
+    "account_unlocked": "Account unlocked",
+    "user_deleted": "User deleted",
+    "translations_reloaded": "Translations reloaded from MongoDB"
   },
   "rbac": {
     "admin": "Administrator with full access",

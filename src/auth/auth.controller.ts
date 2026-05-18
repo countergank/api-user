@@ -1,6 +1,8 @@
-import { Body, Controller, HttpCode, Post, Req } from '@nestjs/common';
+import { Body, Controller, HttpCode, Inject, Post, Req } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
+import { I18nService } from '../common/i18n/i18n.service';
+import { getRequestLang } from '../common/i18n/request-lang.helper';
 import {
   ApplyConfirmEmailChangeDoc,
   ApplyForgotPasswordDoc,
@@ -13,17 +15,18 @@ import {
 } from './api-docs';
 import { AuthService } from './auth.service';
 import { RegisterUserDTO } from './dto/register-user.dto';
-import { getRequestLang } from '../common/i18n/request-lang.helper';
 
-/**
- * Controller para manejo de autenticación de usuarios.
- * Provee endpoints para registro, login, recuperación y refresh de tokens.
- * @public
- */
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    @Inject(I18nService) private i18n: I18nService,
+  ) {}
+
+  private async t(key: string, req: any): Promise<string> {
+    return this.i18n.translate(key, getRequestLang(req));
+  }
 
   @Post('register')
   @Throttle({
@@ -68,7 +71,7 @@ export class AuthController {
   @ApplyForgotPasswordDoc()
   async forgotPassword(@Body() body: { email: string }, @Req() req: any) {
     await this.authService.forgotPassword(body.email, getRequestLang(req));
-    return { message: 'If the email exists, a reset link has been sent' };
+    return { message: await this.t('messages.forgot_password_sent', req) };
   }
 
   @Post('reset-password')
@@ -81,7 +84,7 @@ export class AuthController {
   @ApplyResetPasswordDoc()
   async resetPassword(@Body() body: { token: string; newPassword: string }, @Req() req: any) {
     await this.authService.resetPassword(body.token, body.newPassword, getRequestLang(req));
-    return { message: 'Password reset successfully' };
+    return { message: await this.t('messages.password_reset_success', req) };
   }
 
   @Post('refresh')
@@ -105,9 +108,9 @@ export class AuthController {
     },
   })
   @ApplyVerifyEmailDoc()
-  async verifyEmail(@Body() body: { token: string }) {
+  async verifyEmail(@Body() body: { token: string }, @Req() req: any) {
     await this.authService.verifyEmail(body.token);
-    return { message: 'Email verified successfully' };
+    return { message: await this.t('messages.email_verified', req) };
   }
 
   @Post('confirm-email-change')
@@ -120,7 +123,7 @@ export class AuthController {
   @ApplyConfirmEmailChangeDoc()
   async confirmEmailChange(@Body() body: { token: string }, @Req() req: any) {
     await this.authService.confirmEmailChange(body.token, getRequestLang(req));
-    return { message: 'Email changed successfully' };
+    return { message: await this.t('messages.email_changed', req) };
   }
 
   @Post('resend-verification')
@@ -134,11 +137,12 @@ export class AuthController {
   async resendVerification(@Body() body: { email: string }, @Req() req: any) {
     const user = await this.authService.findUserByEmail(body.email);
     if (!user) {
-      return { message: 'If the email exists, a verification link has been sent' };
+      return { message: await this.t('messages.verification_resent', req) };
     }
 
     await this.authService.resendVerification(user.id, user.email, user.name, getRequestLang(req));
 
-    return { message: 'If the email exists, a verification link has been sent' };
+    return { message: await this.t('messages.verification_resent', req) };
   }
 }
+

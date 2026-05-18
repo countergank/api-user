@@ -6,19 +6,34 @@
     "VALIDATION_ERROR": "Erro de validação",
     "EMAIL_ALREADY_EXISTS": "O email já está registrado",
     "USER_ALREADY_EXISTS": "O usuário já existe",
-    "INVALID_TOKEN": "Token inválido",
+    "EMAIL_OR_USERNAME_EXISTS": "O email ou nome de usuário já existe",
+    "ACCOUNT_INACTIVE": "A conta de usuário está inativa",
+    "CURRENT_PASSWORD_INCORRECT": "A senha atual está incorreta",
+    "INVALID_REFRESH_TOKEN": "Token de atualização inválido",
+    "NO_PENDING_EMAIL_CHANGE": "Nenhuma alteração de email pendente",
+    "INVALID_TOKEN": "Token inválido ou expirado",
     "TOKEN_EXPIRED": "Token expirado",
     "FORBIDDEN": "Acesso negado",
     "BAD_REQUEST": "Solicitação incorreta",
     "RATE_LIMITED": "Muitas solicitações. Por favor tente novamente em {{retryAfter}} segundos.",
-    "ACCOUNT_LOCKED": "A conta está temporariamente bloqueada devido a muitas tentativas falhas de login. Por favor tente novamente mais tarde ou entre em contato com o suporte."
+    "ACCOUNT_LOCKED": "A conta está temporariamente bloqueada devido a muitas tentativas falhas de login. Por favor tente novamente mais tarde ou entre em contato com o suporte.",
+    "EXPIRED_RESET_TOKEN": "Token de redefinição inválido ou expirado",
+    "EXPIRED_VERIFICATION_TOKEN": "Token de verificação inválido ou expirado",
+    "EXPIRED_CONFIRMATION_TOKEN": "Token de confirmação inválido ou expirado",
+    "INVALID_USER_ID": "ID de usuário inválido"
   },
   "validation": {
     "IS_EMAIL": "deve ser um email válido",
     "IS_NOT_EMPTY": "não deve estar vazio",
     "MIN_LENGTH": "deve ter pelo menos $constraint1 caracteres",
     "MAX_LENGTH": "não deve exceder $constraint1 caracteres",
-    "IS_STRONG_PASSWORD": "deve ser uma senha forte"
+    "IS_STRONG_PASSWORD": "deve ser uma senha forte",
+    "PAGE_MIN": "a página deve ser maior ou igual a 1",
+    "LIMIT_MIN": "o limite deve ser maior ou igual a 1",
+    "LIMIT_MAX": "o limite não deve ser maior que 100",
+    "SORT_BY_INVALID": "campo de ordenação inválido",
+    "SORT_ORDER_INVALID": "a direção de ordenação deve ser 'asc' ou 'desc'",
+    "IS_ACTIVE_BOOLEAN": "isActive deve ser um valor booleano (true ou false)"
   },
   "password": {
     "PASSWORD_TOO_SHORT": "A senha deve ter pelo menos 8 caracteres",
@@ -40,7 +55,17 @@
   "messages": {
     "welcome": "Bem-vindo, {{username}}!",
     "goodbye": "Até logo",
-    "password_reset": "Sua senha foi redefinida"
+    "password_reset": "Sua senha foi redefinida",
+    "forgot_password_sent": "Se o email existir, um link de redefinição foi enviado",
+    "password_reset_success": "Senha redefinida com sucesso",
+    "email_verified": "Email verificado com sucesso",
+    "email_changed": "Email alterado com sucesso",
+    "password_changed": "Senha alterada com sucesso",
+    "email_change_sent": "Email de confirmação enviado para o novo endereço",
+    "verification_resent": "Se o email existir, um link de verificação foi enviado",
+    "account_unlocked": "Conta desbloqueada",
+    "user_deleted": "Usuário excluído",
+    "translations_reloaded": "Traduções recarregadas do MongoDB"
   },
   "rbac": {
     "admin": "Administrador com acesso total",

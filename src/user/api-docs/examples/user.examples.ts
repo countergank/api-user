@@ -33,3 +33,20 @@ export class UserListResponse {
   @ApiProperty({ type: [UserResponse], description: 'Lista de usuarios' })
   users: UserResponse[];
 }
+
+export class PaginatedUserResponse {
+  @ApiProperty({ type: [UserResponse], description: 'Array de usuarios en la página actual' })
+  data: UserResponse[];
+
+  @ApiProperty({ example: 100, description: 'Total de registros' })
+  total: number;
+
+  @ApiProperty({ example: 1, description: 'Página actual' })
+  page: number;
+
+  @ApiProperty({ example: 20, description: 'Items por página' })
+  limit: number;
+
+  @ApiProperty({ example: 5, description: 'Total de páginas' })
+  totalPages: number;
+}

@@ -88,4 +88,234 @@ describe(UserRepository.name, () => {
       await expect(repository.findAll()).resolves.toBeInstanceOf(Array<User[]>);
     });
   });
+
+  describe(`${UserRepository.name}.${UserRepository.prototype.existsByEmailExcludingSelf.name}`, () => {
+    it(`should return false when email belongs to the same user`, async () => {
+      const user = await repository.create(new UserMock());
+      await expect(repository.existsByEmailExcludingSelf(user.email, user.id as string)).resolves.toBe(false);
+    });
+
+    it(`should return true when email belongs to a different user`, async () => {
+      const user1 = await repository.create(new UserMock());
+      const user2 = await repository.create(new UserMock().randomize());
+      await expect(repository.existsByEmailExcludingSelf(user1.email, user2.id as string)).resolves.toBe(true);
+    });
+  });
+
+  describe(`${UserRepository.name}.${UserRepository.prototype.existsByNameExcludingSelf.name}`, () => {
+    it(`should return false when name belongs to the same user`, async () => {
+      const user = await repository.create(new UserMock());
+      await expect(repository.existsByNameExcludingSelf(user.name, user.id as string)).resolves.toBe(false);
+    });
+
+    it(`should return true when name belongs to a different user`, async () => {
+      const user1 = await repository.create(new UserMock());
+      const user2 = await repository.create(new UserMock().randomize());
+      await expect(repository.existsByNameExcludingSelf(user1.name, user2.id as string)).resolves.toBe(true);
+    });
+  });
+
+  describe(`${UserRepository.name}.${UserRepository.prototype.softDelete.name}`, () => {
+    it(`should set isActive=false and deletedAt on user`, async () => {
+      const user = await repository.create(new UserMock());
+      expect(user.isActive).toBe(true);
+      expect(user.deletedAt).toBeUndefined();
+
+      const result = await repository.softDelete(user.id as string);
+      expect(result.isActive).toBe(false);
+      expect(result.deletedAt).toBeDefined();
+    });
+
+    it(`should return the updated user document`, async () => {
+      const user = await repository.create(new UserMock());
+      const result = await repository.softDelete(user.id as string);
+      expect(result).toBeInstanceOf(Model<User>);
+      expect(result.id).toBe(user.id);
+    });
+  });
+
+  describe(`${UserRepository.name}.${UserRepository.prototype.findPaginated.name}`, () => {
+    it('should return paginated users with default params', async () => {
+      await repository.create(new UserMock());
+      await repository.create(new UserMock().randomize());
+
+      const result = await repository.findPaginated({ page: 1, limit: 20, sortBy: 'createdAt', sortOrder: 'desc' });
+
+      expect(result.users).toHaveLength(2);
+      expect(result.total).toBe(2);
+    });
+
+    it('should respect limit and skip for pagination', async () => {
+      for (let i = 0; i < 5; i++) {
+        await repository.create(new UserMock().randomize());
+      }
+
+      const result = await repository.findPaginated({ page: 1, limit: 2, sortBy: 'createdAt', sortOrder: 'desc' });
+
+      expect(result.users).toHaveLength(2);
+      expect(result.total).toBe(5);
+    });
+
+    it('should filter by role', async () => {
+      const adminUser = new UserMock();
+      adminUser.role = 'admin' as any;
+      await repository.create(adminUser);
+
+      const viewerUser = new UserMock().randomize();
+      viewerUser.role = 'viewer' as any;
+      await repository.create(viewerUser);
+
+      const result = await repository.findPaginated({
+        page: 1,
+        limit: 20,
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+        role: 'admin',
+      });
+
+      expect(result.users).toHaveLength(1);
+      expect(result.total).toBe(1);
+      expect(result.users[0].role).toBe('admin');
+    });
+
+    it('should filter by isActive', async () => {
+      const activeUser = new UserMock();
+      await repository.create(activeUser);
+
+      const inactiveUser = new UserMock().randomize();
+      inactiveUser.isActive = false;
+      await repository.create(inactiveUser);
+
+      const result = await repository.findPaginated({
+        page: 1,
+        limit: 20,
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+        isActive: true,
+      });
+
+      expect(result.users).toHaveLength(1);
+      expect(result.total).toBe(1);
+      expect(result.users[0].isActive).toBe(true);
+    });
+
+    it('should search across name, lastName, email, userName case-insensitively', async () => {
+      const juanUser = new UserMock();
+      juanUser.name = 'Juan';
+      juanUser.lastName = 'Pérez';
+      juanUser.email = 'juan@example.com';
+      await repository.create(juanUser);
+
+      const mariaUser = new UserMock().randomize();
+      mariaUser.name = 'María';
+      mariaUser.email = 'maria@example.com';
+      await repository.create(mariaUser);
+
+      const result = await repository.findPaginated({
+        page: 1,
+        limit: 20,
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+        search: 'juan',
+      });
+
+      expect(result.users).toHaveLength(1);
+      expect(result.total).toBe(1);
+      expect(result.users[0].name).toBe('Juan');
+    });
+
+    it('should exclude soft-deleted users by default', async () => {
+      const activeUser = new UserMock();
+      await repository.create(activeUser);
+
+      const deletedUser = new UserMock().randomize();
+      deletedUser.deletedAt = new Date();
+      deletedUser.isActive = false;
+      await repository.create(deletedUser);
+
+      const result = await repository.findPaginated({
+        page: 1,
+        limit: 20,
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+      });
+
+      expect(result.users).toHaveLength(1);
+      expect(result.total).toBe(1);
+      expect(result.users[0].deletedAt).toBeUndefined();
+    });
+
+    it('should sort by field ascending', async () => {
+      const userA = new UserMock();
+      userA.name = 'Carlos';
+      await repository.create(userA);
+
+      const userB = new UserMock().randomize();
+      userB.name = 'Ana';
+      await repository.create(userB);
+
+      const userC = new UserMock().randomize();
+      userC.name = 'Bruno';
+      await repository.create(userC);
+
+      const result = await repository.findPaginated({
+        page: 1,
+        limit: 20,
+        sortBy: 'name',
+        sortOrder: 'asc',
+      });
+
+      expect(result.users).toHaveLength(3);
+      expect(result.users[0].name).toBe('Ana');
+      expect(result.users[1].name).toBe('Bruno');
+      expect(result.users[2].name).toBe('Carlos');
+    });
+
+    it('should return empty results when no users match', async () => {
+      const result = await repository.findPaginated({
+        page: 1,
+        limit: 20,
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+        role: 'superadmin',
+      });
+
+      expect(result.users).toHaveLength(0);
+      expect(result.total).toBe(0);
+    });
+
+    it('should combine role + isActive + search filters', async () => {
+      const matchingUser = new UserMock();
+      matchingUser.name = 'Juan';
+      matchingUser.role = 'admin' as any;
+      matchingUser.isActive = true;
+      await repository.create(matchingUser);
+
+      const wrongRole = new UserMock().randomize();
+      wrongRole.name = 'Juan';
+      wrongRole.isActive = true;
+      wrongRole.role = 'user' as any;
+      await repository.create(wrongRole);
+
+      const wrongActive = new UserMock().randomize();
+      wrongActive.name = 'Juan';
+      wrongActive.isActive = false;
+      wrongActive.role = 'admin' as any;
+      await repository.create(wrongActive);
+
+      const result = await repository.findPaginated({
+        page: 1,
+        limit: 20,
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+        role: 'admin',
+        isActive: true,
+        search: 'juan',
+      });
+
+      expect(result.users).toHaveLength(1);
+      expect(result.total).toBe(1);
+      expect(result.users[0].name).toBe('Juan');
+    });
+  });
 });

@@ -232,10 +232,228 @@ See `openspec/specs/account-lockout/spec.md` for complete scenarios and i18n tra
 
 ---
 
+## Domain: admin-user-update
+
+### Overview
+
+Enable administrators to partially update user profile fields (name, lastName, email, userName, role, permissions) via `PATCH /admin/users/:id`, with uniqueness validation for email and userName that excludes the user being updated.
+
+### Requirements
+
+| ID | Requirement | Description |
+|----|-------------|-------------|
+| R1 | Endpoint Contract | `PATCH /admin/users/:id` accepts JSON body conforming to `UpdateUserDTO` (all fields optional) |
+| R2 | Allowed Fields | Accepts: `name`, `lastName`, `email`, `userName`, `role`, `permissions`. Password SHALL NOT be accepted |
+| R3 | Uniqueness Validation | Email conflicts → HTTP 400 code `003`; userName conflicts → HTTP 400 code `002`. Excludes self by ID |
+| R4 | Response | Success returns HTTP 200 with updated `UserDTO` |
+| R5 | Not Found | Non-existent ID returns HTTP 400 with code `001` |
+| R6 | Validation | Request body validated by class-validator; invalid payloads → HTTP 400 |
+| R7 | Guard | Protected by `JwtAuthGuard` and `RolesGuard`, requiring `admin` role |
+
+### Error Codes
+
+| Status | Code | Description |
+|--------|------|-------------|
+| 400 | 001 | User not found |
+| 400 | 002 | UserName already exists |
+| 400 | 003 | Email already exists |
+
+### Affected Endpoints
+
+| Method | Path | Auth | Role | Description |
+|--------|------|------|------|-------------|
+| PATCH | /admin/users/:id | Yes | Admin | Partial update user profile |
+
+### Full Spec
+
+See `openspec/specs/admin-user-update/spec.md` for complete scenarios (12 scenarios).
+
+---
+
+## Domain: admin-user-delete
+
+### Overview
+
+Enable administrators to soft-delete users via `DELETE /admin/users/:id`, setting `isActive=false` and recording a `deletedAt` timestamp. The operation SHALL be idempotent.
+
+### Requirements
+
+| ID | Requirement | Description |
+|----|-------------|-------------|
+| R1 | Endpoint Contract | `DELETE /admin/users/:id` performs soft delete |
+| R2 | Soft Delete Behavior | Sets `isActive=false` and `deletedAt=new Date()` on the user document |
+| R3 | Idempotency | Already-deleted users return HTTP 200 without modifying `deletedAt` |
+| R4 | Response | Success returns HTTP 200 with `{ message: string, userId: string }` |
+| R5 | Not Found | Non-existent ID returns HTTP 400 with code `001` |
+| R6 | Guard | Protected by `JwtAuthGuard` and `RolesGuard`, requiring `admin` role |
+
+### Error Codes
+
+| Status | Code | Description |
+|--------|------|-------------|
+| 400 | 001 | User not found |
+
+### Affected Endpoints
+
+| Method | Path | Auth | Role | Description |
+|--------|------|------|------|-------------|
+| DELETE | /admin/users/:id | Yes | Admin | Soft-delete user |
+
+### Full Spec
+
+See `openspec/specs/admin-user-delete/spec.md` for complete scenarios (4 scenarios).
+
+---
+
+## Domain: admin-user-toggle-active
+
+### Overview
+
+Enable administrators to toggle a user's `isActive` status via `PATCH /admin/users/:id/active`. Rejects attempts to toggle soft-deleted users.
+
+### Requirements
+
+| ID | Requirement | Description |
+|----|-------------|-------------|
+| R1 | Endpoint Contract | `PATCH /admin/users/:id/active` toggles the `isActive` boolean |
+| R2 | Toggle Behavior | If `isActive=true` → `false`; if `false` → `true` |
+| R3 | Soft-Deleted Guard | Soft-deleted users (`deletedAt` set) return HTTP 400 with code `005` |
+| R4 | Response | Success returns HTTP 200 with updated `UserDTO` |
+| R5 | Not Found | Non-existent ID returns HTTP 400 with code `001` |
+| R6 | Guard | Protected by `JwtAuthGuard` and `RolesGuard`, requiring `admin` role |
+
+### Error Codes
+
+| Status | Code | Description |
+|--------|------|-------------|
+| 400 | 001 | User not found |
+| 400 | 005 | User already deleted (cannot toggle) |
+
+### Affected Endpoints
+
+| Method | Path | Auth | Role | Description |
+|--------|------|------|------|-------------|
+| PATCH | /admin/users/:id/active | Yes | Admin | Toggle user active status |
+
+### Full Spec
+
+See `openspec/specs/admin-user-toggle-active/spec.md` for complete scenarios (4 scenarios).
+
+---
+
+## Domain: admin-user-pagination
+
+### Overview
+
+Enhance `GET /admin/users` to support pagination, filtering, text search, and sorting via query parameters. When no pagination params are present, the endpoint retains backward compatibility.
+
+### Requirements
+
+| ID | Requirement | Description |
+|----|-------------|-------------|
+| R1 | Endpoint Contract | `GET /admin/users` accepts optional query params: page, limit, sortBy, sortOrder, role, isActive, search |
+| R2 | Backward Compatibility | When `page` is absent, returns `UserDTO[]` (plain array, existing behavior) |
+| R3 | Paginated Response | Returns `{ data, total, page, limit, totalPages }` when `page` present |
+| R4 | Text Search | `search` performs case-insensitive regex across name, lastName, email, userName via MongoDB `$or` |
+| R5 | Filter Combination | `role`, `isActive`, and `search` filters combine with AND logic |
+| R6 | Sorting | `sortBy`/`sortOrder` control sort; invalid `sortBy` returns HTTP 400 |
+| R7 | Invalid Page | `page < 1` returns HTTP 400 with validation error |
+| R8 | Empty Results | No matches returns HTTP 200 with `data: []`, `total: 0`, `totalPages: 0` |
+| R9 | Guard | Protected by `JwtAuthGuard` and `RolesGuard`, requiring `admin` role |
+
+### Error Codes
+
+| Status | Code | Description |
+|--------|------|-------------|
+| 400 | — | Validation errors (invalid page, sortBy, limit, etc.) |
+
+### Affected Endpoints
+
+| Method | Path | Auth | Role | Description |
+|--------|------|------|------|-------------|
+| GET | /admin/users | Yes | Admin | Paginated/filtered user listing |
+
+### Full Spec
+
+See `openspec/specs/admin-user-pagination/spec.md` for complete scenarios (14 scenarios).
+
+---
+
+## Domain: i18n-completeness
+
+### Overview
+Complete internationalization (es/en/pt) of all endpoint responses — both success messages and error codes. No hardcoded English strings remain in any controller or service.
+
+### Requirements
+
+| ID | Requirement | Description |
+|----|-------------|-------------|
+| I18N-01 | All success messages internationalized | Every controller returning `{ message }` MUST use i18n translation keys |
+| I18N-02 | All error messages use codes | Exceptions MUST use short i18n-compatible codes (INVALID_CREDENTIALS, not 'Invalid credentials') |
+| I18N-03 | Validation errors internationalized | Class-validator custom messages MUST use i18n-compatible keys |
+| I18N-04 | I18nModule is global | @Global() decorator enables cross-module I18nService injection |
+| I18N-05 | JSON keys merged at startup | New keys added to JSON files are auto-merged into MongoDB translations on startup and reload |
+| I18N-06 | Build copies i18n assets | nest-cli.json assets config copies JSON files to dist/ |
+
+### Error Codes Internationalized
+
+| Code | es | en | pt |
+|------|----|----|-----|
+| INVALID_CREDENTIALS | Credenciales inválidas | Invalid credentials | Credenciais inválidas |
+| ACCOUNT_INACTIVE | La cuenta está inactiva | User account is inactive | A conta está inativa |
+| EMAIL_OR_USERNAME_EXISTS | Email o nombre ya registrado | Email or username already exists | Email ou nome já existe |
+| INVALID_REFRESH_TOKEN | Token de actualización inválido | Invalid refresh token | Token de atualização inválido |
+| NO_PENDING_EMAIL_CHANGE | No hay cambio pendiente | No pending email change found | Nenhuma alteração pendente |
+| CURRENT_PASSWORD_INCORRECT | Contraseña actual incorrecta | Current password is incorrect | Senha atual incorreta |
+| INVALID_USER_ID | ID de usuario inválido | Invalid user ID | ID de usuário inválido |
+
+### Success Messages Internationalized
+
+All `{ message }` responses use `messages.*` keys with es/en/pt translations.
+
+### Implementation
+
+- **I18nService**: `src/common/i18n/i18n.service.ts` — onModuleInit, mergeJsonKeys, deepMerge
+- **I18nModule**: `src/common/i18n/i18n.module.ts` — @Global()
+- **Translations**: `src/common/i18n/translations/{es,en,pt}.json`
+- **Controllers**: AuthController, UserController, UserProfileController — @Inject(I18nService)
+
+### Affected Endpoints
+
+All endpoints returning responses now use translated messages based on Accept-Language header.
+
+---
+
+## Domain: post-implementation-fixes
+
+### Overview
+Bug fixes applied after SDD implementation for admin-crud and rate-limiting features.
+
+### Requirements
+
+| ID | Requirement | Description |
+|----|-------------|-------------|
+| FIX-01 | lockedUntil cleared on unlock | unlockUser() and successful login MUST set lockedUntil to null (not undefined) |
+| FIX-02 | isActive filter works correctly | Query param isActive=false MUST return inactive users, not be converted to true |
+| FIX-03 | isActive filter independent of deletedAt | Explicit isActive filter MUST NOT be blocked by deletedAt exclusion |
+| FIX-04 | CastError → 400 on all :id endpoints | Invalid MongoDB ObjectId MUST return 400 with INVALID_USER_ID, not 500 |
+| FIX-05 | UpdateUserDTO no default role | CreateUserDTO role default MUST NOT leak into UpdateUserDTO via PartialType |
+
+### Implementation
+
+- `src/auth/auth.service.ts` — null for lockedUntil clear
+- `src/user/service/user.service.ts` — null for lockedUntil clear
+- `src/user/dto/pagination-query.dto.ts` — @Type(() => String) + manual @Transform for isActive
+- `src/user/repository/user.repository.ts` — conditional deletedAt filter
+- `src/user/controller/user.controller.ts` — CastError catch in all :id endpoints
+- `src/user/dto/create-user.dto.ts` — removed role TypeScript default
+
+---
+
 ## Metadata
 
 | Property | Value |
 |----------|-------|
-| Last Updated | 2026-05-13 |
-| Total Domains | 11 |
-| Fully Documented | 3 (password-validation, rate-limiting, account-lockout) |
+| Last Updated | 2026-05-16 |
+| Total Domains | 17 |
+| Fully Documented | 9 (password-validation, rate-limiting, account-lockout, admin-user-update, admin-user-delete, admin-user-toggle-active, admin-user-pagination, i18n-completeness, post-implementation-fixes) |
