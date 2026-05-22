@@ -11,6 +11,7 @@ import { AuditLog, AuditLogSchema } from './entities/audit-log.entity';
 import { AuditLogRepository } from './audit-log.repository';
 import { AuditService } from './audit.service';
 import { AuditListener } from './audit.listener';
+import { I18nModule } from '../../common/i18n/i18n.module';
 
 describe(AuditModule.name, () => {
   let newMongod: MongoMemoryServer;
@@ -38,6 +39,7 @@ describe(AuditModule.name, () => {
           isGlobal: true,
           load: [() => ({ AUDIT_ENABLED: 'true', AUDIT_RETENTION_DAYS: '30', AUDIT_LEVEL: 'standard' })],
         }),
+        I18nModule,
         AuditModule,
       ],
     }).compile();
@@ -60,6 +62,7 @@ describe(AuditModule.name, () => {
           isGlobal: true,
           load: [() => ({ AUDIT_ENABLED: 'true', AUDIT_RETENTION_DAYS: '30', AUDIT_LEVEL: 'standard' })],
         }),
+        I18nModule,
         AuditModule,
       ],
     }).compile();

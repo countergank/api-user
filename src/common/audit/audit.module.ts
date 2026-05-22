@@ -1,6 +1,5 @@
 import { Global, Module, OnModuleInit } from '@nestjs/common';
 import { MongooseModule, InjectModel } from '@nestjs/mongoose';
-import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ClsModule } from 'nestjs-cls';
 import { ConfigService } from '@nestjs/config';
 import { Model } from 'mongoose';
@@ -8,16 +7,19 @@ import { AuditLog, AuditLogSchema } from './entities/audit-log.entity';
 import { AuditLogRepository } from './audit-log.repository';
 import { AuditService } from './audit.service';
 import { AuditListener } from './audit.listener';
+import { AuditInterceptor } from './audit.interceptor';
+import { AuditAspectInterceptor } from './audit-aspect.interceptor';
+import { AuditController } from './audit.controller';
 
 @Global()
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: AuditLog.name, schema: AuditLogSchema }]),
-    EventEmitterModule,
     ClsModule,
   ],
-  providers: [AuditLogRepository, AuditService, AuditListener],
-  exports: [AuditService, AuditLogRepository],
+  controllers: [AuditController],
+  providers: [AuditLogRepository, AuditService, AuditListener, AuditInterceptor, AuditAspectInterceptor],
+  exports: [AuditService, AuditLogRepository, AuditInterceptor, AuditAspectInterceptor],
 })
 export class AuditModule implements OnModuleInit {
   constructor(
@@ -34,7 +36,7 @@ export class AuditModule implements OnModuleInit {
         { createdAt: 1 },
         { expireAfterSeconds },
       );
-    } catch (error) {
+    } catch (_error) {
       // Index may already exist; this is non-fatal
     }
   }

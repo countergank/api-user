@@ -7,6 +7,7 @@ import { EmailEvents } from '../email/constants/email.events';
 import { User, UserRole } from '../user/entities/user.entity';
 import { UserService } from '../user/service/user.service';
 import { AccountLockedException } from '../common/errors/account-locked.exception';
+import { AuditAction } from '../common/audit/audit.decorator';
 
 export interface JwtPayload {
   sub: string;
@@ -36,6 +37,12 @@ export class AuthService {
     private configService: ConfigService,
   ) {}
 
+  @AuditAction({
+    action: 'auth.register',
+    resource: 'auth',
+    getResourceId: (result) => (result as AuthResponse).user.id,
+    getAfter: (result) => ({ userId: (result as AuthResponse).user.id, email: (result as AuthResponse).user.email }),
+  })
   async register(
     email: string,
     userName: string,
@@ -127,6 +134,11 @@ export class AuthService {
     return this.userService.findById(userId);
   }
 
+  @AuditAction({
+    action: 'auth.forgot-password',
+    resource: 'auth',
+    getBefore: (...args) => ({ email: args[0] }),
+  })
   async forgotPassword(email: string, lang?: string): Promise<void> {
     const user = await this.userService.findByEmail(email);
     if (!user) {
@@ -150,6 +162,11 @@ export class AuthService {
     });
   }
 
+  @AuditAction({
+    action: 'auth.reset-password',
+    resource: 'auth',
+    getBefore: () => ({ passwordChanged: true }),
+  })
   async resetPassword(token: string, newPassword: string, lang?: string): Promise<void> {
     const user = await this.userService.findByResetToken(token);
     if (!user || !user.resetPasswordExpires || user.resetPasswordExpires < new Date()) {
@@ -173,6 +190,11 @@ export class AuthService {
     } as any);
   }
 
+  @AuditAction({
+    action: 'auth.verify-email',
+    resource: 'auth',
+    getAfter: () => ({ emailVerified: true }),
+  })
   async verifyEmail(token: string): Promise<void> {
     const user = await this.userService.findByEmailVerificationToken(token);
     if (!user || !user.emailVerificationExpires || user.emailVerificationExpires < new Date()) {
@@ -186,6 +208,11 @@ export class AuthService {
     } as any);
   }
 
+  @AuditAction({
+    action: 'auth.confirm-email-change',
+    resource: 'auth',
+    getBefore: () => ({ emailChangeConfirmed: true }),
+  })
   async confirmEmailChange(token: string, lang?: string): Promise<void> {
     const user = await this.userService.findByPendingEmailToken(token);
     if (!user || !user.pendingEmailExpires || user.pendingEmailExpires < new Date()) {
@@ -212,6 +239,11 @@ export class AuthService {
     });
   }
 
+  @AuditAction({
+    action: 'auth.resend-verification',
+    resource: 'auth',
+    getBefore: (...args) => ({ userId: args[0], email: args[1] }),
+  })
   async resendVerification(userId: string, email: string, name: string, lang?: string): Promise<void> {
     const verificationToken = randomUUID();
     const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -234,6 +266,11 @@ export class AuthService {
     return this.userService.findByEmail(email);
   }
 
+  @AuditAction({
+    action: 'auth.refresh-token',
+    resource: 'auth',
+    getResourceId: (result) => (result as AuthResponse).user.id,
+  })
   async refreshToken(refreshToken: string): Promise<AuthResponse> {
     try {
       const payload = this.jwtService.verify(refreshToken);

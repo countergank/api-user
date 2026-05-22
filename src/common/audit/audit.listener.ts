@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { OnEvent } from '@nestjs/event-emitter';
+import { Injectable, OnModuleInit } from '@nestjs/common';
+import { OnEvent, EventEmitter2 } from '@nestjs/event-emitter';
 import { ConfigService } from '@nestjs/config';
 import { CustomLogger } from '../logger';
 import { AuditLogRepository } from './audit-log.repository';
@@ -50,16 +50,31 @@ export function redactSensitiveFields<T>(obj: T): T {
 }
 
 @Injectable()
-export class AuditListener {
+export class AuditListener implements OnModuleInit {
   private readonly logger = new CustomLogger(AuditListener.name);
 
   constructor(
     private readonly auditLogRepository: AuditLogRepository,
     private readonly configService: ConfigService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
+  onModuleInit() {
+    this.logger.log('AuditListener initialized — registering manual subscriptions');
+    // Manual subscription because @OnEvent('audit.*') wildcard doesn't work in @nestjs/event-emitter v3
+    this.eventEmitter.on('audit.http.request', (payload: AuditEventPayload) => {
+      void this.handleAuditEvent(payload);
+    });
+    this.eventEmitter.on('audit.business.action', (payload: AuditEventPayload) => {
+      void this.handleAuditEvent(payload);
+    });
+    this.logger.log(`Registered manual listeners for audit events`);
+  }
+
+  /* @OnEvent kept as documentation — manual subscription above is the active one */
   @OnEvent('audit.*')
   async handleAuditEvent(payload: AuditEventPayload): Promise<void> {
+    this.logger.log(`Received audit event: ${payload.action}`);
     try {
       const auditEnabled = this.configService.get('AUDIT_ENABLED', 'true') === 'true';
       if (!auditEnabled) {

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Permission, PermissionCategory } from '../entities/permission.entity';
+import { AuditAction } from '../../common/audit/audit.decorator';
 
 export const DEFAULT_PERMISSIONS = [
   { name: 'user:create', description: 'Create users', category: PermissionCategory.USER },
@@ -38,6 +39,15 @@ export class PermissionService {
     return this.permissionModel.findOne({ name }).exec();
   }
 
+  @AuditAction({
+    action: 'permission.create',
+    resource: 'permission',
+    getResourceId: (result) => (result as Permission)._id.toString(),
+    getAfter: (result) => {
+      const p = result as Permission;
+      return { permissionId: p._id.toString(), name: p.name };
+    },
+  })
   async create(permissionData: Partial<Permission>): Promise<Permission> {
     const permission = new this.permissionModel(permissionData);
     return permission.save();

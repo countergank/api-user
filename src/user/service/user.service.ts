@@ -15,6 +15,7 @@ import {
   UserNotFoundError,
 } from '../errors/error-instances.error';
 import { UserRepository } from '../repository/user.repository';
+import { AuditAction } from '../../common/audit/audit.decorator';
 
 @Injectable()
 export class UserService {
@@ -23,6 +24,15 @@ export class UserService {
     private readonly encodeService: EncodeService,
   ) {}
 
+  @AuditAction({
+    action: 'user.create',
+    resource: 'user',
+    getResourceId: (result) => (result as User)._id.toString(),
+    getAfter: (result) => {
+      const u = result as User;
+      return { userId: u._id.toString(), email: u.email, role: u.role };
+    },
+  })
   async create(createUserDTO: CreateUserDTO): Promise<User> {
     const [usernameAlreadyExists, emailAlreadyExists] = await Promise.all([
       this.userRepository.existsByName(createUserDTO.userName),
@@ -115,6 +125,12 @@ export class UserService {
     return emailExists || usernameExists;
   }
 
+  @AuditAction({
+    action: 'user.request-email-change',
+    resource: 'user',
+    getResourceId: (result) => (result as { user: User }).user._id.toString(),
+    getBefore: (...args) => ({ userId: args[0], newEmail: args[1] }),
+  })
   async requestEmailChange(userId: string, newEmail: string): Promise<{ token: string; expires: Date; user: User }> {
     const existing = await this.findByEmail(newEmail);
     if (existing) {
@@ -134,14 +150,32 @@ export class UserService {
     return { token, expires, user };
   }
 
+  @AuditAction({
+    action: 'user.unlock',
+    resource: 'user',
+    getResourceId: (result) => (result as User)._id.toString(),
+  })
   async unlockUser(userId: string): Promise<User> {
-    const user = await this.findById(userId);
+    const _user = await this.findById(userId);
     return this.update(userId, {
       failedLoginAttempts: 0,
       lockedUntil: null as any,
     });
   }
 
+  @AuditAction({
+    action: 'user.update',
+    resource: 'user',
+    getResourceId: (_result, args) => args[0] as string,
+    getBefore: (...args) => {
+      const dto = args[1] as Partial<UpdateUserDTO>;
+      return { userId: args[0], fields: Object.keys(dto).filter((k) => (dto as any)[k] !== undefined) };
+    },
+    getAfter: (result) => {
+      const u = result as User;
+      return { userId: u._id, email: u.email };
+    },
+  })
   async updateUser(id: string, dto: UpdateUserDTO): Promise<User> {
     const user = await this.userRepository.findById(id);
     if (!user) {
@@ -170,6 +204,12 @@ export class UserService {
     return this.userRepository.update(id, updateData);
   }
 
+  @AuditAction({
+    action: 'user.delete',
+    resource: 'user',
+    getResourceId: (result) => (result as { userId: string }).userId,
+    getBefore: (...args) => ({ userId: args[0] }),
+  })
   async deleteUser(id: string): Promise<{ userId: string }> {
     const user = await this.userRepository.findById(id);
     if (!user) {
@@ -184,6 +224,16 @@ export class UserService {
     return { userId: id };
   }
 
+  @AuditAction({
+    action: 'user.toggle-active',
+    resource: 'user',
+    getResourceId: (result) => (result as User)._id.toString(),
+    getBefore: (...args) => ({ userId: args[0] }),
+    getAfter: (result) => {
+      const u = result as User;
+      return { userId: u._id.toString(), isActive: u.isActive };
+    },
+  })
   async toggleActiveUser(id: string): Promise<User> {
     const user = await this.userRepository.findById(id);
     if (!user) {
