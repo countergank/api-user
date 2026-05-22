@@ -28,6 +28,7 @@ import {
   UnlockUserDoc,
   UpdateUserDoc,
 } from '../api-docs/user.decorator';
+import { AuditAction } from '../../common/audit/audit.decorator';
 import { CreateUserResponseDTO } from '../dto/create-user-response.dto';
 import { CreateUserDTO } from '../dto/create-user.dto';
 import { PaginationQueryDTO } from '../dto/pagination-query.dto';
@@ -148,6 +149,11 @@ export class UserController {
   }
 
   @UpdateUserDoc()
+  @AuditAction({
+    action: 'USER_UPDATE',
+    resource: 'user',
+    getResourceId: (_result: unknown, args: unknown[]) => args[0] as string, // id from @Param('id')
+  })
   @Patch(':id')
   async update(@Param('id') id: string, @Body() dto: UpdateUserDTO): Promise<UserDTO> {
     try {
@@ -171,6 +177,11 @@ export class UserController {
   }
 
   @DeleteUserDoc()
+  @AuditAction({
+    action: 'USER_DELETE',
+    resource: 'user',
+    getResourceId: (_result: unknown, args: unknown[]) => args[0] as string,
+  })
   @Delete(':id')
   async delete(@Param('id') id: string, @Req() req: any): Promise<{ message: string; userId: string }> {
     try {
@@ -190,6 +201,11 @@ export class UserController {
   }
 
   @ToggleActiveDoc()
+  @AuditAction({
+    action: 'USER_TOGGLE_ACTIVE',
+    resource: 'user',
+    getResourceId: (_result: unknown, args: unknown[]) => args[0] as string,
+  })
   @Patch(':id/active')
   async toggleActive(@Param('id') id: string): Promise<UserDTO> {
     try {

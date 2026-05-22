@@ -1,5 +1,5 @@
 import { plainToInstance } from 'class-transformer';
-import { IsEnum, IsNotEmpty, IsOptional, IsString, validateSync } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsOptional, IsString, Matches, validateSync } from 'class-validator';
 
 enum Environment {
   LOCAL = 'local',
@@ -160,6 +160,19 @@ class EnvironmentVariables {
   @IsString()
   @IsOptional()
   LOCKOUT_DURATION_MINUTES: string;
+
+  // Audit logging
+  @IsEnum(['true', 'false'])
+  @IsOptional()
+  AUDIT_ENABLED: string;
+
+  @Matches(/^[1-9]\d*$/, { message: 'AUDIT_RETENTION_DAYS must be a positive integer' })
+  @IsOptional()
+  AUDIT_RETENTION_DAYS: string;
+
+  @IsEnum(['minimal', 'standard', 'verbose'])
+  @IsOptional()
+  AUDIT_LEVEL: string;
 }
 
 export function validate(config: Record<string, unknown>) {
@@ -173,5 +186,17 @@ export function validate(config: Record<string, unknown>) {
   if (errors.length > 0) {
     throw new Error(errors.toString());
   }
+
+  // Apply defaults for optional audit fields
+  if (!validatedConfig.AUDIT_ENABLED) {
+    validatedConfig.AUDIT_ENABLED = 'true';
+  }
+  if (!validatedConfig.AUDIT_RETENTION_DAYS) {
+    validatedConfig.AUDIT_RETENTION_DAYS = '30';
+  }
+  if (!validatedConfig.AUDIT_LEVEL) {
+    validatedConfig.AUDIT_LEVEL = 'standard';
+  }
+
   return validatedConfig;
 }

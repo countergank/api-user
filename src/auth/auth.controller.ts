@@ -3,6 +3,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { I18nService } from '../common/i18n/i18n.service';
 import { getRequestLang } from '../common/i18n/request-lang.helper';
+import { AuditAction } from '../common/audit/audit.decorator';
 import {
   ApplyConfirmEmailChangeDoc,
   ApplyForgotPasswordDoc,
@@ -36,6 +37,11 @@ export class AuthController {
     },
   })
   @ApplyRegisterDoc()
+  @AuditAction({
+    action: 'REGISTER',
+    resource: 'auth',
+    getResourceId: (result: any) => result?.user?.id,
+  })
   async register(@Body() dto: RegisterUserDTO, @Req() req: any) {
     return this.authService.register(
       dto.email,
@@ -56,6 +62,11 @@ export class AuthController {
     },
   })
   @ApplyLoginDoc()
+  @AuditAction({
+    action: 'LOGIN',
+    resource: 'auth',
+    getResourceId: (result: any) => result?.user?.id,
+  })
   async login(@Body() body: { email: string; password: string }) {
     return this.authService.login(body.email, body.password);
   }

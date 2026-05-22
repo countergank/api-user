@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Role } from '../entities/role.entity';
 import { UserRole } from '../../user/entities/user.entity';
+import { AuditAction } from '../../common/audit/audit.decorator';
 
 // ── Default permissions per role ──────────────────────
 export const ADMIN_PERMISSIONS = ['*'];
@@ -56,11 +57,31 @@ export class RoleService {
     return this.roleModel.findById(id).exec();
   }
 
+  @AuditAction({
+    action: 'role.create',
+    resource: 'role',
+    getResourceId: (result) => (result as Role)._id.toString(),
+    getAfter: (result) => {
+      const r = result as Role;
+      return { roleId: r._id.toString(), name: r.name };
+    },
+  })
   async create(roleData: Partial<Role>): Promise<Role> {
     const role = new this.roleModel(roleData);
     return role.save();
   }
 
+  @AuditAction({
+    action: 'role.update-permissions',
+    resource: 'role',
+    getResourceId: (_result, args) => args[0] as string,
+    getBefore: (...args) => ({ roleId: args[0] }),
+    getAfter: (result) => {
+      const r = result as Role | null;
+      if (!r) return undefined;
+      return { roleId: r._id.toString(), permissionCount: r.permissionIds?.length ?? 0 };
+    },
+  })
   async updatePermissions(roleId: string, permissionIds: string[]): Promise<Role | null> {
     return this.roleModel.findByIdAndUpdate(roleId, { permissionIds }, { new: true }).exec();
   }
