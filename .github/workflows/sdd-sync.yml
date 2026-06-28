@@ -2,7 +2,7 @@ name: SDD Issues Sync v2
 
 on:
   push:
-    branches: [main, develop, 'feature/**', 'bugfix/**', 'hotfix/**', 'release/**', 'chore/**']
+    branches: [main, staging, develop, 'feature/**', 'bugfix/**', 'hotfix/**', 'release/**', 'chore/**']
     paths:
       - 'openspec/changes/**'
       - 'openspec/specs/**'
