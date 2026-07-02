@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "skills": {
+    "git-environment-flow": {
+      "source": "countergank/skills",
+      "sourceType": "github",
+      "skillPath": "skills/git-environment-flow/SKILL.md",
+      "computedHash": "6de4ab03b8e55abc5c0e74fd38f13d6fc04bbc68fcac9f8a4c458ffa35a1bc51"
+    },
+    "github-conventions": {
+      "source": "countergank/skills",
+      "sourceType": "github",
+      "skillPath": "skills/github-conventions/SKILL.md",
+      "computedHash": "17b191f8adfa28ed3d16e77696b7d1b7be7cc7160b9eec6cd1ee893e9b53071c"
+    },
+    "nestjs-backend": {
+      "source": "countergank/skills",
+      "sourceType": "github",
+      "skillPath": "skills/nestjs-backend/SKILL.md",
+      "computedHash": "8a48d417c3d5d58782124587135564c04b3f306c260edcfc216781dfdd007647"
+    }
+  }
+}
