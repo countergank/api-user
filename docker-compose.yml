@@ -10,9 +10,9 @@ services:
     volumes:
       - api-user-data:/data/db
     environment:
-      - MONGO_INITDB_DATABASE=api_user
-      - MONGO_INITDB_ROOT_USERNAME=dev_user
-      - MONGO_INITDB_ROOT_PASSWORD=dev_password
+      - MONGO_INITDB_DATABASE=${DATABASE_NAME:-api_user}
+      - MONGO_INITDB_ROOT_USERNAME=${DATABASE_USER:?DATABASE_USER is required}
+      - MONGO_INITDB_ROOT_PASSWORD=${DATABASE_PASSWORD:?DATABASE_PASSWORD is required}
     networks:
       - default
 
