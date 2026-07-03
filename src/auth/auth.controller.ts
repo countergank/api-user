@@ -1,9 +1,9 @@
-import { Body, Controller, HttpCode, Inject, Post, Req } from '@nestjs/common';
+import { Body, Controller, HttpCode, Inject, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { I18nService } from '../common/i18n/i18n.service';
-import { getRequestLang } from '../common/i18n/request-lang.helper';
 import { AuditAction } from '../common/audit/audit.decorator';
+import { RequestLang } from '../common/decorators/request-lang.decorator';
 import {
   ApplyConfirmEmailChangeDoc,
   ApplyForgotPasswordDoc,
@@ -25,8 +25,8 @@ export class AuthController {
     @Inject(I18nService) private i18n: I18nService,
   ) {}
 
-  private async t(key: string, req: any): Promise<string> {
-    return this.i18n.translate(key, getRequestLang(req));
+  private async t(key: string, lang: string | undefined): Promise<string> {
+    return this.i18n.translate(key, lang);
   }
 
   @Post('register')
@@ -42,14 +42,14 @@ export class AuthController {
     resource: 'auth',
     getResourceId: (result: any) => result?.user?.id,
   })
-  async register(@Body() dto: RegisterUserDTO, @Req() req: any) {
+  async register(@Body() dto: RegisterUserDTO, @RequestLang() lang: string | undefined) {
     return this.authService.register(
       dto.email,
       dto.userName,
       dto.password,
       dto.name,
       dto.lastName,
-      getRequestLang(req),
+      lang,
     );
   }
 
@@ -80,9 +80,9 @@ export class AuthController {
     },
   })
   @ApplyForgotPasswordDoc()
-  async forgotPassword(@Body() body: { email: string }, @Req() req: any) {
-    await this.authService.forgotPassword(body.email, getRequestLang(req));
-    return { message: await this.t('messages.forgot_password_sent', req) };
+  async forgotPassword(@Body() body: { email: string }, @RequestLang() lang: string | undefined) {
+    await this.authService.forgotPassword(body.email, lang);
+    return { message: await this.t('messages.forgot_password_sent', lang) };
   }
 
   @Post('reset-password')
@@ -93,9 +93,9 @@ export class AuthController {
     },
   })
   @ApplyResetPasswordDoc()
-  async resetPassword(@Body() body: { token: string; newPassword: string }, @Req() req: any) {
-    await this.authService.resetPassword(body.token, body.newPassword, getRequestLang(req));
-    return { message: await this.t('messages.password_reset_success', req) };
+  async resetPassword(@Body() body: { token: string; newPassword: string }, @RequestLang() lang: string | undefined) {
+    await this.authService.resetPassword(body.token, body.newPassword, lang);
+    return { message: await this.t('messages.password_reset_success', lang) };
   }
 
   @Post('refresh')
@@ -119,9 +119,9 @@ export class AuthController {
     },
   })
   @ApplyVerifyEmailDoc()
-  async verifyEmail(@Body() body: { token: string }, @Req() req: any) {
+  async verifyEmail(@Body() body: { token: string }, @RequestLang() lang: string | undefined) {
     await this.authService.verifyEmail(body.token);
-    return { message: await this.t('messages.email_verified', req) };
+    return { message: await this.t('messages.email_verified', lang) };
   }
 
   @Post('confirm-email-change')
@@ -132,9 +132,9 @@ export class AuthController {
     },
   })
   @ApplyConfirmEmailChangeDoc()
-  async confirmEmailChange(@Body() body: { token: string }, @Req() req: any) {
-    await this.authService.confirmEmailChange(body.token, getRequestLang(req));
-    return { message: await this.t('messages.email_changed', req) };
+  async confirmEmailChange(@Body() body: { token: string }, @RequestLang() lang: string | undefined) {
+    await this.authService.confirmEmailChange(body.token, lang);
+    return { message: await this.t('messages.email_changed', lang) };
   }
 
   @Post('resend-verification')
@@ -145,15 +145,14 @@ export class AuthController {
     },
   })
   @ApplyResendVerificationDoc()
-  async resendVerification(@Body() body: { email: string }, @Req() req: any) {
+  async resendVerification(@Body() body: { email: string }, @RequestLang() lang: string | undefined) {
     const user = await this.authService.findUserByEmail(body.email);
     if (!user) {
-      return { message: await this.t('messages.verification_resent', req) };
+      return { message: await this.t('messages.verification_resent', lang) };
     }
 
-    await this.authService.resendVerification(user.id, user.email, user.name, getRequestLang(req));
+    await this.authService.resendVerification(user.id, user.email, user.name, lang);
 
-    return { message: await this.t('messages.verification_resent', req) };
+    return { message: await this.t('messages.verification_resent', lang) };
   }
 }
-

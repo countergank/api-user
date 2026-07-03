@@ -1,4 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Exclude } from 'class-transformer';
 import { Base } from '../../common/class/base';
 
 export enum UserRole {
@@ -27,6 +28,7 @@ export class User extends Base {
   @Prop({ unique: true, required: true })
   userName: string;
 
+  @Exclude()
   @Prop({ required: true })
   password: string;
 

@@ -1,10 +1,10 @@
-import { Controller, Get, Put, Param, Body, UseGuards, Inject, Req } from '@nestjs/common';
+import { Controller, Get, Put, Param, Body, UseGuards, Inject } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RoleService } from '../../rbac/services/role.service';
 import { I18nService } from '../../common/i18n/i18n.service';
 import { translateRbacItems } from '../../common/i18n/rbac-translate.helper';
-import { getRequestLang } from '../../common/i18n/request-lang.helper';
+import { RequestLang } from '../../common/decorators/request-lang.decorator';
 import { ApplyFindAllRolesDoc, ApplyUpdateRolePermissionsDoc } from '../api-docs';
 
 /**
@@ -24,15 +24,15 @@ export class RoleController {
 
   @Get()
   @ApplyFindAllRolesDoc()
-  async findAll(@Req() req: any) {
+  async findAll(@RequestLang() lang: string | undefined) {
     const roles = await this.roleService.findAll();
-    return { roles: await translateRbacItems(roles, this.i18n, getRequestLang(req)) };
+    return { roles: await translateRbacItems(roles, this.i18n, lang) };
   }
 
   @Put(':id/permissions')
   @ApplyUpdateRolePermissionsDoc()
-  async updatePermissions(@Param('id') id: string, @Body() body: { permissionIds: string[] }, @Req() req: any) {
+  async updatePermissions(@Param('id') id: string, @Body() body: { permissionIds: string[] }, @RequestLang() lang: string | undefined) {
     const role = await this.roleService.updatePermissions(id, body.permissionIds);
-    return { role: (await translateRbacItems([role], this.i18n, getRequestLang(req)))[0] };
+    return { role: (await translateRbacItems([role], this.i18n, lang))[0] };
   }
 }
