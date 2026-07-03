@@ -27,7 +27,12 @@ async function bootstrap() {
     }),
   );
 
-  app.enableCors();
+  const configService = app.get(ConfigService);
+
+  const corsOrigins = configService.getOrThrow('CORS_ORIGINS');
+  const originsArray = corsOrigins.split(',').map((origin) => origin.trim()).filter(Boolean);
+  app.enableCors({ origin: originsArray, credentials: false });
+
   const i18nService = app.get(I18nService);
   app.useGlobalFilters(new ErrorFilter(i18nService));
   app.useGlobalPipes(
@@ -44,7 +49,6 @@ async function bootstrap() {
   await app.register(fastifyHelmet);
   await app.register(fastifyCompress, { encodings: ['gzip', 'deflate'] });
 
-  const configService = app.get(ConfigService);
   const port = configService.get('PORT') ?? 3000;
   const host = configService.get('HOST') ?? '0.0.0.0';
   const name = configService.get('npm_package_name') || 'REST API Name';

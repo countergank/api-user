@@ -55,6 +55,14 @@ class EnvironmentVariables {
   ENCRYPTION_PASSWORD: string;
 
   @IsString()
+  @IsNotEmpty()
+  JWT_SECRET: string;
+
+  @IsString()
+  @IsNotEmpty()
+  CORS_ORIGINS: string;
+
+  @IsString()
   @IsOptional()
   EXAMPLE_MICROSERVICE_HOST: string;
 

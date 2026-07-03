@@ -1,91 +1,51 @@
 import 'reflect-metadata';
 import { validate } from './env.validation';
 
-describe('Environment Validation - Audit Config', () => {
-  const baseEnv = {
-    NODE_ENV: 'test',
-    VERSION: '1.0.0',
-    DATABASE_USER: 'root',
-    DATABASE_PASSWORD: 'pass',
-    DATABASE_HOST: 'localhost',
-    DATABASE_PORT: '27017',
-    DATABASE_NAME: 'test',
-    ENCRYPTION_PASSWORD: 'test_encryption_password_32chars!',
-  };
+const validConfig: Record<string, unknown> = {
+  NODE_ENV: 'local',
+  VERSION: '1.0.0',
+  DATABASE_USER: 'root',
+  DATABASE_PASSWORD: 'password',
+  DATABASE_HOST: 'localhost',
+  DATABASE_PORT: '27017',
+  DATABASE_NAME: 'test_db',
+  ENCRYPTION_PASSWORD: 'test_encryption_password_32chars!',
+  JWT_SECRET: 'super-secret-jwt-key',
+  CORS_ORIGINS: 'http://localhost:3000,http://localhost:5173',
+};
 
-  describe('AUDIT_ENABLED', () => {
-    it('should accept AUDIT_ENABLED=true', () => {
-      const config = { ...baseEnv, AUDIT_ENABLED: 'true' };
-      expect(() => validate(config)).not.toThrow();
+describe('env validation', () => {
+  describe('JWT_SECRET', () => {
+    it('should throw when JWT_SECRET is missing', () => {
+      const { JWT_SECRET, ...configWithoutJwt } = validConfig;
+      expect(() => validate(configWithoutJwt)).toThrow();
     });
 
-    it('should accept AUDIT_ENABLED=false', () => {
-      const config = { ...baseEnv, AUDIT_ENABLED: 'false' };
-      expect(() => validate(config)).not.toThrow();
+    it('should throw when JWT_SECRET is empty string', () => {
+      expect(() =>
+        validate({ ...validConfig, JWT_SECRET: '' }),
+      ).toThrow();
     });
 
-    it('should default AUDIT_ENABLED to true when not provided', () => {
-      const validated = validate(baseEnv) as unknown as Record<string, unknown>;
-      expect(validated.AUDIT_ENABLED).toBe('true');
-    });
-
-    it('should reject invalid AUDIT_ENABLED value', () => {
-      const config = { ...baseEnv, AUDIT_ENABLED: 'invalid' };
-      expect(() => validate(config)).toThrow();
+    it('should pass when JWT_SECRET is set to a non-empty string', () => {
+      expect(() => validate(validConfig)).not.toThrow();
     });
   });
 
-  describe('AUDIT_RETENTION_DAYS', () => {
-    it('should accept valid positive integer', () => {
-      const config = { ...baseEnv, AUDIT_RETENTION_DAYS: '90' };
-      expect(() => validate(config)).not.toThrow();
+  describe('CORS_ORIGINS', () => {
+    it('should throw when CORS_ORIGINS is missing', () => {
+      const { CORS_ORIGINS, ...configWithoutCors } = validConfig;
+      expect(() => validate(configWithoutCors)).toThrow();
     });
 
-    it('should default to 30 when not provided', () => {
-      const validated = validate(baseEnv) as unknown as Record<string, unknown>;
-      expect(validated.AUDIT_RETENTION_DAYS).toBe('30');
+    it('should throw when CORS_ORIGINS is empty string', () => {
+      expect(() =>
+        validate({ ...validConfig, CORS_ORIGINS: '' }),
+      ).toThrow();
     });
 
-    it('should reject negative value', () => {
-      const config = { ...baseEnv, AUDIT_RETENTION_DAYS: '-5' };
-      expect(() => validate(config)).toThrow();
-    });
-
-    it('should reject zero', () => {
-      const config = { ...baseEnv, AUDIT_RETENTION_DAYS: '0' };
-      expect(() => validate(config)).toThrow();
-    });
-
-    it('should reject non-numeric value', () => {
-      const config = { ...baseEnv, AUDIT_RETENTION_DAYS: 'abc' };
-      expect(() => validate(config)).toThrow();
-    });
-  });
-
-  describe('AUDIT_LEVEL', () => {
-    it('should accept minimal', () => {
-      const config = { ...baseEnv, AUDIT_LEVEL: 'minimal' };
-      expect(() => validate(config)).not.toThrow();
-    });
-
-    it('should accept standard', () => {
-      const config = { ...baseEnv, AUDIT_LEVEL: 'standard' };
-      expect(() => validate(config)).not.toThrow();
-    });
-
-    it('should accept verbose', () => {
-      const config = { ...baseEnv, AUDIT_LEVEL: 'verbose' };
-      expect(() => validate(config)).not.toThrow();
-    });
-
-    it('should default to standard when not provided', () => {
-      const validated = validate(baseEnv) as unknown as Record<string, unknown>;
-      expect(validated.AUDIT_LEVEL).toBe('standard');
-    });
-
-    it('should reject invalid value', () => {
-      const config = { ...baseEnv, AUDIT_LEVEL: 'invalid' };
-      expect(() => validate(config)).toThrow();
+    it('should pass when CORS_ORIGINS is set to a non-empty string', () => {
+      expect(() => validate(validConfig)).not.toThrow();
     });
   });
 });

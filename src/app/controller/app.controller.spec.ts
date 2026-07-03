@@ -1,6 +1,8 @@
 import { BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
+import { HealthCheckService } from '@nestjs/terminus';
+import { MongooseHealthIndicator } from '@nestjs/terminus';
 import { Mock } from '../../../test/helpers';
 import { Version } from '../class/version.class';
 import { AppVersionNotFoundError } from '../errors/error-instances.error';
@@ -43,6 +45,25 @@ describe(AppController.name, () => {
             },
           },
         },
+        {
+          provide: HealthCheckService,
+          useValue: {
+            check: jest.fn().mockResolvedValue({
+              status: 'ok',
+              info: { database: { status: 'up' } },
+              error: {},
+              details: { database: { status: 'up' } },
+            }),
+          },
+        },
+        {
+          provide: MongooseHealthIndicator,
+          useValue: {
+            pingCheck: jest.fn().mockResolvedValue({
+              database: { status: 'up' },
+            }),
+          },
+        },
       ],
     })
       .useMocker((token) => {
@@ -56,6 +77,14 @@ describe(AppController.name, () => {
 
   it(`${AppController.name} should be defined`, () => {
     expect(controller).toBeDefined();
+  });
+
+  describe(`${AppController.name}.checkHealth`, () => {
+    it('should return health status with database ping', async () => {
+      const result = await controller.checkHealth();
+      expect(result.status).toBe('ok');
+      expect(result.info).toHaveProperty('database');
+    });
   });
 
   describe(`${AppController.name}.${AppController.prototype.getVersion.name}`, () => {
