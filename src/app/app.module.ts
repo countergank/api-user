@@ -4,6 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { TerminusModule } from '@nestjs/terminus';
 import { ClsModule } from 'nestjs-cls';
 import { ConfigModuleOption } from '../config/custom-module-options/config-module-option';
 import { MongooseModuleOption } from '../config/custom-module-options/mongoose-module-option';
@@ -50,6 +51,7 @@ import { AppService } from './service/app.service';
         ],
       }),
     }),
+    TerminusModule,
     I18nModule,
     AuditModule,
     UserModule,
