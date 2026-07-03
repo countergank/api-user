@@ -12,7 +12,7 @@ export class MongooseModuleOption implements MongooseOptionsFactory {
     const host = this.configService.getOrThrow('DATABASE_HOST');
     const port = this.configService.getOrThrow('DATABASE_PORT');
     const database = this.configService.getOrThrow('DATABASE_NAME');
-    const uri = `mongodb://${user}:${password}@${host}:${port}/${database}`;
+    const uri = `mongodb://${user}:${password}@${host}:${port}/${database}?authSource=admin`;
     return {
       uri: uri,
     };
