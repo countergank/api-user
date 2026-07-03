@@ -27,7 +27,9 @@ async function bootstrap() {
     }),
   );
 
-  app.enableCors();
+  const corsOrigins = configService.getOrThrow('CORS_ORIGINS');
+  const originsArray = corsOrigins.split(',').map((origin) => origin.trim()).filter(Boolean);
+  app.enableCors({ origin: originsArray, credentials: false });
   const i18nService = app.get(I18nService);
   app.useGlobalFilters(new ErrorFilter(i18nService));
   app.useGlobalPipes(
