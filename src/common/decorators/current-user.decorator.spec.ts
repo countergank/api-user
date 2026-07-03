@@ -14,7 +14,7 @@ describe('extractUser (pure function)', () => {
     const mockUser = { id: 'user-123', email: 'test@test.com', name: 'Test' };
     const ctx = createMockContext(mockUser);
 
-    const result = extractUser(ctx);
+    const result = extractUser(null, ctx);
 
     expect(result).toEqual(mockUser);
     expect(result.id).toBe('user-123');
@@ -23,7 +23,7 @@ describe('extractUser (pure function)', () => {
 
   it('should return undefined when no guard has attached a user', () => {
     const ctx = createMockContext(undefined);
-    const result = extractUser(ctx);
+    const result = extractUser(null, ctx);
 
     expect(result).toBeUndefined();
   });
@@ -39,7 +39,7 @@ describe('extractUser (pure function)', () => {
       isActive: true,
     };
     const ctx = createMockContext(fullUser);
-    const result = extractUser(ctx);
+    const result = extractUser(null, ctx);
 
     expect(result).toEqual(fullUser);
     expect(result).toHaveProperty('password');

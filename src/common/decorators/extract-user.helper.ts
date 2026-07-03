@@ -5,7 +5,7 @@ import { ExecutionContext } from '@nestjs/common';
  * The user is attached by the JWT auth guard (Passport strategy).
  * Returns undefined when no guard has attached a user.
  */
-export function extractUser(ctx: ExecutionContext): any {
+export function extractUser(_data: unknown, ctx: ExecutionContext): any {
   const request = ctx.switchToHttp().getRequest();
   return request.user;
 }
