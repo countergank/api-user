@@ -10,7 +10,6 @@ import {
   Patch,
   Post,
   Query,
-  Req,
   UseGuards,
 } from '@nestjs/common';
 import mongoose from 'mongoose';
@@ -44,7 +43,7 @@ import {
 } from '../errors/error-instances.error';
 import { UserService } from '../service/user.service';
 import { I18nService } from '../../common/i18n/i18n.service';
-import { getRequestLang } from '../../common/i18n/request-lang.helper';
+import { RequestLang } from '../../common/decorators/request-lang.decorator';
 
 /**
  * Controller para gestión de usuarios (ADMIN).
@@ -62,8 +61,8 @@ export class UserController {
     @Inject(I18nService) private i18n: I18nService,
   ) {}
 
-  private async t(key: string, req: any): Promise<string> {
-    return this.i18n.translate(key, getRequestLang(req));
+  private async t(key: string, lang: string | undefined): Promise<string> {
+    return this.i18n.translate(key, lang);
   }
 
   @CreateUserDoc()
@@ -91,25 +90,6 @@ export class UserController {
     }
   }
 
-  @FindByIdUserDoc()
-  @Get(':id')
-  async findById(@Param('id') id: string): Promise<UserDTO> {
-    try {
-      const user: User = await this.userService.findById(id);
-      return UserDTO.of(user);
-    } catch (error) {
-      if (error instanceof UserNotFoundError) {
-        throw new BadRequestException(error.getErrorPublic());
-      }
-      if (error instanceof mongoose.Error.CastError) {
-        throw new BadRequestException('INVALID_USER_ID');
-      }
-      const err = error as Error;
-      this.logger.error(err.message, err.stack);
-      throw new InternalServerErrorException();
-    }
-  }
-
   @FindAllUserDoc()
   @Get()
   async findAll(@Query() query?: PaginationQueryDTO): Promise<UserDTO[] | PaginatedUserResponseDTO<UserDTO>> {
@@ -129,12 +109,31 @@ export class UserController {
     }
   }
 
+  @FindByIdUserDoc()
+  @Get(':id')
+  async findById(@Param('id') id: string): Promise<UserDTO> {
+    try {
+      const user: User = await this.userService.findById(id);
+      return UserDTO.of(user);
+    } catch (error) {
+      if (error instanceof UserNotFoundError) {
+        throw new BadRequestException(error.getErrorPublic());
+      }
+      if (error instanceof mongoose.Error.CastError) {
+        throw new BadRequestException('INVALID_USER_ID');
+      }
+      const err = error as Error;
+      this.logger.error(err.message, err.stack);
+      throw new InternalServerErrorException();
+    }
+  }
+
   @UnlockUserDoc()
   @Patch(':id/unlock')
-  async unlock(@Param('id') id: string, @Req() req: any): Promise<{ message: string; userId: string }> {
+  async unlock(@Param('id') id: string, @RequestLang() lang: string | undefined): Promise<{ message: string; userId: string }> {
     try {
       await this.userService.unlockUser(id);
-      return { message: await this.t('messages.account_unlocked', req), userId: id };
+      return { message: await this.t('messages.account_unlocked', lang), userId: id };
     } catch (error) {
       if (error instanceof UserNotFoundError) {
         throw new BadRequestException(error.getErrorPublic());
@@ -183,10 +182,10 @@ export class UserController {
     getResourceId: (_result: unknown, args: unknown[]) => args[0] as string,
   })
   @Delete(':id')
-  async delete(@Param('id') id: string, @Req() req: any): Promise<{ message: string; userId: string }> {
+  async delete(@Param('id') id: string, @RequestLang() lang: string | undefined): Promise<{ message: string; userId: string }> {
     try {
       const result = await this.userService.deleteUser(id);
-      return { message: await this.t('messages.user_deleted', req), userId: result.userId };
+      return { message: await this.t('messages.user_deleted', lang), userId: result.userId };
     } catch (error) {
       if (error instanceof UserNotFoundError) {
         throw new BadRequestException(error.getErrorPublic());

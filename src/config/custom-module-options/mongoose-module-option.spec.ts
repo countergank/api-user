@@ -19,7 +19,7 @@ describe(MongooseModuleOption.name, () => {
     const option = new MongooseModuleOption(configService);
     const result = option.createMongooseOptions();
 
-    expect(result.uri).toBe('mongodb://testuser:testpass@localhost:27017/testdb');
+    expect(result.uri).toBe('mongodb://testuser:testpass@localhost:27017/testdb?authSource=admin');
   });
 
   it('should include credentials in URI for all configured values', () => {
@@ -44,6 +44,6 @@ describe(MongooseModuleOption.name, () => {
     expect(result.uri).toContain('mongo.example.com');
     expect(result.uri).toContain('27018');
     expect(result.uri).toContain('production_db');
-    expect(result.uri).toBe('mongodb://admin:s3cret!@mongo.example.com:27018/production_db');
+    expect(result.uri).toBe('mongodb://admin:s3cret!@mongo.example.com:27018/production_db?authSource=admin');
   });
 });
