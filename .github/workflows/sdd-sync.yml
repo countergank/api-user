@@ -129,7 +129,22 @@ jobs:
             [[ -z "$change" ]] && continue
             
             # Skip archive changes (they are handled by close job)
+            # Match by exact path OR by base name (for new-structure archives)
+            change_basename=$(echo "$change" | awk -F'/' '{print $NF}')
+            is_archived=false
             if echo " $archive_changes " | grep -q " $change "; then
+              is_archived=true
+            fi
+            # Also check if any archive entry matches by base name
+            for ac in $archive_changes; do
+              ac_basename=$(echo "$ac" | awk -F'/' '{print $NF}' | sed 's/^[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}-//')
+              if [[ "$change_basename" == "$ac_basename" ]]; then
+                is_archived=true
+                break
+              fi
+            done
+            if [[ "$is_archived" == "true" ]]; then
+              echo "Skipping archived change: $change"
               continue
             fi
             
