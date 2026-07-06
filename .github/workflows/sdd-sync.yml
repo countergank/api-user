@@ -65,12 +65,22 @@ jobs:
               sort -u)
           else
             # Recursively find all changes that have proposal.md
-            changes=$(find openspec/changes -mindepth 1 -type d \
+            # Exclude: archive subtree, specs dir, refactor dir
+            # Post-filter: skip changes that have an archive/ subdir (legacy structure)
+            all_changes=$(find openspec/changes -mindepth 1 -type d \
+              -not -path "openspec/changes/archive/*" \
               ! -name "specs" \
               ! -name "archive" \
               ! -name "refactor" \
               -exec test -f {}/proposal.md \; -print 2>/dev/null | \
               awk -F'openspec/changes/' '{print $2}' | sort -u)
+            changes=""
+            for c in $all_changes; do
+              if [[ ! -d "openspec/changes/$c/archive" ]]; then
+                changes="$changes$c"$'\n'
+              fi
+            done
+            changes=$(echo "$changes" | sed '/^$/d')
           fi
           {
             echo "CHANGES<<EOF"
@@ -78,17 +88,30 @@ jobs:
             echo "EOF"
           } >> $GITHUB_OUTPUT
           
-          # Check for archive paths - find all changes that have archive subdirectory
-          # Search recursively in any subdirectory of openspec/changes/
+          # Check for archive paths - detect BOTH structures:
+          # Legacy: openspec/changes/<type>/<change>/archive/
+          # New:    openspec/changes/archive/<YYYY-MM-DD>-<name>/
           archive_changes=""
-          for archive_dir in $(find openspec/changes -type d -name archive 2>/dev/null); do
-            # Get the parent directory (the change directory)
+          
+          # Legacy structure: find directories named "archive" under type/change/
+          for archive_dir in $(find openspec/changes -mindepth 3 -type d -name archive 2>/dev/null); do
             change_dir=$(dirname "$archive_dir")
             change_name=$(echo "$change_dir" | awk -F'openspec/changes/' '{print $2}')
             if [[ -n "$change_name" ]]; then
               archive_changes="$archive_changes $change_name"
             fi
           done
+          
+          # New structure: find directories under openspec/changes/archive/
+          if [[ -d "openspec/changes/archive" ]]; then
+            for archive_dir in $(find openspec/changes/archive -mindepth 1 -maxdepth 1 -type d 2>/dev/null); do
+              change_name=$(echo "$archive_dir" | awk -F'openspec/changes/archive/' '{print $2}')
+              if [[ -n "$change_name" ]]; then
+                archive_changes="$archive_changes archive/$change_name"
+              fi
+            done
+          fi
+          
           archive_changes=$(echo "$archive_changes" | tr ' ' '\n' | sort -u | tr '\n' ' ' | sed 's/^ //;s/ $//')
           echo "ARCHIVE_CHANGES=$archive_changes" >> $GITHUB_OUTPUT
 
@@ -158,13 +181,25 @@ jobs:
             
             echo "Processing archived change: $change"
             
-            # Extract change name (last part of path) for flexible matching
-            change_name=$(echo "$change" | awk -F'/' '{print $NF}')
+            # Extract change name for matching
+            # For new structure: archive/2026-05-14-admin-crud → admin-crud
+            # For legacy structure: feature/admin-crud → admin-crud
+            if [[ "$change" == archive/* ]]; then
+              # New structure: strip date prefix (YYYY-MM-DD-) to get base name
+              base_name=$(echo "$change" | awk -F'/' '{print $2}' | sed 's/^[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}-//')
+              # Also try matching with full name (date-prefixed)
+              full_name=$(echo "$change" | awk -F'/' '{print $2}')
+            else
+              base_name=$(echo "$change" | awk -F'/' '{print $NF}')
+              full_name="$base_name"
+            fi
             
-            # Search for main issue - more flexible matching
-            # Match: [SDD] <name>, [SDD] <name>/..., [SDD] Proposal: <name>, etc.
-            main_issue=$(gh issue list --search "[SDD]" --state all --json number,title,state --jq '.[] | select(.title | contains("'"$change_name"'")) | .number' | head -1)
-            main_state=$(gh issue list --search "[SDD]" --state all --json number,title,state --jq '.[] | select(.title | contains("'"$change_name"'")) | .state' | head -1)
+            # Search for main issue using exact title match via in:title
+            main_issue=$(gh issue list --search "[SDD] in:title" --state all --json number,title,state --jq '[.[] | select(.title | test("'"[SDD] ${full_name}$"'";"i"))] | .[0].number' 2>/dev/null)
+            if [[ -z "$main_issue" ]]; then
+              main_issue=$(gh issue list --search "[SDD] in:title" --state all --json number,title,state --jq '[.[] | select(.title | test("'"[SDD] ${base_name}$"'";"i"))] | .[0].number' 2>/dev/null)
+            fi
+            main_state=$(gh issue list --search "[SDD] in:title" --state all --json number,title,state --jq '[.[] | select(.number == '"$main_issue"')] | .[0].state' 2>/dev/null)
             echo "Found main issue: $main_issue (state: $main_state)"
             
             if [[ -n "$main_issue" && "$main_state" == "open" ]]; then
@@ -173,17 +208,16 @@ jobs:
               echo "Closed main issue #$main_issue"
             elif [[ -n "$main_issue" ]]; then
               echo "Issue #$main_issue is already closed, skipping"
-              # Still add label if missing
               gh issue edit "$main_issue" --add-label "archived" 2>/dev/null || true
             fi
             
             # Search for task issues - match by change name in title
-            task_list=$(gh issue list --search "[SDD-Task]" --state all --json number,title,state --jq '.[] | select(.title | contains("'"$change_name"'")) | .number')
+            task_list=$(gh issue list --search "[SDD-Task] in:title" --state all --json number,title,state --jq '[.[] | select(.title | test("'"${base_name}"'";"i"))] | .[] | "\(.number) \(.state)"' 2>/dev/null)
             
             if [[ -n "$task_list" ]]; then
-              echo "$task_list" | while read -r task_num; do
-                task_state=$(echo "$task_list" | jq -r --arg num "$task_num" '.[] | select(.number == ($num | tonumber)) | .state' 2>/dev/null || echo "open")
-                if [[ "$task_state" == "open" ]]; then
+              echo "$task_list" | while read -r task_num task_state; do
+                [[ -z "$task_num" ]] && continue
+                if [[ "$task_state" == "OPEN" ]]; then
                   gh issue close "$task_num" --comment "Parent change '$change' has been archived."
                   gh issue edit "$task_num" --add-label "archived"
                   echo "Closed task issue #$task_num"
