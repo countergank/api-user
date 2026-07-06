@@ -14,12 +14,16 @@ describe(MongooseModuleOption.name, () => {
         };
         return config[key];
       }),
+      get: jest.fn((key: string, defaultValue?: string) => {
+        if (key === 'DATABASE_REPLICA_SET') return defaultValue ?? 'rs0';
+        return undefined;
+      }),
     } as unknown as ConfigService;
 
     const option = new MongooseModuleOption(configService);
     const result = option.createMongooseOptions();
 
-    expect(result.uri).toBe('mongodb://testuser:testpass@localhost:27017/testdb?authSource=admin');
+    expect(result.uri).toBe('mongodb://testuser:testpass@localhost:27017/testdb?authSource=admin&replicaSet=rs0');
   });
 
   it('should include credentials in URI for all configured values', () => {
@@ -34,6 +38,10 @@ describe(MongooseModuleOption.name, () => {
         };
         return config[key];
       }),
+      get: jest.fn((key: string, defaultValue?: string) => {
+        if (key === 'DATABASE_REPLICA_SET') return defaultValue ?? 'rs0';
+        return undefined;
+      }),
     } as unknown as ConfigService;
 
     const option = new MongooseModuleOption(configService);
@@ -44,6 +52,7 @@ describe(MongooseModuleOption.name, () => {
     expect(result.uri).toContain('mongo.example.com');
     expect(result.uri).toContain('27018');
     expect(result.uri).toContain('production_db');
-    expect(result.uri).toBe('mongodb://admin:s3cret!@mongo.example.com:27018/production_db?authSource=admin');
+    expect(result.uri).toContain('replicaSet=rs0');
+    expect(result.uri).toBe('mongodb://admin:s3cret!@mongo.example.com:27018/production_db?authSource=admin&replicaSet=rs0');
   });
 });

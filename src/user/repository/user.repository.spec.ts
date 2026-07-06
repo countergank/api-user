@@ -1,6 +1,6 @@
 import { getModelToken } from '@nestjs/mongoose';
 import { Test, TestingModule } from '@nestjs/testing';
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { Connection, Model } from 'mongoose';
 import { clearMongoCollection, clearMongoConnection, createConnection } from '../../../test/helpers';
 import { EncodeService } from '../../encode/encode.service';
@@ -10,7 +10,7 @@ import { UserMock } from '../mocks/user.mock';
 import { UserRepository } from './user.repository';
 
 describe(UserRepository.name, () => {
-  let newMongod: MongoMemoryServer;
+  let newMongod: MongoMemoryReplSet;
   let newMongoConnection: Connection;
   let userModel: Model<User>;
   let repository: UserRepository;
