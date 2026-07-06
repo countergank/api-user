@@ -29,7 +29,7 @@ export class User extends Base {
   userName: string;
 
   @Exclude()
-  @Prop({ required: true })
+  @Prop({ required: true, select: false })
   password: string;
 
   @Prop({ enum: UserRole, default: UserRole.USER })

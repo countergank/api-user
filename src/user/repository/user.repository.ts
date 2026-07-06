@@ -2,7 +2,7 @@ import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { CustomLogger } from '../../common/logger';
-import { isLocal } from '../../common/utils';
+import { escapeRegExp, isLocal } from '../../common/utils';
 import { EncodeService } from '../../encode/encode.service';
 import { User, UserRole } from '../entities/user.entity';
 import { UserPopulateError } from '../errors/error-instances.error';
@@ -83,12 +83,20 @@ export class UserRepository implements OnApplicationBootstrap {
     return user.save();
   }
 
-  async findById(id: string): Promise<User | null> {
-    return this.userModel.findById(id).exec();
+  async findById(id: string, opts?: { includePassword?: boolean }): Promise<User | null> {
+    const query = this.userModel.findById(id);
+    if (opts?.includePassword) {
+      query.select('+password');
+    }
+    return query.exec();
   }
 
-  async findByEmail(email: string): Promise<User | null> {
-    return this.userModel.findOne({ email }).exec();
+  async findByEmail(email: string, opts?: { includePassword?: boolean }): Promise<User | null> {
+    const query = this.userModel.findOne({ email });
+    if (opts?.includePassword) {
+      query.select('+password');
+    }
+    return query.exec();
   }
 
   async findByResetToken(token: string): Promise<User | null> {
@@ -161,7 +169,7 @@ export class UserRepository implements OnApplicationBootstrap {
       mongoFilter.deletedAt = { $exists: false };
     }
     if (filters.search) {
-      const searchRegex = new RegExp(filters.search, 'i');
+      const searchRegex = new RegExp(escapeRegExp(filters.search), 'i');
       andConditions.push({
         $or: [
           { name: searchRegex },

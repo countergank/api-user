@@ -81,16 +81,16 @@ export class UserService {
     return users;
   }
 
-  async findById(id: string): Promise<User> {
-    const user: User = await this.userRepository.findById(id);
+  async findById(id: string, opts?: { includePassword?: boolean }): Promise<User> {
+    const user: User = await this.userRepository.findById(id, opts);
     if (!user) {
       throw new UserNotFoundError();
     }
     return user;
   }
 
-  async findByEmail(email: string): Promise<User | null> {
-    return this.userRepository.findByEmail(email);
+  async findByEmail(email: string, opts?: { includePassword?: boolean }): Promise<User | null> {
+    return this.userRepository.findByEmail(email, opts);
   }
 
   async findByResetToken(token: string): Promise<User | null> {
