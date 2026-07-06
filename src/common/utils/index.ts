@@ -14,3 +14,4 @@ export const isLocal = () => {
 };
 
 export { escapeRegExp } from './regex';
+export { runInTransaction } from './transaction';
