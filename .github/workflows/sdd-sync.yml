@@ -189,6 +189,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set +e
           archive_changes="${{ steps.find.outputs.ARCHIVE_CHANGES }}"
           echo "ARCHIVE_CHANGES=$archive_changes"
           for change in $archive_changes; do
@@ -209,32 +210,38 @@ jobs:
               full_name="$base_name"
             fi
             
-            # Search for main issue using exact title match via in:title
-            main_issue=$(gh issue list --search "[SDD] in:title" --state all --json number,title,state --jq '[.[] | select(.title | test("'"[SDD] ${full_name}$"'";"i"))] | .[0].number' 2>/dev/null)
+            # Search for main issue — match title containing base_name or full_name
+            # Use --jq with //empty to return empty string (not null) when no match
+            main_issue=$(gh issue list --search "[SDD] in:title" --state all --json number,title,state --jq '[.[] | select(.title | test("'"${base_name}"'";"i"))] | .[0].number // empty' 2>/dev/null || echo "")
             if [[ -z "$main_issue" ]]; then
-              main_issue=$(gh issue list --search "[SDD] in:title" --state all --json number,title,state --jq '[.[] | select(.title | test("'"[SDD] ${base_name}$"'";"i"))] | .[0].number' 2>/dev/null)
-            fi
-            main_state=$(gh issue list --search "[SDD] in:title" --state all --json number,title,state --jq '[.[] | select(.number == '"$main_issue"')] | .[0].state' 2>/dev/null)
-            echo "Found main issue: $main_issue (state: $main_state)"
-            
-            if [[ -n "$main_issue" && "$main_state" == "open" ]]; then
-              gh issue close "$main_issue" --comment "Change '$change' has been archived."
-              gh issue edit "$main_issue" --add-label "archived"
-              echo "Closed main issue #$main_issue"
-            elif [[ -n "$main_issue" ]]; then
-              echo "Issue #$main_issue is already closed, skipping"
-              gh issue edit "$main_issue" --add-label "archived" 2>/dev/null || true
+              main_issue=$(gh issue list --search "[SDD] in:title" --state all --json number,title,state --jq '[.[] | select(.title | test("'"${full_name}"'";"i"))] | .[0].number // empty' 2>/dev/null || echo "")
             fi
             
-            # Search for task issues - match by change name in title
-            task_list=$(gh issue list --search "[SDD-Task] in:title" --state all --json number,title,state --jq '[.[] | select(.title | test("'"${base_name}"'";"i"))] | .[] | "\(.number) \(.state)"' 2>/dev/null)
+            if [[ -z "$main_issue" ]]; then
+              echo "No main issue found for $change (base_name: $base_name)"
+            else
+              main_state=$(gh issue list --search "[SDD] in:title" --state all --json number,title,state --jq "[.[] | select(.number == ${main_issue})] | .[0].state // empty" 2>/dev/null || echo "")
+              echo "Found main issue: $main_issue (state: $main_state)"
+              
+              if [[ "$main_state" == "OPEN" ]]; then
+                gh issue close "$main_issue" --comment "Change '$change' has been archived." || true
+                gh issue edit "$main_issue" --add-label "archived" || true
+                echo "Closed main issue #$main_issue"
+              else
+                echo "Issue #$main_issue is already closed, skipping"
+                gh issue edit "$main_issue" --add-label "archived" 2>/dev/null || true
+              fi
+            fi
+            
+            # Search for task issues — match by change name in title
+            task_list=$(gh issue list --search "[SDD-Task] in:title" --state all --json number,title,state --jq '[.[] | select(.title | test("'"${base_name}"'";"i"))] | .[] | "\(.number) \(.state)"' 2>/dev/null || echo "")
             
             if [[ -n "$task_list" ]]; then
               echo "$task_list" | while read -r task_num task_state; do
                 [[ -z "$task_num" ]] && continue
                 if [[ "$task_state" == "OPEN" ]]; then
-                  gh issue close "$task_num" --comment "Parent change '$change' has been archived."
-                  gh issue edit "$task_num" --add-label "archived"
+                  gh issue close "$task_num" --comment "Parent change '$change' has been archived." || true
+                  gh issue edit "$task_num" --add-label "archived" || true
                   echo "Closed task issue #$task_num"
                 else
                   gh issue edit "$task_num" --add-label "archived" 2>/dev/null || true
