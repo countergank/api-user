@@ -1,7 +1,6 @@
-import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { CustomLogger } from '../../common/logger';
 import { escapeRegExp, isLocal } from '../../common/utils';
 import { EncodeService } from '../../encode/encode.service';
 import { User, UserRole } from '../entities/user.entity';
@@ -10,7 +9,7 @@ import { SORTABLE_FIELDS } from '../dto/pagination-query.dto';
 
 @Injectable()
 export class UserRepository implements OnApplicationBootstrap {
-  private readonly logger = new CustomLogger(UserRepository.name);
+  private readonly logger = new Logger(UserRepository.name);
   constructor(
     @InjectModel(User.name) private userModel: Model<User>,
     private readonly encodeService: EncodeService,
