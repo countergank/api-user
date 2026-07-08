@@ -106,9 +106,20 @@
     },
     "collectCoverageFrom": [
       "**/*.{!(module),}.(t|j)s",
-      "test/**/*.{t|j)s"
+      "!**/*.spec.ts",
+      "!**/*.mock.ts",
+      "!**/main.ts",
+      "!**/database/seeds/**"
     ],
     "coverageDirectory": "../coverage",
+    "coverageThreshold": {
+      "global": {
+        "statements": 55,
+        "branches": 45,
+        "functions": 35,
+        "lines": 55
+      }
+    },
     "testEnvironment": "node",
     "testTimeout": 30000
   }

@@ -110,3 +110,22 @@ The `.env.example` file MUST document `JWT_SECRET` and `CORS_ORIGINS` as require
 - **THEN** `CORS_ORIGINS` is listed as a required variable
 - **AND** includes format description (e.g., "Comma-separated list of allowed origins")
 - **AND** includes an example value (e.g., `https://app.example.com,https://admin.example.com`)
+
+### Requirement: SEC-05 — CSRF Protection Waiver
+
+This API uses JWT Bearer token authentication exclusively via the `Authorization` header (`ExtractJwt.fromAuthHeaderAsBearerToken()`). No cookies are set by the server. CORS is configured with `credentials: false`. Refresh tokens are passed in request body JSON, not in httpOnly cookies. Therefore, CSRF is not an applicable attack vector.
+
+**Waiver**: CSRF protection is explicitly waived. If cookie-based authentication is ever introduced, CSRF protection MUST be added at that time.
+
+#### Scenario: CSRF not needed for JWT Bearer auth
+- **GIVEN** the API authenticates via `Authorization: Bearer <token>` header
+- **AND** no cookies are set by the server
+- **AND** CORS `credentials: false`
+- **WHEN** a cross-origin request arrives without a valid Bearer token
+- **THEN** the request is rejected with 401 Unauthorized
+- **AND** no CSRF token validation is required
+
+#### Scenario: CSRF waiver invalidated if cookies added
+- **GIVEN** a future change introduces cookie-based authentication (session, refresh token in httpOnly cookie)
+- **WHEN** the security spec is reviewed
+- **THEN** CSRF protection MUST be implemented before merging that change
