@@ -14,6 +14,7 @@ process.env.JWT_SECRET = 'test-jwt-secret-key-for-testing';
 process.env.ENCRYPTION_PASSWORD = 'test_encryption_password_32chars!';
 process.env.CORS_ORIGINS = 'http://localhost:3000';
 process.env.DEBUG = 'false';
+process.env.LOG_LEVEL = 'silent';
 process.env.EXAMPLE_MICROSERVICE_ENABLED = 'false';
 
 // Rate limiting — low limits for integration testing

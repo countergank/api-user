@@ -6,6 +6,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { TerminusModule } from '@nestjs/terminus';
 import { ClsModule } from 'nestjs-cls';
+import { LoggerModule } from 'nestjs-pino';
 import { ConfigModuleOption } from '../config/custom-module-options/config-module-option';
 import { MongooseModuleOption } from '../config/custom-module-options/mongoose-module-option';
 import { ExampleMicroservice } from '../config/custom-providers/microservices';
@@ -17,6 +18,7 @@ import { I18nModule } from '../common/i18n/i18n.module';
 import { AuditModule } from '../common/audit/audit.module';
 import { AuditInterceptor } from '../common/audit/audit.interceptor';
 import { AuditAspectInterceptor } from '../common/audit/audit-aspect.interceptor';
+import { buildLoggerConfig } from '../common/logger-config';
 import { AppController } from './controller/app.controller';
 import { AppService } from './service/app.service';
 
@@ -35,6 +37,7 @@ import { AppService } from './service/app.service';
     },
   ],
   imports: [
+    LoggerModule.forRoot(buildLoggerConfig()),
     ClsModule.forRoot({ global: true, middleware: { mount: true } }),
     ConfigModule.forRoot(ConfigModuleOption),
     MongooseModule.forRootAsync({ useClass: MongooseModuleOption }),
