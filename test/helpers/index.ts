@@ -1,6 +1,6 @@
 import { InjectionToken } from '@nestjs/common';
 import { MockFunctionMetadata, ModuleMocker } from 'jest-mock';
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import mongoose, { Connection } from 'mongoose';
 
 export const Mock = (token: InjectionToken) => {
@@ -10,7 +10,7 @@ export const Mock = (token: InjectionToken) => {
   return new mock();
 };
 
-export const clearMongoConnection = async (mongoConnection: Connection, mongod: MongoMemoryServer) => {
+export const clearMongoConnection = async (mongoConnection: Connection, mongod: MongoMemoryReplSet) => {
   await mongoConnection.dropDatabase();
   await mongoConnection.close();
   await mongod.stop();
@@ -25,7 +25,9 @@ export const clearMongoCollection = async (mongoConnection: Connection) => {
 };
 
 export const createConnection = async () => {
-  const mongod = await MongoMemoryServer.create();
+  const mongod = await MongoMemoryReplSet.create({
+    replSet: { count: 1, storageEngine: 'wiredTiger' },
+  });
   const uri = mongod.getUri();
   const mongoConnection = mongoose.createConnection(uri);
   return {

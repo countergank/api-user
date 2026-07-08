@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { getConnectionToken } from '@nestjs/mongoose';
 import { AccountLockedException } from '../common/errors/account-locked.exception';
 import { User, UserRole } from '../user/entities/user.entity';
 import { UserService } from '../user/service/user.service';
@@ -18,11 +19,19 @@ describe(AuthService.name, () => {
 
   const mockUser = new UserMock().randomize();
 
+  const mockConnection = {
+    startSession: jest.fn().mockResolvedValue({
+      withTransaction: jest.fn((cb) => cb()),
+      endSession: jest.fn(),
+    }),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [AuthService, UserService, JwtService, EventEmitter2, ConfigService],
     })
       .useMocker((token) => {
+        if (token === getConnectionToken()) return mockConnection;
         if (typeof token === 'function') return Mock(token);
       })
       .compile();

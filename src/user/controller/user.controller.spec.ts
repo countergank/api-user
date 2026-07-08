@@ -1,5 +1,6 @@
 import { BadRequestException, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { getConnectionToken } from '@nestjs/mongoose';
 import { Mock } from '../../../test/helpers';
 import { CreateUserResponseDTO } from '../dto/create-user-response.dto';
 import { UserDTO } from '../dto/user.dto';
@@ -23,12 +24,20 @@ describe(UserController.name, () => {
   let controller: UserController;
   let userService: UserService;
 
+  const mockConnection = {
+    startSession: jest.fn().mockResolvedValue({
+      withTransaction: jest.fn((cb) => cb()),
+      endSession: jest.fn(),
+    }),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [UserController],
       providers: [UserService],
     })
       .useMocker((token) => {
+        if (token === getConnectionToken()) return mockConnection;
         if (typeof token === 'function') return Mock(token);
       })
       .compile();
