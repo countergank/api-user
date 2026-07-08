@@ -5,27 +5,25 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { Logger } from 'nestjs-pino';
 import hyperid from 'hyperid';
 import { HttpAdapterHost } from '@nestjs/core';
 import { AppModule } from './app/app.module';
 import { ErrorFilter } from './common/errors/error-filter';
 import { I18nService } from './common/i18n/i18n.service';
-import { isProd } from './common/utils';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter({
-      logger: {
-        redact: ['headers.authorization'],
-        timestamp: () => new Date().toISOString(),
-        level: isProd() ? 'info' : 'debug',
-      },
       genReqId: () => {
         return hyperid().uuid;
       },
     }),
   );
+
+  // Use nestjs-pino as the global logger (replaces Fastify's built-in logger)
+  app.useLogger(app.get(Logger));
 
   const configService = app.get(ConfigService);
 

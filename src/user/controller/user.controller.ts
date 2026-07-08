@@ -6,6 +6,7 @@ import {
   Get,
   Inject,
   InternalServerErrorException,
+  Logger,
   Param,
   Patch,
   Post,
@@ -13,7 +14,6 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import mongoose from 'mongoose';
-import { CustomLogger } from '../../common/logger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -55,7 +55,7 @@ import { RequestLang } from '../../common/decorators/request-lang.decorator';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN)
 export class UserController {
-  private readonly logger = new CustomLogger(UserController.name);
+  private readonly logger = new Logger(UserController.name);
   constructor(
     private readonly userService: UserService,
     @Inject(I18nService) private i18n: I18nService,

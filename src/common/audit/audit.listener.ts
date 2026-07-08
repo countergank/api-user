@@ -1,7 +1,6 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { OnEvent, EventEmitter2 } from '@nestjs/event-emitter';
 import { ConfigService } from '@nestjs/config';
-import { CustomLogger } from '../logger';
 import { AuditLogRepository } from './audit-log.repository';
 import { AuditEventPayload } from './interfaces';
 
@@ -51,7 +50,7 @@ export function redactSensitiveFields<T>(obj: T): T {
 
 @Injectable()
 export class AuditListener implements OnModuleInit {
-  private readonly logger = new CustomLogger(AuditListener.name);
+  private readonly logger = new Logger(AuditListener.name);
 
   constructor(
     private readonly auditLogRepository: AuditLogRepository,

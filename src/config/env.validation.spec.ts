@@ -48,4 +48,24 @@ describe('env validation', () => {
       expect(() => validate(validConfig)).not.toThrow();
     });
   });
+
+  describe('LOG_LEVEL', () => {
+    it('should pass when LOG_LEVEL is not set (optional)', () => {
+      expect(() => validate(validConfig)).not.toThrow();
+    });
+
+    it('should pass when LOG_LEVEL is a valid pino level', () => {
+      expect(() => validate({ ...validConfig, LOG_LEVEL: 'debug' })).not.toThrow();
+      expect(() => validate({ ...validConfig, LOG_LEVEL: 'info' })).not.toThrow();
+      expect(() => validate({ ...validConfig, LOG_LEVEL: 'warn' })).not.toThrow();
+      expect(() => validate({ ...validConfig, LOG_LEVEL: 'error' })).not.toThrow();
+      expect(() => validate({ ...validConfig, LOG_LEVEL: 'fatal' })).not.toThrow();
+      expect(() => validate({ ...validConfig, LOG_LEVEL: 'trace' })).not.toThrow();
+      expect(() => validate({ ...validConfig, LOG_LEVEL: 'silent' })).not.toThrow();
+    });
+
+    it('should throw when LOG_LEVEL is an invalid value', () => {
+      expect(() => validate({ ...validConfig, LOG_LEVEL: 'invalid' })).toThrow();
+    });
+  });
 });
