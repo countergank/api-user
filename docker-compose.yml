@@ -2,19 +2,35 @@ services:
   db-user:
     image: mongo:6.0.3
     container_name: db-user
-    command: ["--replSet", "rs0", "--bind_ip_all"]
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
     expose:
-      - 27017
+      - "27017"
     restart: always
     ports:
       - "27017:27017"
     volumes:
       - api-user-data:/data/db
-      - ./scripts/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
-    environment:
-      - MONGO_INITDB_DATABASE=${DATABASE_NAME:-api_user}
-      - MONGO_INITDB_ROOT_USERNAME=${DATABASE_USER:?DATABASE_USER is required}
-      - MONGO_INITDB_ROOT_PASSWORD=${DATABASE_PASSWORD:?DATABASE_PASSWORD is required}
+    networks:
+      - default
+
+  mongo-init:
+    image: mongo:6.0.3
+    depends_on:
+      db-user:
+        condition: service_started
+    entrypoint: >
+      bash -c "
+      sleep 5 &&
+      mongosh --host db-user:27017 --eval 'rs.initiate({_id: \"rs0\", members: [{_id: 0, host: \"db-user:27017\"}]})' &&
+      for i in $$(seq 1 30); do
+        state=$$(mongosh --host db-user:27017 --quiet --eval 'try { rs.status().myState } catch(e) { 0 }');
+        [ \"$$state\" = \"1\" ] && break;
+        sleep 1;
+      done &&
+      mongosh --host db-user:27017 --eval 'db.getSiblingDB(\"admin\").createUser({user: \"dev_user\", pwd: \"dev_password\", roles: [{role: \"root\", db: \"admin\"}]})' 2>/dev/null || true &&
+      echo 'mongo-init: done'
+      "
+    restart: "no"
     networks:
       - default
 
@@ -27,12 +43,15 @@ services:
       context: .
       target: development
     depends_on:
-      - db-user
+      db-user:
+        condition: service_started
+      mongo-init:
+        condition: service_completed_successfully
     command: npm run start:debug
     ports:
       - "3000:3000"
     env_file:
-      - .env.development
+      - .env.${NODE_ENV:-development}
     environment:
       - DATABASE_HOST=db-user
     volumes:
