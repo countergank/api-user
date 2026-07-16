@@ -111,31 +111,31 @@ docker\:rebuild:
 ## migrate — Run pending migrations (ENV=<env>, auto-detects Doppler)
 migrate:
 	@if command -v doppler >/dev/null 2>&1; then \
-		doppler run -- npx migrate-mongo up; \
+		doppler run -- npx migrate-mongo up -f .migraterc.js; \
 	else \
-		NODE_ENV=$(ENV) npx migrate-mongo up; \
+		NODE_ENV=$(ENV) npx migrate-mongo up -f .migraterc.js; \
 	fi
 
 ## migrate:status — Show migration status (ENV=<env>, auto-detects Doppler)
 migrate\:status:
 	@if command -v doppler >/dev/null 2>&1; then \
-		doppler run -- npx migrate-mongo status; \
+		doppler run -- npx migrate-mongo status -f .migraterc.js; \
 	else \
-		NODE_ENV=$(ENV) npx migrate-mongo status; \
+		NODE_ENV=$(ENV) npx migrate-mongo status -f .migraterc.js; \
 	fi
 
 ## migrate:down — Roll back the last migration (ENV=<env>, auto-detects Doppler)
 migrate\:down:
 	@if command -v doppler >/dev/null 2>&1; then \
-		doppler run -- npx migrate-mongo down; \
+		doppler run -- npx migrate-mongo down -f .migraterc.js; \
 	else \
-		NODE_ENV=$(ENV) npx migrate-mongo down; \
+		NODE_ENV=$(ENV) npx migrate-mongo down -f .migraterc.js; \
 	fi
 
 ## migrate:create — Create a new migration (NAME=<name>)
 migrate\:create:
 	@if [ -z "$(NAME)" ]; then echo "Usage: make migrate:create NAME=my-migration"; exit 1; fi
-	npx migrate-mongo create $(NAME)
+	npx migrate-mongo create -f .migraterc.js $(NAME)
 
 # ==============================================================================
 # Testing
