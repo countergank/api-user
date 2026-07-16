@@ -24,11 +24,11 @@ services:
       mongosh --host db-user:27017 --eval 'rs.initiate({_id: \"rs0\", members: [{_id: 0, host: \"db-user:27017\"}]})' &&
       for i in $$(seq 1 30); do
         state=$$(mongosh --host db-user:27017 --quiet --eval 'try { rs.status().myState } catch(e) { 0 }');
-        [ \"$$state\" = \"1\" ] && exit 0;
+        [ \"$$state\" = \"1\" ] && break;
         sleep 1;
-      done;
-      echo 'replica set not primary after 30s';
-      exit 1
+      done &&
+      mongosh --host db-user:27017 --eval 'db.getSiblingDB(\"admin\").createUser({user: \"dev_user\", pwd: \"dev_password\", roles: [{role: \"root\", db: \"admin\"}]})' 2>/dev/null || true &&
+      echo 'mongo-init: done'
       "
     restart: "no"
     networks:

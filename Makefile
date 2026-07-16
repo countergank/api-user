@@ -8,6 +8,7 @@
 # ==============================================================================
 
 ENV ?= development
+SHELL := /bin/bash
 
 # ==============================================================================
 # Default target
@@ -111,25 +112,28 @@ docker\:rebuild:
 ## migrate — Run pending migrations (ENV=<env>, auto-detects Doppler)
 migrate:
 	@if command -v doppler >/dev/null 2>&1; then \
-		doppler run -- npx migrate-mongo up -f .migraterc.js; \
+		doppler run -- env MONGODB_MIGRATE_URI="mongodb://$$DATABASE_USER:$$DATABASE_PASSWORD@localhost:$$DATABASE_PORT/$$DATABASE_NAME?authSource=admin" npx migrate-mongo up -f .migraterc.js; \
 	else \
-		NODE_ENV=$(ENV) npx migrate-mongo up -f .migraterc.js; \
+		set -a && . .env.$(ENV) && set +a && \
+		MONGODB_MIGRATE_URI="mongodb://$$DATABASE_USER:$$DATABASE_PASSWORD@localhost:$$DATABASE_PORT/$$DATABASE_NAME?authSource=admin" npx migrate-mongo up -f .migraterc.js; \
 	fi
 
 ## migrate:status — Show migration status (ENV=<env>, auto-detects Doppler)
 migrate\:status:
 	@if command -v doppler >/dev/null 2>&1; then \
-		doppler run -- npx migrate-mongo status -f .migraterc.js; \
+		doppler run -- env MONGODB_MIGRATE_URI="mongodb://$$DATABASE_USER:$$DATABASE_PASSWORD@localhost:$$DATABASE_PORT/$$DATABASE_NAME?authSource=admin" npx migrate-mongo status -f .migraterc.js; \
 	else \
-		NODE_ENV=$(ENV) npx migrate-mongo status -f .migraterc.js; \
+		set -a && . .env.$(ENV) && set +a && \
+		MONGODB_MIGRATE_URI="mongodb://$$DATABASE_USER:$$DATABASE_PASSWORD@localhost:$$DATABASE_PORT/$$DATABASE_NAME?authSource=admin" npx migrate-mongo status -f .migraterc.js; \
 	fi
 
 ## migrate:down — Roll back the last migration (ENV=<env>, auto-detects Doppler)
 migrate\:down:
 	@if command -v doppler >/dev/null 2>&1; then \
-		doppler run -- npx migrate-mongo down -f .migraterc.js; \
+		doppler run -- env MONGODB_MIGRATE_URI="mongodb://$$DATABASE_USER:$$DATABASE_PASSWORD@localhost:$$DATABASE_PORT/$$DATABASE_NAME?authSource=admin" npx migrate-mongo down -f .migraterc.js; \
 	else \
-		NODE_ENV=$(ENV) npx migrate-mongo down -f .migraterc.js; \
+		set -a && . .env.$(ENV) && set +a && \
+		MONGODB_MIGRATE_URI="mongodb://$$DATABASE_USER:$$DATABASE_PASSWORD@localhost:$$DATABASE_PORT/$$DATABASE_NAME?authSource=admin" npx migrate-mongo down -f .migraterc.js; \
 	fi
 
 ## migrate:create — Create a new migration (NAME=<name>)
