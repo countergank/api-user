@@ -4,7 +4,7 @@
 # Usage: make <target>
 #        make help              — show all available targets
 #        make up ENV=staging    — start Docker with a specific environment
-#        make deploy ENV=prod   — deploy a specific environment
+#        make redeploy ENV=prod — tear down and redeploy a specific environment
 # ==============================================================================
 
 ENV ?= development
@@ -50,25 +50,92 @@ start: dev
 # Docker
 # ==============================================================================
 
-## up — Start Docker services (ENV=<env>, default: development)
+## up — Start Docker services (ENV=<env>, auto-detects Doppler)
 up:
-	@if [ ! -f .env.$(ENV) ]; then \
-		echo "Error: .env.$(ENV) not found. Create it or use ENV=<existing-env>"; \
+	@if [ ! -f .env.$(ENV) ] && ! command -v doppler >/dev/null 2>&1; then \
+		echo "Error: .env.$(ENV) not found and Doppler not installed"; \
 		exit 1; \
 	fi
-	NODE_ENV=$(ENV) docker compose up -d --build
+	@if command -v doppler >/dev/null 2>&1; then \
+		echo "Using Doppler for environment: $(ENV)"; \
+		doppler secrets download --no-file --format=env > /tmp/api-user-env.$(ENV).tmp; \
+		NODE_ENV=$(ENV) docker compose --env-file /tmp/api-user-env.$(ENV).tmp up -d --build; \
+		status=$$?; rm -f /tmp/api-user-env.$(ENV).tmp; exit $$status; \
+	else \
+		echo "Using local .env.$(ENV)"; \
+		NODE_ENV=$(ENV) docker compose --env-file .env.$(ENV) up -d --build; \
+	fi
 
-## down — Stop Docker services
+## down — Stop Docker services (ENV=<env>, auto-detects Doppler)
 down:
-	docker compose down
+	@if command -v doppler >/dev/null 2>&1; then \
+		echo "Using Doppler for environment: $(ENV)"; \
+		doppler secrets download --no-file --format=env > /tmp/api-user-env.$(ENV).tmp; \
+		NODE_ENV=$(ENV) docker compose --env-file /tmp/api-user-env.$(ENV).tmp down; \
+		status=$$?; rm -f /tmp/api-user-env.$(ENV).tmp; exit $$status; \
+	else \
+		echo "Using local .env.$(ENV)"; \
+		NODE_ENV=$(ENV) docker compose --env-file .env.$(ENV) down 2>/dev/null || \
+			docker compose down; \
+	fi
 
-## logs — Follow Docker service logs
+## redeploy — Tear down and start Docker services (ENV=<env>)
+redeploy:
+	@$(MAKE) down ENV=$(ENV) || true
+	@$(MAKE) up ENV=$(ENV)
+
+## logs — Follow Docker service logs (ENV=<env>, auto-detects Doppler)
 logs:
-	docker compose logs -f
+	@if command -v doppler >/dev/null 2>&1; then \
+		doppler secrets download --no-file --format=env > /tmp/api-user-env.$(ENV).tmp; \
+		NODE_ENV=$(ENV) docker compose --env-file /tmp/api-user-env.$(ENV).tmp logs -f; \
+		status=$$?; rm -f /tmp/api-user-env.$(ENV).tmp; exit $$status; \
+	else \
+		NODE_ENV=$(ENV) docker compose --env-file .env.$(ENV) logs -f; \
+	fi
 
-## docker:rebuild — Rebuild Docker images without cache
+## docker:rebuild — Rebuild Docker images without cache (ENV=<env>, auto-detects Doppler)
 docker\:rebuild:
-	docker compose build --no-cache
+	@if command -v doppler >/dev/null 2>&1; then \
+		doppler secrets download --no-file --format=env > /tmp/api-user-env.$(ENV).tmp; \
+		NODE_ENV=$(ENV) docker compose --env-file /tmp/api-user-env.$(ENV).tmp build --no-cache; \
+		status=$$?; rm -f /tmp/api-user-env.$(ENV).tmp; exit $$status; \
+	else \
+		NODE_ENV=$(ENV) docker compose --env-file .env.$(ENV) build --no-cache; \
+	fi
+
+# ==============================================================================
+# Migrations
+# ==============================================================================
+
+## migrate — Run pending migrations (ENV=<env>, auto-detects Doppler)
+migrate:
+	@if command -v doppler >/dev/null 2>&1; then \
+		doppler run -- npx migrate-mongo up; \
+	else \
+		NODE_ENV=$(ENV) npx migrate-mongo up; \
+	fi
+
+## migrate:status — Show migration status (ENV=<env>, auto-detects Doppler)
+migrate\:status:
+	@if command -v doppler >/dev/null 2>&1; then \
+		doppler run -- npx migrate-mongo status; \
+	else \
+		NODE_ENV=$(ENV) npx migrate-mongo status; \
+	fi
+
+## migrate:down — Roll back the last migration (ENV=<env>, auto-detects Doppler)
+migrate\:down:
+	@if command -v doppler >/dev/null 2>&1; then \
+		doppler run -- npx migrate-mongo down; \
+	else \
+		NODE_ENV=$(ENV) npx migrate-mongo down; \
+	fi
+
+## migrate:create — Create a new migration (NAME=<name>)
+migrate\:create:
+	@if [ -z "$(NAME)" ]; then echo "Usage: make migrate:create NAME=my-migration"; exit 1; fi
+	npx migrate-mongo create $(NAME)
 
 # ==============================================================================
 # Testing
@@ -111,18 +178,6 @@ format:
 	npx biome format --fix ./src
 
 # ==============================================================================
-# Deploy
-# ==============================================================================
-
-## deploy — Deploy via docker-redeploy.sh (ENV=<env>, default: development)
-deploy:
-	@if [ ! -f .env.$(ENV) ]; then \
-		echo "Error: .env.$(ENV) not found. Cannot deploy without env file."; \
-		exit 1; \
-	fi
-	bash scripts/docker-redeploy.sh $(ENV)
-
-# ==============================================================================
 # Database
 # ==============================================================================
 
@@ -158,9 +213,10 @@ seed\:email-templates:
 clean:
 	rm -rf dist node_modules coverage
 
-.PHONY: help install build dev start up down logs docker\:rebuild \
+.PHONY: help install build dev start \
+	up down redeploy logs docker\:rebuild \
+	migrate migrate\:status migrate\:down migrate\:create \
 	test test\:unit test\:e2e test\:cov test\:watch \
 	lint lint\:fix format \
-	deploy \
 	db\:drop seed\:all seed\:permissions seed\:roles seed\:users seed\:email-templates \
 	clean
