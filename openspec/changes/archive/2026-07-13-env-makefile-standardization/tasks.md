@@ -51,9 +51,15 @@ Chain strategy: N/A
 - [x] 4.3 Run `npx tsc --noEmit` — zero TypeScript errors
 - [x] 4.4 Verify `make help` output matches spec; cross-check env files against `src/config/env.validation.ts` required vars
 
-## Work-Unit Commits
+## Work-Unit Commits (10 total)
 
-1. `feat(make): add Makefile with 18 dev targets wrapping npm scripts`
+1. `feat(make): add Makefile with 26 dev targets wrapping npm scripts`
 2. `fix(docker): dynamic env_file based on NODE_ENV in docker-compose`
-3. `chore(env): create .env.local, fix env var drift across all env files`
+3. `chore(env): fix env var drift — add JWT_SECRET, CORS_ORIGINS, audit/logging to example files`
 4. `fix(scripts): validate env file existence in docker-redeploy.sh`
+5. `docs(openspec): archive env-makefile-standardization, sync specs`
+6. `fix(docker): replace init scripts with mongo-init sidecar container for replSet bootstrap`
+7. `feat(make): consolidate docker targets with Doppler auto-detection, remove docker-redeploy.sh`
+8. `feat(migrations): add migrate-mongo with env-driven config and Makefile targets`
+9. `chore(scripts): remove obsolete mongo-init.js and mongo-keyfile`
+10. `fix(docker,migrate): mongo-init sidecar, directConnection, bash shell, Doppler pattern`
