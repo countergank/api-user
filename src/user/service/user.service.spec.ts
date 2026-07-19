@@ -15,9 +15,17 @@ import { UserRepository } from '../repository/user.repository';
 import { UserService } from './user.service';
 import { PaginationQueryDTO } from '../dto/pagination-query.dto';
 import { PaginatedUserResponseDTO } from '../dto/paginated-user-response.dto';
+import { CacheService } from '../../config/cache';
 
 describe(UserService.name, () => {
   let service: UserService;
+
+  const mockCacheService = {
+    get: jest.fn(),
+    set: jest.fn().mockResolvedValue(undefined),
+    del: jest.fn().mockResolvedValue(undefined),
+  };
+
   const userRepository = {
     existsByName: jest.fn(),
     existsByEmail: jest.fn(),
@@ -46,6 +54,7 @@ describe(UserService.name, () => {
       .useValue(userRepository)
       .useMocker((token) => {
         if (token === getConnectionToken()) return mockConnection;
+        if (token === CacheService) return mockCacheService;
         if (typeof token === 'function') return Mock(token);
       })
       .compile();
@@ -59,7 +68,7 @@ describe(UserService.name, () => {
 
   describe(`${UserService.name}.${UserService.prototype.create.name}`, () => {
     const createDto = new CreateUserDTOMock();
-    const user = new UserMock();
+    const user = Object.assign(new UserMock(), { _id: { toString: () => '507f1f77bcf86cd799439011' } });
     it(`should be create a ${User.name}`, async () => {
       jest.spyOn(userRepository, 'existsByName').mockResolvedValue(false);
       jest.spyOn(userRepository, 'existsByEmail').mockResolvedValue(false);
@@ -243,6 +252,66 @@ describe(UserService.name, () => {
       expect(result.data).toEqual([]);
       expect(result.total).toBe(0);
       expect(result.totalPages).toBe(0);
+    });
+  });
+
+  describe('Cache invalidation', () => {
+    beforeEach(() => {
+      mockCacheService.del.mockResolvedValue(undefined);
+    });
+
+    it('should invalidate cache after create', async () => {
+      const createDto = new CreateUserDTOMock();
+      const user = Object.assign(new UserMock(), { _id: { toString: () => '507f1f77bcf86cd799439011' } });
+      jest.spyOn(userRepository, 'existsByName').mockResolvedValue(false);
+      jest.spyOn(userRepository, 'existsByEmail').mockResolvedValue(false);
+      jest.spyOn(userRepository, 'create').mockResolvedValue(user);
+
+      await service.create(createDto);
+
+      expect(mockCacheService.del).toHaveBeenCalledWith('user:507f1f77bcf86cd799439011');
+    });
+
+    it('should invalidate cache after updateUser', async () => {
+      const user = new UserMock();
+      const updateDto = new UpdateUserDTOMock();
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(user);
+      jest.spyOn(userRepository, 'update').mockResolvedValue(user);
+
+      await service.updateUser(user.id, updateDto);
+
+      expect(mockCacheService.del).toHaveBeenCalledWith(`user:${user.id}`);
+    });
+
+    it('should invalidate cache after deleteUser', async () => {
+      const user = new UserMock();
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(user);
+      jest.spyOn(userRepository, 'softDelete').mockResolvedValue({ ...user, isActive: false, deletedAt: new Date() });
+
+      await service.deleteUser(user.id);
+
+      expect(mockCacheService.del).toHaveBeenCalledWith(`user:${user.id}`);
+    });
+
+    it('should invalidate cache after toggleActiveUser', async () => {
+      const user = new UserMock();
+      const activeUser = { ...user, isActive: true };
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(activeUser);
+      jest.spyOn(userRepository, 'update').mockResolvedValue({ ...activeUser, isActive: false });
+
+      await service.toggleActiveUser(user.id);
+
+      expect(mockCacheService.del).toHaveBeenCalledWith(`user:${user.id}`);
+    });
+
+    it('should invalidate cache after unlockUser', async () => {
+      const user = new UserMock();
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(user);
+      jest.spyOn(userRepository, 'update').mockResolvedValue(user);
+
+      await service.unlockUser(user.id);
+
+      expect(mockCacheService.del).toHaveBeenCalledWith(`user:${user.id}`);
     });
   });
 });
