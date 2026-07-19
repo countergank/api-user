@@ -1,6 +1,4 @@
 import { ConflictException, Injectable } from '@nestjs/common';
-import { InjectConnection } from '@nestjs/mongoose';
-import { Connection } from 'mongoose';
 import { randomUUID } from 'node:crypto';
 import { plainToInstance } from 'class-transformer';
 import { CreateUserDTO } from '../dto/create-user.dto';
@@ -18,14 +16,12 @@ import {
 } from '../errors/error-instances.error';
 import { UserRepository } from '../repository/user.repository';
 import { AuditAction } from '../../common/audit/audit.decorator';
-import { runInTransaction } from '../../common/utils/transaction';
 
 @Injectable()
 export class UserService {
   constructor(
     private readonly userRepository: UserRepository,
     private readonly encodeService: EncodeService,
-    @InjectConnection() private readonly connection: Connection,
   ) {}
 
   @AuditAction({
@@ -85,16 +81,16 @@ export class UserService {
     return users;
   }
 
-  async findById(id: string, opts?: { includePassword?: boolean }): Promise<User> {
-    const user: User = await this.userRepository.findById(id, opts);
+  async findById(id: string): Promise<User> {
+    const user: User = await this.userRepository.findById(id);
     if (!user) {
       throw new UserNotFoundError();
     }
     return user;
   }
 
-  async findByEmail(email: string, opts?: { includePassword?: boolean }): Promise<User | null> {
-    return this.userRepository.findByEmail(email, opts);
+  async findByEmail(email: string): Promise<User | null> {
+    return this.userRepository.findByEmail(email);
   }
 
   async findByResetToken(token: string): Promise<User | null> {
@@ -181,33 +177,31 @@ export class UserService {
     },
   })
   async updateUser(id: string, dto: UpdateUserDTO): Promise<User> {
-    return runInTransaction(this.connection, async () => {
-      const user = await this.userRepository.findById(id);
-      if (!user) {
-        throw new UserNotFoundError();
+    const user = await this.userRepository.findById(id);
+    if (!user) {
+      throw new UserNotFoundError();
+    }
+
+    if (dto.email) {
+      const emailConflict = await this.userRepository.existsByEmailExcludingSelf(dto.email, id);
+      if (emailConflict) {
+        throw new UserEmailAlreadyExistsError();
       }
+    }
 
-      if (dto.email) {
-        const emailConflict = await this.userRepository.existsByEmailExcludingSelf(dto.email, id);
-        if (emailConflict) {
-          throw new UserEmailAlreadyExistsError();
-        }
+    if (dto.userName) {
+      const nameConflict = await this.userRepository.existsByNameExcludingSelf(dto.userName, id);
+      if (nameConflict) {
+        throw new UserNameAlreadyExistsError();
       }
+    }
 
-      if (dto.userName) {
-        const nameConflict = await this.userRepository.existsByNameExcludingSelf(dto.userName, id);
-        if (nameConflict) {
-          throw new UserNameAlreadyExistsError();
-        }
-      }
+    // Strip undefined values to avoid unintentionally unsetting fields
+    const updateData = Object.fromEntries(
+      Object.entries(dto).filter(([_, v]) => v !== undefined),
+    );
 
-      // Strip undefined values to avoid unintentionally unsetting fields
-      const updateData = Object.fromEntries(
-        Object.entries(dto).filter(([_, v]) => v !== undefined),
-      );
-
-      return this.userRepository.update(id, updateData);
-    });
+    return this.userRepository.update(id, updateData);
   }
 
   @AuditAction({

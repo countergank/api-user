@@ -4,7 +4,6 @@ import {
   Controller,
   Get,
   InternalServerErrorException,
-  Logger,
   Param,
   Post,
   VERSION_NEUTRAL,
@@ -12,6 +11,7 @@ import {
 import { ApiTags, ApiHideProperty, ApiParam, ApiOperation } from '@nestjs/swagger';
 import { HealthCheck, HealthCheckService, MongooseHealthIndicator } from '@nestjs/terminus';
 import { Message } from '../../common/class/message.class';
+import { CustomLogger } from '../../common/logger';
 import { RedisHealthIndicator } from '../../config/redis/redis-health.indicator';
 import { GetVersionDoc, PostMessageMicroserviceDoc } from '../api-docs/app.decorator';
 import { Version } from '../class/version.class';
@@ -26,7 +26,7 @@ import { AppService } from '../service/app.service';
 @ApiTags('Root')
 @Controller({ version: [VERSION_NEUTRAL] })
 export class AppController {
-  private readonly logger = new Logger(AppController.name);
+  private readonly logger = new CustomLogger(AppController.name);
   constructor(
     private readonly appService: AppService,
     private readonly healthCheckService: HealthCheckService,

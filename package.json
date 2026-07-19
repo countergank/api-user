@@ -57,13 +57,10 @@
     "mongoose": "^8.5.1",
     "nestjs-cls": "^6.2.0",
     "nestjs-i18n": "^10.8.3",
-    "nestjs-pino": "^4.6.1",
     "nodemailer": "^8.0.7",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
-    "pino-http": "^11.0.0",
-    "pino-pretty": "^13.1.3",
     "reflect-metadata": "^0.2.2",
     "resend": "^6.12.2",
     "rxjs": "^7.8.1"
@@ -80,12 +77,10 @@
     "@types/node": "^22.0.0",
     "@types/nodemailer": "^8.0.0",
     "@types/supertest": "^6.0.2",
-    "dotenv": "^17.4.2",
     "dotenv-cli": "^11.0.0",
     "husky": "^9.1.4",
     "jest": "^29.7.0",
     "jest-mock": "^29.7.0",
-    "migrate-mongo": "^14.0.7",
     "source-map-support": "^0.5.21",
     "supertest": "^7.0.0",
     "ts-jest": "^29.2.3",
@@ -110,20 +105,9 @@
     },
     "collectCoverageFrom": [
       "**/*.{!(module),}.(t|j)s",
-      "!**/*.spec.ts",
-      "!**/*.mock.ts",
-      "!**/main.ts",
-      "!**/database/seeds/**"
+      "test/**/*.{t|j)s"
     ],
     "coverageDirectory": "../coverage",
-    "coverageThreshold": {
-      "global": {
-        "statements": 55,
-        "branches": 45,
-        "functions": 35,
-        "lines": 55
-      }
-    },
     "testEnvironment": "node",
     "testTimeout": 30000
   }

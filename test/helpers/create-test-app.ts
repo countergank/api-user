@@ -1,6 +1,5 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from '../../src/app/app.module';
 
 export async function createTestApp(): Promise<INestApplication> {
@@ -8,8 +7,7 @@ export async function createTestApp(): Promise<INestApplication> {
     imports: [AppModule],
   }).compile();
 
-  const adapter = new FastifyAdapter({ logger: false });
-  const app = moduleFixture.createNestApplication<NestFastifyApplication>(adapter);
+  const app = moduleFixture.createNestApplication();
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -21,7 +19,6 @@ export async function createTestApp(): Promise<INestApplication> {
     }),
   );
   await app.init();
-  await app.listen(0);
 
   return app;
 }

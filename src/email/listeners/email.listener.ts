@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
+import { CustomLogger } from '../../common/logger';
 import { EmailEvents } from '../constants/email.events';
 import {
   EmailChangeConfirmedEvent,
@@ -13,7 +14,7 @@ import { EmailService } from '../service/email.service';
 
 @Injectable()
 export class EmailListener {
-  private readonly logger = new Logger(EmailListener.name);
+  private readonly logger = new CustomLogger(EmailListener.name);
 
   constructor(private readonly emailService: EmailService) {}
 

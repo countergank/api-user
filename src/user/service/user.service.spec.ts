@@ -1,5 +1,4 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { getConnectionToken } from '@nestjs/mongoose';
 import { Mock } from '../../../test/helpers';
 import { User } from '../entities/user.entity';
 import {
@@ -31,13 +30,6 @@ describe(UserService.name, () => {
     findPaginated: jest.fn(),
   };
 
-  const mockConnection = {
-    startSession: jest.fn().mockResolvedValue({
-      withTransaction: jest.fn((cb) => cb()),
-      endSession: jest.fn(),
-    }),
-  };
-
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [UserService, UserRepository],
@@ -45,7 +37,6 @@ describe(UserService.name, () => {
       .overrideProvider(UserRepository)
       .useValue(userRepository)
       .useMocker((token) => {
-        if (token === getConnectionToken()) return mockConnection;
         if (typeof token === 'function') return Mock(token);
       })
       .compile();

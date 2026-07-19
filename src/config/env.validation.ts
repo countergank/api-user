@@ -1,5 +1,5 @@
 import { plainToInstance } from 'class-transformer';
-import { IsEnum, IsIn, IsNotEmpty, IsOptional, IsString, Matches, validateSync } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsOptional, IsString, Matches, validateSync } from 'class-validator';
 
 enum Environment {
   LOCAL = 'local',
@@ -53,14 +53,6 @@ class EnvironmentVariables {
   @IsString()
   @IsNotEmpty()
   ENCRYPTION_PASSWORD: string;
-
-  @IsString()
-  @IsNotEmpty()
-  JWT_SECRET: string;
-
-  @IsString()
-  @IsNotEmpty()
-  CORS_ORIGINS: string;
 
   @IsString()
   @IsOptional()
@@ -181,11 +173,6 @@ class EnvironmentVariables {
   @IsEnum(['minimal', 'standard', 'verbose'])
   @IsOptional()
   AUDIT_LEVEL: string;
-
-  // Structured logging
-  @IsIn(['trace', 'debug', 'info', 'warn', 'error', 'fatal', 'silent'])
-  @IsOptional()
-  LOG_LEVEL: string;
 
   // Redis configuration
   @IsString()

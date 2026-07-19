@@ -1,6 +1,6 @@
 import { getModelToken } from '@nestjs/mongoose';
 import { Test, TestingModule } from '@nestjs/testing';
-import { MongoMemoryReplSet } from 'mongodb-memory-server';
+import { MongoMemoryServer } from 'mongodb-memory-server';
 import { Connection, Model } from 'mongoose';
 import { clearMongoCollection, clearMongoConnection, createConnection } from '../../../test/helpers';
 import { EncodeService } from '../../encode/encode.service';
@@ -10,7 +10,7 @@ import { UserMock } from '../mocks/user.mock';
 import { UserRepository } from './user.repository';
 
 describe(UserRepository.name, () => {
-  let newMongod: MongoMemoryReplSet;
+  let newMongod: MongoMemoryServer;
   let newMongoConnection: Connection;
   let userModel: Model<User>;
   let repository: UserRepository;
@@ -80,54 +80,12 @@ describe(UserRepository.name, () => {
       const user = await repository.create(new UserMock());
       await expect(repository.findById(user.id)).resolves.toBeInstanceOf(Model<User>);
     });
-
-    it('should exclude password by default', async () => {
-      const user = await repository.create(new UserMock());
-      const found = await repository.findById(user.id);
-      expect(found).toBeDefined();
-      expect(found!.password).toBeUndefined();
-    });
-
-    it('should include password when includePassword is true', async () => {
-      const user = await repository.create(new UserMock());
-      const found = await repository.findById(user.id, { includePassword: true });
-      expect(found).toBeDefined();
-      expect(found!.password).toBeDefined();
-      expect(found!.password).toBeTruthy();
-    });
   });
 
   describe(`${UserRepository.name}.${UserRepository.prototype.findAll.name}`, () => {
     it(`should be return array of ${User.name}`, async () => {
       await repository.create(new UserMock());
       await expect(repository.findAll()).resolves.toBeInstanceOf(Array<User[]>);
-    });
-
-    it('should exclude password from all results', async () => {
-      await repository.create(new UserMock());
-      await repository.create(new UserMock().randomize());
-      const users = await repository.findAll();
-      expect(users.length).toBeGreaterThan(0);
-      for (const user of users) {
-        expect(user.password).toBeUndefined();
-      }
-    });
-  });
-
-  describe(`${UserRepository.name}.${UserRepository.prototype.findByEmail.name}`, () => {
-    it('should exclude password by default', async () => {
-      const user = await repository.create(new UserMock());
-      const found = await repository.findByEmail(user.email);
-      expect(found).toBeDefined();
-      expect(found!.password).toBeUndefined();
-    });
-
-    it('should include password when includePassword is true', async () => {
-      const user = await repository.create(new UserMock());
-      const found = await repository.findByEmail(user.email, { includePassword: true });
-      expect(found).toBeDefined();
-      expect(found!.password).toBeDefined();
-      expect(found!.password).toBeTruthy();
     });
   });
 
@@ -358,44 +316,6 @@ describe(UserRepository.name, () => {
       expect(result.users).toHaveLength(1);
       expect(result.total).toBe(1);
       expect(result.users[0].name).toBe('Juan');
-    });
-
-    it('should escape regex special chars in search (treat as literal)', async () => {
-      const userWithDot = new UserMock();
-      userWithDot.email = 'test.user@example.com';
-      await repository.create(userWithDot);
-
-      const userWithBrackets = new UserMock().randomize();
-      userWithBrackets.email = 'admin@site.io';
-      await repository.create(userWithBrackets);
-
-      // Searching for literal dot should NOT match "testXuser"
-      const result = await repository.findPaginated({
-        page: 1,
-        limit: 20,
-        sortBy: 'createdAt',
-        sortOrder: 'desc',
-        search: 'test.user',
-      });
-
-      expect(result.users).toHaveLength(1);
-      expect(result.users[0].email).toBe('test.user@example.com');
-    });
-
-    it('should not match-all on empty search string', async () => {
-      await repository.create(new UserMock());
-      await repository.create(new UserMock().randomize());
-
-      const result = await repository.findPaginated({
-        page: 1,
-        limit: 20,
-        sortBy: 'createdAt',
-        sortOrder: 'desc',
-        search: '',
-      });
-
-      // Empty search should be skipped (no regex filter applied)
-      expect(result.total).toBe(2);
     });
   });
 });

@@ -51,15 +51,8 @@ FROM node:18-alpine AS production
 
 WORKDIR /usr/src/app
 
-# Copy only package files for production-only install
-COPY --chown=node:node package*.json ./
-
-# Fresh production-only install (no devDependencies)
-# --ignore-scripts skips lifecycle scripts (prepare runs husky which is a devDependency)
-RUN npm ci --omit=dev --ignore-scripts
-
-# Copy only compiled output from build stage
-COPY --from=build --chown=node:node /usr/src/app/dist ./dist
+COPY --from=build /usr/src/app/node_modules ./node_modules
+COPY --from=build /usr/src/app/dist ./dist
 
 ENV NODE_ENV=production
 

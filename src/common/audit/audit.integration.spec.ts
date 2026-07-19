@@ -3,7 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ConfigModule } from '@nestjs/config';
 import { ClsModule, ClsService } from 'nestjs-cls';
-import { MongoMemoryReplSet } from 'mongodb-memory-server';
+import { MongoMemoryServer } from 'mongodb-memory-server';
 import { Connection } from 'mongoose';
 import { clearMongoConnection, createConnection } from '../../../test/helpers';
 import { AuditModule } from './audit.module';
@@ -16,7 +16,7 @@ import { I18nModule } from '../../common/i18n/i18n.module';
 import { redactSensitiveFields } from './audit.listener';
 
 describe('Audit Module Integration', () => {
-  let newMongod: MongoMemoryReplSet;
+  let newMongod: MongoMemoryServer;
   let newMongoConnection: Connection;
 
   beforeEach(async () => {

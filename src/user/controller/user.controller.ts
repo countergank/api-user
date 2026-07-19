@@ -6,14 +6,15 @@ import {
   Get,
   Inject,
   InternalServerErrorException,
-  Logger,
   Param,
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import mongoose from 'mongoose';
+import { CustomLogger } from '../../common/logger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -43,7 +44,7 @@ import {
 } from '../errors/error-instances.error';
 import { UserService } from '../service/user.service';
 import { I18nService } from '../../common/i18n/i18n.service';
-import { RequestLang } from '../../common/decorators/request-lang.decorator';
+import { getRequestLang } from '../../common/i18n/request-lang.helper';
 
 /**
  * Controller para gestión de usuarios (ADMIN).
@@ -55,14 +56,14 @@ import { RequestLang } from '../../common/decorators/request-lang.decorator';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN)
 export class UserController {
-  private readonly logger = new Logger(UserController.name);
+  private readonly logger = new CustomLogger(UserController.name);
   constructor(
     private readonly userService: UserService,
     @Inject(I18nService) private i18n: I18nService,
   ) {}
 
-  private async t(key: string, lang: string | undefined): Promise<string> {
-    return this.i18n.translate(key, lang);
+  private async t(key: string, req: any): Promise<string> {
+    return this.i18n.translate(key, getRequestLang(req));
   }
 
   @CreateUserDoc()
@@ -90,25 +91,6 @@ export class UserController {
     }
   }
 
-  @FindAllUserDoc()
-  @Get()
-  async findAll(@Query() query?: PaginationQueryDTO): Promise<UserDTO[] | PaginatedUserResponseDTO<UserDTO>> {
-    try {
-      // Backward compat: if no page param, return plain array
-      if (!query || query.page === undefined) {
-        const users: User[] = await this.userService.findAll();
-        return users.map((user) => UserDTO.of(user));
-      }
-
-      // Paginated response
-      return this.userService.findPaginated(query);
-    } catch (error) {
-      const err = error as Error;
-      this.logger.error(err.message, err.stack);
-      throw new InternalServerErrorException();
-    }
-  }
-
   @FindByIdUserDoc()
   @Get(':id')
   async findById(@Param('id') id: string): Promise<UserDTO> {
@@ -128,12 +110,31 @@ export class UserController {
     }
   }
 
+  @FindAllUserDoc()
+  @Get()
+  async findAll(@Query() query?: PaginationQueryDTO): Promise<UserDTO[] | PaginatedUserResponseDTO<UserDTO>> {
+    try {
+      // Backward compat: if no page param, return plain array
+      if (!query || query.page === undefined) {
+        const users: User[] = await this.userService.findAll();
+        return users.map((user) => UserDTO.of(user));
+      }
+
+      // Paginated response
+      return this.userService.findPaginated(query);
+    } catch (error) {
+      const err = error as Error;
+      this.logger.error(err.message, err.stack);
+      throw new InternalServerErrorException();
+    }
+  }
+
   @UnlockUserDoc()
   @Patch(':id/unlock')
-  async unlock(@Param('id') id: string, @RequestLang() lang: string | undefined): Promise<{ message: string; userId: string }> {
+  async unlock(@Param('id') id: string, @Req() req: any): Promise<{ message: string; userId: string }> {
     try {
       await this.userService.unlockUser(id);
-      return { message: await this.t('messages.account_unlocked', lang), userId: id };
+      return { message: await this.t('messages.account_unlocked', req), userId: id };
     } catch (error) {
       if (error instanceof UserNotFoundError) {
         throw new BadRequestException(error.getErrorPublic());
@@ -182,10 +183,10 @@ export class UserController {
     getResourceId: (_result: unknown, args: unknown[]) => args[0] as string,
   })
   @Delete(':id')
-  async delete(@Param('id') id: string, @RequestLang() lang: string | undefined): Promise<{ message: string; userId: string }> {
+  async delete(@Param('id') id: string, @Req() req: any): Promise<{ message: string; userId: string }> {
     try {
       const result = await this.userService.deleteUser(id);
-      return { message: await this.t('messages.user_deleted', lang), userId: result.userId };
+      return { message: await this.t('messages.user_deleted', req), userId: result.userId };
     } catch (error) {
       if (error instanceof UserNotFoundError) {
         throw new BadRequestException(error.getErrorPublic());

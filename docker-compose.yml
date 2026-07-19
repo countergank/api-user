@@ -2,35 +2,15 @@ services:
   db-user:
     image: mongo:6.0.3
     container_name: db-user
-    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
     expose:
-      - "27017"
+      - 27017
     restart: always
     ports:
       - "27017:27017"
     volumes:
       - api-user-data:/data/db
-    networks:
-      - default
-
-  mongo-init:
-    image: mongo:6.0.3
-    depends_on:
-      db-user:
-        condition: service_started
-    entrypoint: >
-      bash -c "
-      sleep 5 &&
-      mongosh --host db-user:27017 --eval 'rs.initiate({_id: \"rs0\", members: [{_id: 0, host: \"db-user:27017\"}]})' &&
-      for i in $$(seq 1 30); do
-        state=$$(mongosh --host db-user:27017 --quiet --eval 'try { rs.status().myState } catch(e) { 0 }');
-        [ \"$$state\" = \"1\" ] && break;
-        sleep 1;
-      done &&
-      mongosh --host db-user:27017 --eval 'db.getSiblingDB(\"admin\").createUser({user: \"dev_user\", pwd: \"dev_password\", roles: [{role: \"root\", db: \"admin\"}]})' 2>/dev/null || true &&
-      echo 'mongo-init: done'
-      "
-    restart: "no"
+    environment:
+      - MONGO_INITDB_DATABASE=api_user
     networks:
       - default
 
@@ -56,17 +36,13 @@ services:
       context: .
       target: development
     depends_on:
-      db-user:
-        condition: service_started
-      mongo-init:
-        condition: service_completed_successfully
-      redis:
-        condition: service_started
+      - db-user
+      - redis
     command: npm run start:debug
     ports:
       - "3000:3000"
     env_file:
-      - .env.${NODE_ENV:-development}
+      - .env.development
     environment:
       - DATABASE_HOST=db-user
       - REDIS_HOST=redis

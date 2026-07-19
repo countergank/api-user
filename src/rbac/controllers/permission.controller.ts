@@ -1,10 +1,10 @@
-import { Controller, Get, UseGuards, Inject } from '@nestjs/common';
+import { Controller, Get, UseGuards, Inject, Req } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionService } from '../../rbac/services/permission.service';
 import { I18nService } from '../../common/i18n/i18n.service';
 import { translateRbacItems } from '../../common/i18n/rbac-translate.helper';
-import { RequestLang } from '../../common/decorators/request-lang.decorator';
+import { getRequestLang } from '../../common/i18n/request-lang.helper';
 import { ApplyFindAllPermissionsDoc } from '../api-docs';
 
 /**
@@ -24,8 +24,8 @@ export class PermissionController {
 
   @Get()
   @ApplyFindAllPermissionsDoc()
-  async findAll(@RequestLang() lang: string | undefined) {
+  async findAll(@Req() req: any) {
     const permissions = await this.permissionService.findAll();
-    return { permissions: await translateRbacItems(permissions, this.i18n, lang) };
+    return { permissions: await translateRbacItems(permissions, this.i18n, getRequestLang(req)) };
   }
 }
