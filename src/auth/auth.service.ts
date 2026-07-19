@@ -11,6 +11,7 @@ import { UserService } from '../user/service/user.service';
 import { AccountLockedException } from '../common/errors/account-locked.exception';
 import { AuditAction } from '../common/audit/audit.decorator';
 import { runInTransaction } from '../common/utils/transaction';
+import { CacheService } from '../config/cache';
 
 export interface JwtPayload {
   sub: string;
@@ -39,6 +40,7 @@ export class AuthService {
     private eventEmitter: EventEmitter2,
     private configService: ConfigService,
     @InjectConnection() private readonly connection: Connection,
+    private readonly cacheService: CacheService,
   ) {}
 
   @AuditAction({
@@ -139,7 +141,16 @@ export class AuthService {
   }
 
   async validateUser(userId: string): Promise<User | null> {
-    return this.userService.findById(userId);
+    const cacheKey = `user:${userId}`;
+
+    const cached = await this.cacheService.get<User>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const user = await this.userService.findById(userId);
+    await this.cacheService.set(cacheKey, user);
+    return user;
   }
 
   @AuditAction({

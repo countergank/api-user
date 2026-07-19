@@ -19,6 +19,7 @@ import {
 import { UserRepository } from '../repository/user.repository';
 import { AuditAction } from '../../common/audit/audit.decorator';
 import { runInTransaction } from '../../common/utils/transaction';
+import { CacheService } from '../../config/cache';
 
 @Injectable()
 export class UserService {
@@ -26,7 +27,12 @@ export class UserService {
     private readonly userRepository: UserRepository,
     private readonly encodeService: EncodeService,
     @InjectConnection() private readonly connection: Connection,
+    private readonly cacheService: CacheService,
   ) {}
+
+  private async invalidateUserCache(userId: string): Promise<void> {
+    await this.cacheService.del(`user:${userId}`);
+  }
 
   @AuditAction({
     action: 'user.create',
@@ -52,6 +58,7 @@ export class UserService {
     createUserDTO = plainToInstance(CreateUserDTO, createUserDTO);
     const newUser = createUserDTO.toEntity();
     const createdUser: User = await this.userRepository.create(newUser);
+    this.invalidateUserCache(createdUser._id.toString());
     return createdUser;
   }
 
@@ -77,7 +84,9 @@ export class UserService {
       throw new UserEmailAlreadyExistsError();
     }
 
-    return this.userRepository.createWithRole(data);
+    const created = await this.userRepository.createWithRole(data);
+    this.invalidateUserCache(created._id.toString());
+    return created;
   }
 
   async findAll(): Promise<User[]> {
@@ -110,7 +119,9 @@ export class UserService {
   }
 
   async update(id: string, data: Partial<User>): Promise<User> {
-    return this.userRepository.update(id, data);
+    const updated = await this.userRepository.update(id, data);
+    this.invalidateUserCache(id);
+    return updated;
   }
 
   async validatePassword(password: string, hashedPassword: string): Promise<boolean> {
@@ -151,6 +162,7 @@ export class UserService {
       pendingEmailExpires: expires,
     });
 
+    this.invalidateUserCache(userId);
     return { token, expires, user };
   }
 
@@ -161,10 +173,12 @@ export class UserService {
   })
   async unlockUser(userId: string): Promise<User> {
     const _user = await this.findById(userId);
-    return this.update(userId, {
+    const updated = await this.update(userId, {
       failedLoginAttempts: 0,
       lockedUntil: null as any,
     });
+    this.invalidateUserCache(userId);
+    return updated;
   }
 
   @AuditAction({
@@ -181,7 +195,7 @@ export class UserService {
     },
   })
   async updateUser(id: string, dto: UpdateUserDTO): Promise<User> {
-    return runInTransaction(this.connection, async () => {
+    const result = await runInTransaction(this.connection, async () => {
       const user = await this.userRepository.findById(id);
       if (!user) {
         throw new UserNotFoundError();
@@ -208,6 +222,9 @@ export class UserService {
 
       return this.userRepository.update(id, updateData);
     });
+
+    this.invalidateUserCache(id);
+    return result;
   }
 
   @AuditAction({
@@ -227,6 +244,7 @@ export class UserService {
       await this.userRepository.softDelete(id);
     }
 
+    this.invalidateUserCache(id);
     return { userId: id };
   }
 
@@ -251,7 +269,9 @@ export class UserService {
     }
 
     const newIsActive = !user.isActive;
-    return this.userRepository.update(id, { isActive: newIsActive });
+    const updated = await this.userRepository.update(id, { isActive: newIsActive });
+    this.invalidateUserCache(id);
+    return updated;
   }
 
   async findPaginated(filters: PaginationQueryDTO): Promise<PaginatedUserResponseDTO<UserDTO>> {
