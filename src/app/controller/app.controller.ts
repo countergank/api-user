@@ -10,9 +10,9 @@ import {
   VERSION_NEUTRAL,
 } from '@nestjs/common';
 import { ApiTags, ApiHideProperty, ApiParam, ApiOperation } from '@nestjs/swagger';
-import { HealthCheck, HealthCheckService } from '@nestjs/terminus';
-import { MongooseHealthIndicator } from '@nestjs/terminus';
+import { HealthCheck, HealthCheckService, MongooseHealthIndicator } from '@nestjs/terminus';
 import { Message } from '../../common/class/message.class';
+import { RedisHealthIndicator } from '../../config/redis/redis-health.indicator';
 import { GetVersionDoc, PostMessageMicroserviceDoc } from '../api-docs/app.decorator';
 import { Version } from '../class/version.class';
 import { AppVersionNotFoundError } from '../errors/error-instances.error';
@@ -31,6 +31,7 @@ export class AppController {
     private readonly appService: AppService,
     private readonly healthCheckService: HealthCheckService,
     private readonly mongooseHealth: MongooseHealthIndicator,
+    private readonly redisHealth: RedisHealthIndicator,
   ) {}
 
   @Get('health')
@@ -39,6 +40,7 @@ export class AppController {
   async checkHealth() {
     return this.healthCheckService.check([
       () => this.mongooseHealth.pingCheck('database'),
+      () => this.redisHealth.isHealthy('redis'),
     ]);
   }
 

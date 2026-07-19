@@ -186,6 +186,23 @@ class EnvironmentVariables {
   @IsIn(['trace', 'debug', 'info', 'warn', 'error', 'fatal', 'silent'])
   @IsOptional()
   LOG_LEVEL: string;
+
+  // Redis configuration
+  @IsString()
+  @IsOptional()
+  REDIS_HOST: string;
+
+  @IsString()
+  @IsOptional()
+  REDIS_PORT: string;
+
+  @IsString()
+  @IsOptional()
+  REDIS_PASSWORD: string;
+
+  @IsString()
+  @IsOptional()
+  REDIS_DB: string;
 }
 
 export function validate(config: Record<string, unknown>) {
@@ -209,6 +226,17 @@ export function validate(config: Record<string, unknown>) {
   }
   if (!validatedConfig.AUDIT_LEVEL) {
     validatedConfig.AUDIT_LEVEL = 'standard';
+  }
+
+  // Apply defaults for Redis
+  if (!validatedConfig.REDIS_HOST) {
+    validatedConfig.REDIS_HOST = 'localhost';
+  }
+  if (!validatedConfig.REDIS_PORT) {
+    validatedConfig.REDIS_PORT = '6379';
+  }
+  if (!validatedConfig.REDIS_DB) {
+    validatedConfig.REDIS_DB = '0';
   }
 
   return validatedConfig;
