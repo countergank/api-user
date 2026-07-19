@@ -8,9 +8,11 @@ import {
   Post,
   VERSION_NEUTRAL,
 } from '@nestjs/common';
-import { ApiTags, ApiHideProperty, ApiParam } from '@nestjs/swagger';
+import { ApiTags, ApiHideProperty, ApiParam, ApiOperation } from '@nestjs/swagger';
+import { HealthCheck, HealthCheckService, MongooseHealthIndicator } from '@nestjs/terminus';
 import { Message } from '../../common/class/message.class';
 import { CustomLogger } from '../../common/logger';
+import { RedisHealthIndicator } from '../../config/redis/redis-health.indicator';
 import { GetVersionDoc, PostMessageMicroserviceDoc } from '../api-docs/app.decorator';
 import { Version } from '../class/version.class';
 import { AppVersionNotFoundError } from '../errors/error-instances.error';
@@ -25,7 +27,22 @@ import { AppService } from '../service/app.service';
 @Controller({ version: [VERSION_NEUTRAL] })
 export class AppController {
   private readonly logger = new CustomLogger(AppController.name);
-  constructor(private readonly appService: AppService) {}
+  constructor(
+    private readonly appService: AppService,
+    private readonly healthCheckService: HealthCheckService,
+    private readonly mongooseHealth: MongooseHealthIndicator,
+    private readonly redisHealth: RedisHealthIndicator,
+  ) {}
+
+  @Get('health')
+  @HealthCheck()
+  @ApiOperation({ summary: 'Health check endpoint' })
+  async checkHealth() {
+    return this.healthCheckService.check([
+      () => this.mongooseHealth.pingCheck('database'),
+      () => this.redisHealth.isHealthy('redis'),
+    ]);
+  }
 
   @GetVersionDoc()
   @Get()
