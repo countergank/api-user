@@ -55,10 +55,8 @@ WORKDIR /usr/src/app
 COPY --chown=node:node package*.json ./
 
 # Fresh production-only install (no devDependencies)
-# npm ci requires package-lock.json — fails clearly if missing
-# HUSKY=0 prevents the prepare script from failing (husky is a devDependency)
-ENV HUSKY=0
-RUN npm ci --omit=dev
+# --ignore-scripts skips lifecycle scripts (prepare runs husky which is a devDependency)
+RUN npm ci --omit=dev --ignore-scripts
 
 # Copy only compiled output from build stage
 COPY --from=build --chown=node:node /usr/src/app/dist ./dist
