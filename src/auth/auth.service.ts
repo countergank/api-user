@@ -1,13 +1,16 @@
-import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { JwtService } from '@nestjs/jwt';
+import { InjectConnection } from '@nestjs/mongoose';
+import { Connection } from 'mongoose';
 import { randomUUID } from 'node:crypto';
 import { EmailEvents } from '../email/constants/email.events';
 import { User, UserRole } from '../user/entities/user.entity';
 import { UserService } from '../user/service/user.service';
 import { AccountLockedException } from '../common/errors/account-locked.exception';
 import { AuditAction } from '../common/audit/audit.decorator';
+import { runInTransaction } from '../common/utils/transaction';
 
 export interface JwtPayload {
   sub: string;
@@ -35,6 +38,7 @@ export class AuthService {
     private jwtService: JwtService,
     private eventEmitter: EventEmitter2,
     private configService: ConfigService,
+    @InjectConnection() private readonly connection: Connection,
   ) {}
 
   @AuditAction({
@@ -56,24 +60,28 @@ export class AuthService {
       throw new BadRequestException('EMAIL_OR_USERNAME_EXISTS');
     }
 
-    const user = await this.userService.createWithRole({
-      email,
-      userName,
-      password,
-      name,
-      lastName,
-      role: UserRole.USER,
-      permissions: [],
-      isActive: false,
-    });
-
     const verificationToken = randomUUID();
     const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-    await this.userService.update(user.id, {
-      emailVerificationToken: verificationToken,
-      emailVerificationExpires: verificationExpires,
-    } as any);
+    const user = await runInTransaction(this.connection, async () => {
+      const created = await this.userService.createWithRole({
+        email,
+        userName,
+        password,
+        name,
+        lastName,
+        role: UserRole.USER,
+        permissions: [],
+        isActive: false,
+      });
+
+      await this.userService.update(created.id, {
+        emailVerificationToken: verificationToken,
+        emailVerificationExpires: verificationExpires,
+      } as any);
+
+      return created;
+    });
 
     this.eventEmitter.emit(EmailEvents.USER_REGISTERED, {
       userId: user.id,
@@ -87,7 +95,7 @@ export class AuthService {
   }
 
   async login(email: string, password: string): Promise<AuthResponse> {
-    const user = await this.userService.findByEmail(email);
+    const user = await this.userService.findByEmail(email, { includePassword: true });
     if (!user) {
       throw new UnauthorizedException('INVALID_CREDENTIALS');
     }
@@ -176,11 +184,13 @@ export class AuthService {
     // Hash the new password before updating
     const hashedPassword = await this.userService.hashPassword(newPassword);
 
-    await this.userService.update(user.id, {
-      password: hashedPassword,
-      resetPasswordToken: undefined,
-      resetPasswordExpires: undefined,
-    } as any);
+    await runInTransaction(this.connection, async () => {
+      await this.userService.update(user.id, {
+        password: hashedPassword,
+        resetPasswordToken: undefined,
+        resetPasswordExpires: undefined,
+      } as any);
+    });
 
     this.eventEmitter.emit(EmailEvents.PASSWORD_CHANGED, {
       userId: user.id,
@@ -201,11 +211,13 @@ export class AuthService {
       throw new BadRequestException('EXPIRED_VERIFICATION_TOKEN');
     }
 
-    await this.userService.update(user.id, {
-      isActive: true,
-      emailVerificationToken: undefined,
-      emailVerificationExpires: undefined,
-    } as any);
+    await runInTransaction(this.connection, async () => {
+      await this.userService.update(user.id, {
+        isActive: true,
+        emailVerificationToken: undefined,
+        emailVerificationExpires: undefined,
+      } as any);
+    });
   }
 
   @AuditAction({
@@ -224,12 +236,14 @@ export class AuthService {
       throw new BadRequestException('NO_PENDING_EMAIL_CHANGE');
     }
 
-    await this.userService.update(user.id, {
-      email: newEmail,
-      pendingEmail: undefined,
-      pendingEmailToken: undefined,
-      pendingEmailExpires: undefined,
-    } as any);
+    await runInTransaction(this.connection, async () => {
+      await this.userService.update(user.id, {
+        email: newEmail,
+        pendingEmail: undefined,
+        pendingEmailToken: undefined,
+        pendingEmailExpires: undefined,
+      } as any);
+    });
 
     this.eventEmitter.emit(EmailEvents.EMAIL_CHANGE_CONFIRMED, {
       userId: user.id,

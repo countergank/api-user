@@ -1,35 +1,44 @@
-import { ConsoleLogger } from '@nestjs/common';
+import pino, { type Logger as PinoLogger, type LoggerOptions } from 'pino';
 
-export class CustomLogger extends ConsoleLogger {
-  private debugMode: boolean;
+const REDACT_PATHS = [
+  'password',
+  'token',
+  'refreshToken',
+  'authorization',
+  'req.headers.authorization',
+  'req.body.password',
+  'req.body.token',
+  'req.body.refreshToken',
+];
 
-  constructor(context: string) {
-    super(context);
-    this.debugMode = process.env.DEBUG ? JSON.parse(process.env.DEBUG) : false;
-  }
+/**
+ * Creates a standalone pino logger for use outside NestJS DI context
+ * (e.g., seed scripts, CLI tools). Shares the same redaction config
+ * as the global nestjs-pino logger.
+ */
+export function createStandaloneLogger(
+  context: string,
+  options?: LoggerOptions & { stream?: NodeJS.WritableStream },
+): PinoLogger {
+  const { stream, ...pinoOptions } = options || {};
 
-  log(message: any) {
-    if (process.env.NODE_ENV === 'test' && !this.debugMode) return;
-    super.log(message, this.context);
-  }
+  const resolvedLevel =
+    pinoOptions.level ??
+    process.env.LOG_LEVEL ??
+    (process.env.NODE_ENV === 'test' && process.env.DEBUG !== 'true' ? 'silent' : 'info');
 
-  debug(message: any) {
-    if (process.env.NODE_ENV === 'test' && !this.debugMode) return;
-    super.debug(message, this.context);
-  }
+  const logger = pino(
+    {
+      ...pinoOptions,
+      level: resolvedLevel,
+      redact: {
+        paths: REDACT_PATHS,
+        censor: '[Redacted]',
+      },
+      base: { context },
+    },
+    stream,
+  );
 
-  verbose(message: any) {
-    if (process.env.NODE_ENV === 'test' && !this.debugMode) return;
-    super.verbose(message, this.context);
-  }
-
-  warn(message: any) {
-    if (process.env.NODE_ENV === 'test' && !this.debugMode) return;
-    super.warn(message, this.context);
-  }
-
-  error(message: any, stack?: string) {
-    if (process.env.NODE_ENV === 'test' && !this.debugMode) return;
-    super.error(message, stack, this.context);
-  }
+  return logger;
 }

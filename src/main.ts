@@ -5,29 +5,32 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { Logger } from 'nestjs-pino';
 import hyperid from 'hyperid';
 import { HttpAdapterHost } from '@nestjs/core';
 import { AppModule } from './app/app.module';
 import { ErrorFilter } from './common/errors/error-filter';
 import { I18nService } from './common/i18n/i18n.service';
-import { isProd } from './common/utils';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter({
-      logger: {
-        redact: ['headers.authorization'],
-        timestamp: () => new Date().toISOString(),
-        level: isProd() ? 'info' : 'debug',
-      },
       genReqId: () => {
         return hyperid().uuid;
       },
     }),
   );
 
-  app.enableCors();
+  // Use nestjs-pino as the global logger (replaces Fastify's built-in logger)
+  app.useLogger(app.get(Logger));
+
+  const configService = app.get(ConfigService);
+
+  const corsOrigins = configService.getOrThrow('CORS_ORIGINS');
+  const originsArray = corsOrigins.split(',').map((origin) => origin.trim()).filter(Boolean);
+  app.enableCors({ origin: originsArray, credentials: false });
+
   const i18nService = app.get(I18nService);
   app.useGlobalFilters(new ErrorFilter(i18nService));
   app.useGlobalPipes(
@@ -44,7 +47,6 @@ async function bootstrap() {
   await app.register(fastifyHelmet);
   await app.register(fastifyCompress, { encodings: ['gzip', 'deflate'] });
 
-  const configService = app.get(ConfigService);
   const port = configService.get('PORT') ?? 3000;
   const host = configService.get('HOST') ?? '0.0.0.0';
   const name = configService.get('npm_package_name') || 'REST API Name';

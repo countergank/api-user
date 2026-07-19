@@ -1,24 +1,24 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../../app/app.module';
-import { CustomLogger } from '../../common/logger';
+import { createStandaloneLogger } from '../../common/logger';
 import { RoleService } from '../../rbac/services/role.service';
 
 async function seedRoles() {
-  const logger = new CustomLogger('SeedRoles');
+  const logger = createStandaloneLogger('SeedRoles');
 
   try {
-    logger.log('Iniciando aplicación...');
+    logger.info('Iniciando aplicación...');
     const app = await NestFactory.createApplicationContext(AppModule);
     const roleService = app.get(RoleService);
 
-    logger.log('Creando roles por defecto...');
+    logger.info('Creando roles por defecto...');
     await roleService.seedDefaultRoles();
 
-    logger.log('Roles creados exitosamente');
+    logger.info('Roles creados exitosamente');
     await app.close();
   } catch (error) {
     const err = error as Error;
-    logger.error(err.message, err.stack);
+    logger.error({ err }, 'Seed failed');
     process.exit(1);
   }
 }

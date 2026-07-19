@@ -1,5 +1,6 @@
 import { BadRequestException, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { getConnectionToken } from '@nestjs/mongoose';
 import { Mock } from '../../../test/helpers';
 import { CreateUserResponseDTO } from '../dto/create-user-response.dto';
 import { UserDTO } from '../dto/user.dto';
@@ -23,12 +24,20 @@ describe(UserController.name, () => {
   let controller: UserController;
   let userService: UserService;
 
+  const mockConnection = {
+    startSession: jest.fn().mockResolvedValue({
+      withTransaction: jest.fn((cb) => cb()),
+      endSession: jest.fn(),
+    }),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [UserController],
       providers: [UserService],
     })
       .useMocker((token) => {
+        if (token === getConnectionToken()) return mockConnection;
         if (typeof token === 'function') return Mock(token);
       })
       .compile();
@@ -158,7 +167,7 @@ describe(UserController.name, () => {
     const user = new UserMock();
     it(`should unlock a locked account and return success message`, async () => {
       jest.spyOn(userService, 'unlockUser').mockResolvedValue(user);
-      const result = await controller.unlock(user.id, { headers: {} });
+      const result = await controller.unlock(user.id, undefined);
       expect(result).toEqual({
         message: 'messages.account_unlocked',
         userId: user.id,
@@ -167,12 +176,12 @@ describe(UserController.name, () => {
 
     it(`should return a ${UserNotFoundError.name}`, async () => {
       jest.spyOn(userService, 'unlockUser').mockRejectedValueOnce(new UserNotFoundError());
-      await expect(controller.unlock(user.id, { headers: {} })).rejects.toThrow(BadRequestException);
+      await expect(controller.unlock(user.id, undefined)).rejects.toThrow(BadRequestException);
     });
 
     it(`should return a ${InternalServerErrorException.name}`, async () => {
       jest.spyOn(userService, 'unlockUser').mockRejectedValueOnce(new Error('Error from test'));
-      await expect(controller.unlock(user.id, { headers: {} })).rejects.toThrow(InternalServerErrorException);
+      await expect(controller.unlock(user.id, undefined)).rejects.toThrow(InternalServerErrorException);
     });
   });
 
@@ -219,26 +228,26 @@ describe(UserController.name, () => {
 
     it(`should delete a user and return confirmation`, async () => {
       jest.spyOn(userService, 'deleteUser').mockResolvedValue({ userId: user.id });
-      const result = await controller.delete(user.id, { headers: {} });
+      const result = await controller.delete(user.id, undefined);
       expect(result).toEqual({ message: 'messages.user_deleted', userId: user.id });
     });
 
     it(`should return idempotent success on already-deleted user`, async () => {
       jest.spyOn(userService, 'deleteUser').mockResolvedValue({ userId: user.id });
-      const result = await controller.delete(user.id, { headers: {} });
+      const result = await controller.delete(user.id, undefined);
       expect(result).toEqual({ message: 'messages.user_deleted', userId: user.id });
     });
 
     it(`should return a ${UserNotFoundError.name}`, async () => {
       jest.spyOn(userService, 'deleteUser').mockRejectedValueOnce(new UserNotFoundError());
-      await expect(controller.delete(user.id, { headers: {} })).rejects.toThrow(BadRequestException);
+      await expect(controller.delete(user.id, undefined)).rejects.toThrow(BadRequestException);
     });
 
     it(`should return ${InternalServerErrorException.name} on unexpected error`, async () => {
       jest.spyOn(userService, 'deleteUser').mockImplementation(() => {
         throw new Error('DB connection lost');
       });
-      await expect(controller.delete(user.id, { headers: {} })).rejects.toThrow(InternalServerErrorException);
+      await expect(controller.delete(user.id, undefined)).rejects.toThrow(InternalServerErrorException);
     });
   });
 
