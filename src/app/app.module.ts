@@ -11,6 +11,7 @@ import { ConfigModuleOption } from '../config/custom-module-options/config-modul
 import { MongooseModuleOption } from '../config/custom-module-options/mongoose-module-option';
 import { ExampleMicroservice } from '../config/custom-providers/microservices';
 import { RedisModule } from '../config/redis/redis.module';
+import { CacheModule } from '../config/cache/cache.module';
 import { UserModule } from '../user/user.module';
 import { AuthModule } from '../auth/auth.module';
 import { RbacModule } from '../rbac/rbac.module';
@@ -57,6 +58,7 @@ import { AppService } from './service/app.service';
     }),
     TerminusModule,
     RedisModule,
+    CacheModule,
     I18nModule,
     AuditModule,
     UserModule,
