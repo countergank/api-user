@@ -7,7 +7,6 @@ import { CacheService } from '../../config/cache';
 
 const PERM_ALL_KEY = 'rbac:permissions:all';
 const PERM_NAME_PREFIX = 'rbac:permissions:name:';
-const PERM_NAMES_PREFIX = 'rbac:permissions:names:';
 const PERM_TTL_MS = 900_000; // 15 minutes
 
 export const DEFAULT_PERMISSIONS = [
@@ -58,24 +57,43 @@ export class PermissionService {
   }
 
   async findByNames(names: string[]): Promise<Permission[]> {
-    const cacheKey = `${PERM_NAMES_PREFIX}${names.join(',')}`;
+    if (names.length === 0) return [];
 
-    try {
-      const cached = await this.cacheService.get<Permission[]>(cacheKey);
-      if (cached !== undefined) return cached;
-    } catch {
-      this.logger.debug(`Cache get failed for ${cacheKey}, falling back to DB`);
+    const results: Permission[] = [];
+    const missingNames: string[] = [];
+
+    // Check cache for each name individually
+    for (const name of names) {
+      const cacheKey = `${PERM_NAME_PREFIX}${name}`;
+      try {
+        const cached = await this.cacheService.get<Permission>(cacheKey);
+        if (cached !== undefined) {
+          results.push(cached);
+          continue;
+        }
+      } catch {
+        this.logger.debug(`Cache get failed for ${cacheKey}, treating as miss`);
+      }
+      missingNames.push(name);
     }
 
-    const perms = await this.permissionModel.find({ name: { $in: names } }).exec();
+    // Query DB only for missing names
+    if (missingNames.length > 0) {
+      const dbPerms = await this.permissionModel.find({ name: { $in: missingNames } }).exec();
+      const dbPermMap = new Map(dbPerms.map((p) => [p.name, p]));
 
-    try {
-      await this.cacheService.set(cacheKey, perms, PERM_TTL_MS);
-    } catch {
-      this.logger.debug(`Cache set failed for ${cacheKey}`);
+      for (const name of missingNames) {
+        const perm = dbPermMap.get(name) ?? null;
+        results.push(perm as Permission);
+        try {
+          await this.cacheService.set(`${PERM_NAME_PREFIX}${name}`, perm, PERM_TTL_MS);
+        } catch {
+          this.logger.debug(`Cache set failed for ${PERM_NAME_PREFIX}${name}`);
+        }
+      }
     }
 
-    return perms;
+    return results;
   }
 
   async findByName(name: string): Promise<Permission | null> {
@@ -114,7 +132,6 @@ export class PermissionService {
 
     try {
       await this.cacheService.delByPattern(`${PERM_NAME_PREFIX}*`);
-      await this.cacheService.delByPattern(`${PERM_NAMES_PREFIX}*`);
       await this.cacheService.del(PERM_ALL_KEY);
     } catch {
       this.logger.debug('Cache invalidation failed after permission create');
@@ -130,7 +147,6 @@ export class PermissionService {
 
     try {
       await this.cacheService.delByPattern(`${PERM_NAME_PREFIX}*`);
-      await this.cacheService.delByPattern(`${PERM_NAMES_PREFIX}*`);
       await this.cacheService.del(PERM_ALL_KEY);
     } catch {
       this.logger.debug('Cache invalidation failed after permission createMany');

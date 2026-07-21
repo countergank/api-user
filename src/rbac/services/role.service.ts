@@ -92,7 +92,43 @@ export class RoleService {
   }
 
   async findByNames(names: string[]): Promise<Role[]> {
-    return this.roleModel.find({ name: { $in: names } }).exec();
+    if (names.length === 0) return [];
+
+    const results: Role[] = [];
+    const missingNames: string[] = [];
+
+    // Check cache for each name individually
+    for (const name of names) {
+      const cacheKey = `${ROLE_NAME_PREFIX}${name}`;
+      try {
+        const cached = await this.cacheService.get<Role>(cacheKey);
+        if (cached !== undefined) {
+          results.push(cached);
+          continue;
+        }
+      } catch {
+        this.logger.debug(`Cache get failed for ${cacheKey}, treating as miss`);
+      }
+      missingNames.push(name);
+    }
+
+    // Query DB only for missing names
+    if (missingNames.length > 0) {
+      const dbRoles = await this.roleModel.find({ name: { $in: missingNames } }).exec();
+      const dbRoleMap = new Map(dbRoles.map((r) => [r.name, r]));
+
+      for (const name of missingNames) {
+        const role = dbRoleMap.get(name) ?? null;
+        results.push(role as Role);
+        try {
+          await this.cacheService.set(`${ROLE_NAME_PREFIX}${name}`, role, ROLE_TTL_MS);
+        } catch {
+          this.logger.debug(`Cache set failed for ${ROLE_NAME_PREFIX}${name}`);
+        }
+      }
+    }
+
+    return results;
   }
 
   async findById(id: string): Promise<Role | null> {
@@ -138,8 +174,7 @@ export class RoleService {
 
     if (updated) {
       try {
-        await this.cacheService.del(ROLE_ALL_KEY);
-        await this.cacheService.del(`${ROLE_NAME_PREFIX}${updated.name}`);
+        await this.cacheService.delByPattern('rbac:roles:*');
       } catch {
         this.logger.debug('Cache invalidation failed after updatePermissions');
       }

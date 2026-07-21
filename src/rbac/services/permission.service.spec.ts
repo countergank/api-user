@@ -92,44 +92,104 @@ describe(PermissionService.name, () => {
   });
 
   describe(`${PermissionService.name}.findByNames`, () => {
-    it('should return permissions from database on cache miss', async () => {
+    it('should return all permissions from individual name caches', async () => {
       const names = ['user:read', 'user:write'];
-      const perms = [mockPermDoc(), mockPermDoc({ name: 'user:write' })];
-      mockCacheService.get.mockResolvedValue(undefined);
-      mockPermissionModel.find.mockReturnValue(mockExec(perms));
+      const readPerm = mockPermDoc({ name: 'user:read' });
+      const writePerm = mockPermDoc({ name: 'user:write' });
+
+      mockCacheService.get
+        .mockResolvedValueOnce(readPerm)
+        .mockResolvedValueOnce(writePerm);
 
       const result = await service.findByNames(names);
 
-      expect(result).toEqual(perms);
-      expect(mockPermissionModel.find).toHaveBeenCalledWith({ name: { $in: names } });
-      expect(mockCacheService.set).toHaveBeenCalledWith(
-        'rbac:permissions:names:user:read,user:write',
-        perms,
-        900_000,
-      );
-    });
-
-    it('should return permissions from cache on cache hit', async () => {
-      const names = ['user:read', 'user:write'];
-      const cachedPerms = [mockPermDoc(), mockPermDoc({ name: 'user:write' })];
-      mockCacheService.get.mockResolvedValue(cachedPerms);
-
-      const result = await service.findByNames(names);
-
-      expect(result).toEqual(cachedPerms);
+      expect(result).toEqual([readPerm, writePerm]);
       expect(mockPermissionModel.find).not.toHaveBeenCalled();
     });
 
-    it('should fall back to database when cache get throws', async () => {
-      const names = ['user:read'];
-      const perms = [mockPermDoc()];
-      mockCacheService.get.mockRejectedValue(new Error('Redis timeout'));
-      mockPermissionModel.find.mockReturnValue(mockExec(perms));
+    it('should query DB only for missing names on partial cache miss', async () => {
+      const names = ['user:read', 'user:write', 'user:delete'];
+      const readPerm = mockPermDoc({ name: 'user:read' });
+      const writePerm = mockPermDoc({ name: 'user:write' });
+      const deletePerm = mockPermDoc({ name: 'user:delete' });
+
+      // user:read cached, user:write and user:delete not
+      mockCacheService.get
+        .mockResolvedValueOnce(readPerm)
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(undefined);
+
+      mockPermissionModel.find.mockReturnValue(mockExec([writePerm, deletePerm]));
 
       const result = await service.findByNames(names);
 
-      expect(result).toEqual(perms);
-      expect(mockPermissionModel.find).toHaveBeenCalled();
+      expect(result).toHaveLength(3);
+      expect(result).toEqual([readPerm, writePerm, deletePerm]);
+      expect(mockPermissionModel.find).toHaveBeenCalledWith({ name: { $in: ['user:write', 'user:delete'] } });
+    });
+
+    it('should query DB for all names on full miss and cache individually', async () => {
+      const names = ['user:read', 'user:write'];
+      const readPerm = mockPermDoc({ name: 'user:read' });
+      const writePerm = mockPermDoc({ name: 'user:write' });
+
+      mockCacheService.get
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(undefined);
+
+      mockPermissionModel.find.mockReturnValue(mockExec([readPerm, writePerm]));
+
+      const result = await service.findByNames(names);
+
+      expect(result).toEqual([readPerm, writePerm]);
+      expect(mockCacheService.set).toHaveBeenCalledWith('rbac:permissions:name:user:read', readPerm, 900_000);
+      expect(mockCacheService.set).toHaveBeenCalledWith('rbac:permissions:name:user:write', writePerm, 900_000);
+    });
+
+    it('should return empty array for empty input without querying DB', async () => {
+      const result = await service.findByNames([]);
+
+      expect(result).toEqual([]);
+      expect(mockPermissionModel.find).not.toHaveBeenCalled();
+    });
+
+    it('should handle cache get failure for one name and continue with others', async () => {
+      const names = ['user:read', 'user:write'];
+      const readPerm = mockPermDoc({ name: 'user:read' });
+      const writePerm = mockPermDoc({ name: 'user:write' });
+
+      mockCacheService.get
+        .mockRejectedValueOnce(new Error('Redis timeout'))
+        .mockResolvedValueOnce(writePerm);
+
+      // user:read fell through to DB due to cache error
+      mockPermissionModel.find.mockReturnValue(mockExec([readPerm]));
+
+      const result = await service.findByNames(names);
+
+      expect(result).toHaveLength(2);
+      expect(result).toContainEqual(writePerm); // from cache
+      expect(result).toContainEqual(readPerm);  // fell through to DB
+      expect(mockPermissionModel.find).toHaveBeenCalledWith({ name: { $in: ['user:read'] } });
+    });
+
+    it('should cache individual permissions even when DB returns null for missing name', async () => {
+      const names = ['user:read', 'nonexistent'];
+      const readPerm = mockPermDoc({ name: 'user:read' });
+
+      mockCacheService.get
+        .mockResolvedValueOnce(undefined)  // user:read: miss
+        .mockResolvedValueOnce(undefined); // nonexistent: miss
+
+      mockPermissionModel.find.mockReturnValue(mockExec([readPerm]));
+
+      const result = await service.findByNames(names);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toEqual(readPerm);
+      expect(result[1]).toBeNull();
+      expect(mockCacheService.set).toHaveBeenCalledWith('rbac:permissions:name:user:read', readPerm, 900_000);
+      expect(mockCacheService.set).toHaveBeenCalledWith('rbac:permissions:name:nonexistent', null, 900_000);
     });
   });
 
@@ -209,7 +269,6 @@ describe(PermissionService.name, () => {
       await createService.create({ name: 'new:perm', description: 'New perm', category: PermissionCategory.USER });
 
       expect(mockCacheService.delByPattern).toHaveBeenCalledWith('rbac:permissions:name:*');
-      expect(mockCacheService.delByPattern).toHaveBeenCalledWith('rbac:permissions:names:*');
       expect(mockCacheService.del).toHaveBeenCalledWith('rbac:permissions:all');
     });
   });
@@ -223,7 +282,6 @@ describe(PermissionService.name, () => {
       ]);
 
       expect(mockCacheService.delByPattern).toHaveBeenCalledWith('rbac:permissions:name:*');
-      expect(mockCacheService.delByPattern).toHaveBeenCalledWith('rbac:permissions:names:*');
       expect(mockCacheService.del).toHaveBeenCalledWith('rbac:permissions:all');
     });
   });
