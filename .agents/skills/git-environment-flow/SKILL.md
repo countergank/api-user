@@ -27,6 +27,7 @@ Activate when deciding which branch to target, cutting a release, applying a hot
 |---------|------|
 | Environment branches | `develop` (default, integration), `staging` (pre-prod mirror), `main` (production, protected) |
 | Merge direction | `feature → develop → release/x.y.z → staging → main → develop (backmerge)` |
+| Protection | `develop`: 1 reviewer, CI required, admin bypass allowed. `staging`: 1 reviewer, CI required, admin bypass allowed. `main`: 1 reviewer (increase to 2 when team grows), CI required, admin bypass allowed. All: force push blocked, stale reviews dismissed, last push approval required. |
 | Tag format | `vX.Y.Z` (main, annotated), `vX.Y.Z-rcN` (staging, release candidates) |
 | Hotfix flow | `hotfix/*` from main → merge to main (patch tag) → backmerge to develop only |
 
