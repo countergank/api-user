@@ -31,6 +31,16 @@ main ──branch──▶ hotfix/description ──merge+tag──▶ main ─�
 - **No direct staging merge** — staging receives fixes via the next release, maintaining the curation model.
 - **Backmerge is mandatory** — skipping it causes develop to diverge from production.
 
+## Protection Bypass
+
+`hotfix/*` branches bypass branch protection on `staging` and `main`. This is the only exception to the standard promotion chain protection.
+
+- **Why**: Hotfixes are emergency production fixes that cannot wait for staging curation.
+- **Scope**: Bypass applies only to `hotfix/*` branches. All other branches follow standard protection rules.
+- **Tradeoff**: Acceptable because hotfixes are small, targeted, and already reviewed before merge.
+
+**Cross-reference**: See `rules/environment/p0-environment-branches.md` → "Hotfix Exception" section for full protection settings.
+
 ## Concrete Examples
 
 ```
