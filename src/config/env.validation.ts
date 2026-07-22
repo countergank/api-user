@@ -1,7 +1,7 @@
 import { plainToInstance } from 'class-transformer';
 import { IsEnum, IsIn, IsNotEmpty, IsOptional, IsString, Matches, validateSync } from 'class-validator';
 
-enum Environment {
+export enum Environment {
   LOCAL = 'local',
   DEVELOPMENT = 'development',
   TEST = 'test',
@@ -9,7 +9,7 @@ enum Environment {
   PRODUCTION = 'production',
 }
 
-class EnvironmentVariables {
+export class EnvironmentVariables {
   @IsString()
   @IsOptional()
   HOST: string;

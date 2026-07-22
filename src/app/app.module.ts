@@ -9,6 +9,7 @@ import { ClsModule } from 'nestjs-cls';
 import { LoggerModule } from 'nestjs-pino';
 import { ConfigModuleOption } from '../config/custom-module-options/config-module-option';
 import { MongooseModuleOption } from '../config/custom-module-options/mongoose-module-option';
+import { AppConfigModule } from '../config/app-config.module';
 import { ExampleMicroservice } from '../config/custom-providers/microservices';
 import { RedisModule } from '../config/redis/redis.module';
 import { CacheModule } from '../config/cache/cache.module';
@@ -42,6 +43,7 @@ import { AppService } from './service/app.service';
     LoggerModule.forRoot(buildLoggerConfig()),
     ClsModule.forRoot({ global: true, middleware: { mount: true } }),
     ConfigModule.forRoot(ConfigModuleOption),
+    AppConfigModule,
     MongooseModule.forRootAsync({ useClass: MongooseModuleOption }),
     EventEmitterModule.forRoot(),
     ThrottlerModule.forRootAsync({
