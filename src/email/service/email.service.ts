@@ -4,6 +4,7 @@ import { EmailProvider } from '../interfaces/email-provider.interface';
 import { EMAIL_PROVIDER_TOKEN } from '../constants/email.tokens';
 import { EmailLogRepository } from '../repository/email-log.repository';
 import { EmailTemplateService } from './email-template.service';
+import { AppConfigService } from '../../config/app-config.service';
 
 export interface EmailSendEvent {
   to: string;
@@ -24,6 +25,7 @@ export class EmailService {
     private readonly templateService: EmailTemplateService,
     private readonly logRepository: EmailLogRepository,
     private readonly eventEmitter: EventEmitter2,
+    private readonly config: AppConfigService,
   ) {
     this.eventEmitter.on('email.send', async (event: EmailSendEvent) => {
       try {
@@ -106,6 +108,6 @@ export class EmailService {
   }
 
   private getProviderName(): string {
-    return process.env.EMAIL_PROVIDER || 'smtp';
+    return this.config.emailProvider;
   }
 }
