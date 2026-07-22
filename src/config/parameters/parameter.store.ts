@@ -1,4 +1,5 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { RedisService } from '../redis/redis.service';
 import { ParameterRegistry } from './parameter-registry';
@@ -19,18 +20,27 @@ export class ParameterStore {
   constructor(
     private readonly redisService: RedisService,
     private readonly registry: ParameterRegistry,
+    private readonly configService: ConfigService,
     @Optional() private readonly eventEmitter?: EventEmitter2,
   ) {}
 
   async get(key: string): Promise<string | number | boolean> {
-    // L1 cache hit
+    // L1 cache hit (includes cached env overrides)
     const l1Entry = this.l1Cache.get(key);
     if (l1Entry && (l1Entry.expiresAt === null || Date.now() < l1Entry.expiresAt)) {
       return l1Entry.value;
     }
 
-    // L1 miss or expired
+    // L1 miss or expired — check env var override
     this.l1Cache.delete(key);
+    const envValue = this.configService.get<string>(key);
+    if (envValue !== undefined) {
+      // Cache the env override in L1 for performance
+      const ttl = this.registry.getTTL(key) ?? 300;
+      const expiresAt = Date.now() + ttl * 1000;
+      this.l1Cache.set(key, { value: envValue, expiresAt });
+      return envValue;
+    }
 
     try {
       // Redis read

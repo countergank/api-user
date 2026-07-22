@@ -4,6 +4,7 @@ import { RedisService } from '../../redis/redis.service';
 import { ParameterRegistry } from '../parameter-registry';
 import { Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { ConfigService } from '@nestjs/config';
 
 describe(ParameterStore.name, () => {
   let store: ParameterStore;
@@ -24,11 +25,16 @@ describe(ParameterStore.name, () => {
     emit: jest.fn(),
   };
 
+  const mockConfigService = {
+    get: jest.fn(),
+  };
+
   beforeEach(async () => {
     jest.resetAllMocks();
     mockRegistry.getDefault.mockReturnValue(undefined);
     mockRegistry.getTTL.mockReturnValue(300);
     mockRegistry.has.mockReturnValue(true);
+    mockConfigService.get.mockReturnValue(undefined);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -36,6 +42,7 @@ describe(ParameterStore.name, () => {
         { provide: RedisService, useValue: mockRedisService },
         { provide: ParameterRegistry, useValue: mockRegistry },
         { provide: EventEmitter2, useValue: mockEventEmitter },
+        { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();
 
@@ -44,6 +51,47 @@ describe(ParameterStore.name, () => {
 
   it('should be defined', () => {
     expect(store).toBeDefined();
+  });
+
+  describe('env var override', () => {
+    it('should return env var value when set, ignoring Redis and registry default', async () => {
+      mockConfigService.get.mockReturnValue('resend');
+      mockRegistry.getDefault.mockReturnValue('smtp');
+      mockRedisService.get.mockResolvedValue('smtp');
+
+      const result = await store.get('EMAIL_PROVIDER');
+
+      expect(result).toBe('resend');
+      expect(mockConfigService.get).toHaveBeenCalledWith('EMAIL_PROVIDER');
+      // Should NOT read from Redis when env var is set
+      expect(mockRedisService.get).not.toHaveBeenCalled();
+    });
+
+    it('should cache env var value in L1 for subsequent reads', async () => {
+      mockConfigService.get.mockReturnValue('resend');
+
+      await store.get('EMAIL_PROVIDER');
+      mockConfigService.get.mockClear();
+      mockRedisService.get.mockClear();
+
+      // Second call should use L1 cache, not ConfigService or Redis
+      const result = await store.get('EMAIL_PROVIDER');
+
+      expect(result).toBe('resend');
+      expect(mockConfigService.get).not.toHaveBeenCalled();
+      expect(mockRedisService.get).not.toHaveBeenCalled();
+    });
+
+    it('should fall through to Redis when env var is undefined', async () => {
+      mockConfigService.get.mockReturnValue(undefined);
+      mockRegistry.getDefault.mockReturnValue('smtp');
+      mockRedisService.get.mockResolvedValue('sendgrid');
+
+      const result = await store.get('EMAIL_PROVIDER');
+
+      expect(result).toBe('sendgrid');
+      expect(mockRedisService.get).toHaveBeenCalledWith('param:EMAIL_PROVIDER');
+    });
   });
 
   describe(`${ParameterStore.name}.get`, () => {
