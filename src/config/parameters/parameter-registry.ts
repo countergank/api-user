@@ -19,6 +19,10 @@ export class ParameterRegistry {
     return this.parameters.get(key);
   }
 
+  getAll(): ParameterDefinition[] {
+    return Array.from(this.parameters.values());
+  }
+
   findByGroup(group: string): ParameterDefinition[] {
     return Array.from(this.parameters.values()).filter((p) => p.group === group);
   }

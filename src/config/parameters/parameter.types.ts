@@ -8,3 +8,13 @@ export interface ParameterDefinition {
   ttl: number;
   validate?: (value: string | number | boolean) => boolean;
 }
+
+export interface ParameterEntry {
+  key: string;
+  type: ParameterType;
+  value: string | number | boolean;
+  default: string | number | boolean;
+  group: string;
+  ttl: number;
+  isOverridden: boolean;
+}

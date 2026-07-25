@@ -95,6 +95,20 @@ export class ParameterStore {
     this.publishEvent(key, value);
   }
 
+  async getByKeys(keys: string[]): Promise<Map<string, string | number | boolean>> {
+    const result = new Map<string, string | number | boolean>();
+    const promises = keys.map(async (key) => {
+      try {
+        const value = await this.get(key);
+        result.set(key, value);
+      } catch {
+        this.logger.warn(`Skipping key "${key}" in batch get`);
+      }
+    });
+    await Promise.all(promises);
+    return result;
+  }
+
   has(key: string): boolean {
     return this.registry.has(key);
   }

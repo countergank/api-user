@@ -291,6 +291,50 @@ describe(ParameterStore.name, () => {
     });
   });
 
+  describe(`${ParameterStore.name}.getByKeys`, () => {
+    it('should return a map of key-value pairs for all requested keys', async () => {
+      mockRegistry.getDefault.mockReturnValue('smtp');
+      mockConfigService.get.mockReturnValue(undefined);
+      mockRedisService.get.mockImplementation((key: string) => {
+        const map: Record<string, string> = {
+          'param:EMAIL_PROVIDER': 'resend',
+          'param:MAX_LOGIN_ATTEMPTS': '5',
+        };
+        return Promise.resolve(map[key] ?? null);
+      });
+
+      const result = await store.getByKeys(['EMAIL_PROVIDER', 'MAX_LOGIN_ATTEMPTS']);
+
+      expect(result.size).toBe(2);
+      expect(result.get('EMAIL_PROVIDER')).toBe('resend');
+      expect(result.get('MAX_LOGIN_ATTEMPTS')).toBe('5');
+    });
+
+    it('should return empty map for empty keys array', async () => {
+      const result = await store.getByKeys([]);
+      expect(result.size).toBe(0);
+    });
+
+    it('should return default value for keys not in Redis', async () => {
+      mockRegistry.getDefault.mockReturnValue('default-val');
+      mockConfigService.get.mockReturnValue(undefined);
+      mockRedisService.get.mockResolvedValue(null);
+
+      const result = await store.getByKeys(['NONEXISTENT']);
+
+      expect(result.get('NONEXISTENT')).toBe('default-val');
+    });
+
+    it('should handle Redis failure gracefully', async () => {
+      mockRegistry.getDefault.mockReturnValue('fallback');
+      mockConfigService.get.mockReturnValue(undefined);
+      mockRedisService.get.mockRejectedValue(new Error('Redis down'));
+
+      const result = await store.getByKeys(['EMAIL_PROVIDER']);
+      expect(result.get('EMAIL_PROVIDER')).toBe('fallback');
+    });
+  });
+
   describe(`${ParameterStore.name}.has`, () => {
     it('should return true when parameter exists in registry', () => {
       mockRegistry.has.mockReturnValue(true);
