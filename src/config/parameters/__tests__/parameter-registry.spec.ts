@@ -1,5 +1,6 @@
 import { ParameterRegistry } from '../parameter-registry';
 import { ParameterDefinition } from '../parameter.types';
+import { PARAMETER_DEFINITIONS } from '../parameter-definitions';
 
 describe('ParameterRegistry', () => {
   let registry: ParameterRegistry;
@@ -172,6 +173,102 @@ describe('ParameterRegistry', () => {
       };
       registry.register(param);
       expect(() => registry.validate('APP_NAME', 'any-value')).not.toThrow();
+    });
+  });
+
+  describe('PARAMETER_DEFINITIONS', () => {
+    it('should have 14 entries (1 existing + 13 new)', () => {
+      expect(PARAMETER_DEFINITIONS).toHaveLength(14);
+    });
+
+    it('should contain all required parameter keys', () => {
+      const keys = PARAMETER_DEFINITIONS.map((d) => d.key).sort();
+      expect(keys).toEqual(
+        [
+          'EMAIL_PROVIDER',
+          'EMAIL_HOST',
+          'EMAIL_PORT',
+          'EMAIL_SECURE',
+          'EMAIL_FROM',
+          'RESEND_FROM_EMAIL',
+          'THROTTLE_LIMIT',
+          'THROTTLE_TTL',
+          'LOGIN_THROTTLE_LIMIT',
+          'LOGIN_THROTTLE_TTL',
+          'REGISTER_THROTTLE_LIMIT',
+          'REGISTER_THROTTLE_TTL',
+          'FORGOT_PASSWORD_THROTTLE_LIMIT',
+          'FORGOT_PASSWORD_THROTTLE_TTL',
+        ].sort(),
+      );
+    });
+
+    it('should group email params correctly', () => {
+      const emailParams = PARAMETER_DEFINITIONS.filter((d) => d.group === 'email');
+      const keys = emailParams.map((d) => d.key).sort();
+      expect(keys).toEqual(
+        ['EMAIL_PROVIDER', 'EMAIL_HOST', 'EMAIL_PORT', 'EMAIL_SECURE', 'EMAIL_FROM', 'RESEND_FROM_EMAIL'].sort(),
+      );
+    });
+
+    it('should group throttle params correctly', () => {
+      const throttleParams = PARAMETER_DEFINITIONS.filter((d) => d.group === 'throttle');
+      const keys = throttleParams.map((d) => d.key).sort();
+      expect(keys).toEqual(
+        [
+          'THROTTLE_LIMIT',
+          'THROTTLE_TTL',
+          'LOGIN_THROTTLE_LIMIT',
+          'LOGIN_THROTTLE_TTL',
+          'REGISTER_THROTTLE_LIMIT',
+          'REGISTER_THROTTLE_TTL',
+          'FORGOT_PASSWORD_THROTTLE_LIMIT',
+          'FORGOT_PASSWORD_THROTTLE_TTL',
+        ].sort(),
+      );
+    });
+
+    it('should have correct types for each parameter', () => {
+      const stringKeys = PARAMETER_DEFINITIONS.filter((d) => d.type === 'string').map((d) => d.key);
+      const numberKeys = PARAMETER_DEFINITIONS.filter((d) => d.type === 'number').map((d) => d.key);
+      const booleanKeys = PARAMETER_DEFINITIONS.filter((d) => d.type === 'boolean').map((d) => d.key);
+
+      expect(stringKeys.sort()).toEqual(['EMAIL_PROVIDER', 'EMAIL_HOST', 'EMAIL_FROM', 'RESEND_FROM_EMAIL'].sort());
+      expect(booleanKeys).toEqual(['EMAIL_SECURE']);
+      expect(numberKeys.sort()).toEqual(
+        [
+          'EMAIL_PORT',
+          'THROTTLE_LIMIT',
+          'THROTTLE_TTL',
+          'LOGIN_THROTTLE_LIMIT',
+          'LOGIN_THROTTLE_TTL',
+          'REGISTER_THROTTLE_LIMIT',
+          'REGISTER_THROTTLE_TTL',
+          'FORGOT_PASSWORD_THROTTLE_LIMIT',
+          'FORGOT_PASSWORD_THROTTLE_TTL',
+        ].sort(),
+      );
+    });
+
+    it('should validate throttle params as integers >= 1', () => {
+      const throttleNumberParams = PARAMETER_DEFINITIONS.filter(
+        (d) => d.group === 'throttle' && d.type === 'number',
+      );
+      for (const param of throttleNumberParams) {
+        // Should accept valid values
+        expect(param.validate!(1)).toBe(true);
+        expect(param.validate!(100)).toBe(true);
+        // Should reject invalid values
+        expect(param.validate!(0)).toBe(false);
+        expect(param.validate!(-1)).toBe(false);
+        expect(param.validate!(1.5)).toBe(false);
+      }
+    });
+
+    it('should have all params with ttl set to 300', () => {
+      for (const param of PARAMETER_DEFINITIONS) {
+        expect(param.ttl).toBe(300);
+      }
     });
   });
 });
