@@ -19,6 +19,10 @@ export class ParameterRegistry {
     return this.parameters.get(key);
   }
 
+  get(key: string): ParameterDefinition | undefined {
+    return this.parameters.get(key);
+  }
+
   getAll(): ParameterDefinition[] {
     return Array.from(this.parameters.values());
   }

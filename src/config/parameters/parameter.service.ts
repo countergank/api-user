@@ -1,14 +1,29 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
 import { ParameterStore } from './parameter.store';
 import { ParameterRegistry } from './parameter-registry';
 import { ParameterEntry } from './parameter.types';
 
 @Injectable()
-export class ParameterService {
+export class ParameterService implements OnApplicationBootstrap {
+  static instance: ParameterService | null = null;
+
+  static ensureInitialized(): ParameterService {
+    if (!ParameterService.instance) {
+      throw new Error(
+        'ParameterService has not been initialized. Ensure onApplicationBootstrap has run.',
+      );
+    }
+    return ParameterService.instance;
+  }
+
   constructor(
     private readonly store: ParameterStore,
     private readonly registry: ParameterRegistry,
   ) {}
+
+  onApplicationBootstrap(): void {
+    ParameterService.instance = this;
+  }
 
   async get(key: string): Promise<string | number | boolean> {
     return this.store.get(key);

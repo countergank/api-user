@@ -1,4 +1,4 @@
-import { Module, Global } from '@nestjs/common';
+import { Module, Global, OnApplicationBootstrap, Logger } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ParameterRegistry } from './parameter-registry';
 import { ParameterStore } from './parameter.store';
@@ -24,4 +24,10 @@ import { PARAMETER_DEFINITIONS } from './parameter-definitions';
   ],
   exports: [ParameterRegistry, ParameterStore, ParameterService],
 })
-export class ParameterModule {}
+export class ParameterModule implements OnApplicationBootstrap {
+  private readonly logger = new Logger(ParameterModule.name);
+
+  onApplicationBootstrap(): void {
+    this.logger.log('ParameterModule initialized. Parameters available via @Parameter() decorator.');
+  }
+}

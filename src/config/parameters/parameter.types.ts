@@ -1,5 +1,13 @@
 export type ParameterType = 'string' | 'number' | 'boolean';
 
+export type ParameterTypeToTS<T extends ParameterType> = T extends 'string'
+  ? string
+  : T extends 'number'
+    ? number
+    : T extends 'boolean'
+      ? boolean
+      : never;
+
 export interface ParameterDefinition {
   key: string;
   type: ParameterType;

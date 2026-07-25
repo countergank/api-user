@@ -44,6 +44,9 @@ describe(ParameterService.name, () => {
   };
 
   beforeEach(async () => {
+    // Reset static instance before each test
+    ParameterService.instance = null;
+
     jest.resetAllMocks();
     mockRegistry.getAll.mockReturnValue(defaultDefs);
     mockRegistry.findByGroup.mockImplementation((group: string) =>
@@ -182,6 +185,29 @@ describe(ParameterService.name, () => {
       mockStore.delete.mockResolvedValue(undefined);
       await service.delete('EMAIL_PROVIDER');
       expect(mockStore.delete).toHaveBeenCalledWith('EMAIL_PROVIDER');
+    });
+  });
+
+  describe(`${ParameterService.name} static holder`, () => {
+    it('should have instance as null before bootstrap', () => {
+      expect(ParameterService.instance).toBeNull();
+    });
+
+    it('should set instance during onApplicationBootstrap', () => {
+      service.onApplicationBootstrap();
+      expect(ParameterService.instance).toBe(service);
+    });
+
+    it('should return instance from ensureInitialized after bootstrap', () => {
+      service.onApplicationBootstrap();
+      const result = ParameterService.ensureInitialized();
+      expect(result).toBe(service);
+    });
+
+    it('should throw from ensureInitialized before bootstrap', () => {
+      expect(() => ParameterService.ensureInitialized()).toThrow(
+        'ParameterService has not been initialized',
+      );
     });
   });
 });
