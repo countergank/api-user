@@ -14,6 +14,7 @@ import { ExampleMicroservice } from '../config/custom-providers/microservices';
 import { RedisModule } from '../config/redis/redis.module';
 import { CacheModule } from '../config/cache/cache.module';
 import { ParameterModule } from '../config/parameters/parameter.module';
+import { ParameterAdminModule } from '../config/parameters/parameter-admin.module';
 import { UserModule } from '../user/user.module';
 import { AuthModule } from '../auth/auth.module';
 import { RbacModule } from '../rbac/rbac.module';
@@ -63,6 +64,7 @@ import { AppService } from './service/app.service';
     RedisModule,
     CacheModule,
     ParameterModule,
+    ParameterAdminModule,
     I18nModule,
     AuditModule,
     UserModule,
