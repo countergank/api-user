@@ -106,6 +106,35 @@ describe('ParameterRegistry', () => {
     });
   });
 
+  describe('getAll', () => {
+    it('should return all registered parameters', () => {
+      const param1: ParameterDefinition = {
+        key: 'EMAIL_PROVIDER',
+        type: 'string',
+        default: 'smtp',
+        group: 'email',
+        ttl: 300,
+      };
+      const param2: ParameterDefinition = {
+        key: 'MAX_LOGIN_ATTEMPTS',
+        type: 'number',
+        default: 5,
+        group: 'auth',
+        ttl: 300,
+      };
+      registry.register(param1);
+      registry.register(param2);
+      const all = registry.getAll();
+      expect(all).toHaveLength(2);
+      expect(all).toEqual([param1, param2]);
+    });
+
+    it('should return empty array when no parameters registered', () => {
+      const all = registry.getAll();
+      expect(all).toEqual([]);
+    });
+  });
+
   describe('validate', () => {
     it('should validate value against custom rule', () => {
       const param: ParameterDefinition = {

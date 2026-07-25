@@ -1,6 +1,8 @@
 import { Module, Global } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ParameterRegistry } from './parameter-registry';
+import { ParameterStore } from './parameter.store';
+import { ParameterService } from './parameter.service';
 import { PARAMETER_DEFINITIONS } from './parameter-definitions';
 
 @Global()
@@ -17,7 +19,9 @@ import { PARAMETER_DEFINITIONS } from './parameter-definitions';
         return registry;
       },
     },
+    ParameterStore,
+    ParameterService,
   ],
-  exports: [ParameterRegistry],
+  exports: [ParameterRegistry, ParameterStore, ParameterService],
 })
 export class ParameterModule {}
