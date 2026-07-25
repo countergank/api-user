@@ -5,7 +5,7 @@ import { EmailLog, EmailLogSchema } from './entities/email-log.entity';
 import { EmailController } from './controller/email.controller';
 import { EmailTemplateController } from './controller/email-template.controller';
 import { EmailProvider } from './interfaces/email-provider.interface';
-import { createEmailProvider } from './email.provider.factory';
+import { EmailProviderFactory } from './email.provider.factory';
 import { EmailService } from './service/email.service';
 import { EmailTemplateService } from './service/email-template.service';
 import { EmailTemplateRepository } from './repository/email-template.repository';
@@ -29,9 +29,12 @@ import { I18nModule } from '../common/i18n/i18n.module';
     EmailTemplateRepository,
     EmailLogRepository,
     EmailListener,
+    EmailProviderFactory,
     {
       provide: EMAIL_PROVIDER_TOKEN,
-      useFactory: () => createEmailProvider(),
+      useFactory: async (factory: EmailProviderFactory): Promise<EmailProvider> =>
+        factory.createProvider(),
+      inject: [EmailProviderFactory],
     },
   ],
   exports: [EmailService],

@@ -1,6 +1,5 @@
 import { Body, Controller, HttpCode, Inject, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { Throttle } from '@nestjs/throttler';
 import { I18nService } from '../common/i18n/i18n.service';
 import { AuditAction } from '../common/audit/audit.decorator';
 import { RequestLang } from '../common/decorators/request-lang.decorator';
@@ -30,12 +29,6 @@ export class AuthController {
   }
 
   @Post('register')
-  @Throttle({
-    default: {
-      limit: parseInt(process.env.REGISTER_THROTTLE_LIMIT || process.env.THROTTLE_LIMIT || '10', 10),
-      ttl: parseInt(process.env.REGISTER_THROTTLE_TTL || process.env.THROTTLE_TTL || '60', 10),
-    },
-  })
   @ApplyRegisterDoc()
   @AuditAction({
     action: 'REGISTER',
@@ -55,12 +48,6 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(200)
-  @Throttle({
-    default: {
-      limit: parseInt(process.env.LOGIN_THROTTLE_LIMIT || '5', 10),
-      ttl: parseInt(process.env.LOGIN_THROTTLE_TTL || '60', 10),
-    },
-  })
   @ApplyLoginDoc()
   @AuditAction({
     action: 'LOGIN',
@@ -73,12 +60,6 @@ export class AuthController {
 
   @Post('forgot-password')
   @HttpCode(200)
-  @Throttle({
-    default: {
-      limit: parseInt(process.env.FORGOT_PASSWORD_THROTTLE_LIMIT || '3', 10),
-      ttl: parseInt(process.env.FORGOT_PASSWORD_THROTTLE_TTL || '60', 10),
-    },
-  })
   @ApplyForgotPasswordDoc()
   async forgotPassword(@Body() body: { email: string }, @RequestLang() lang: string | undefined) {
     await this.authService.forgotPassword(body.email, lang);
@@ -86,12 +67,6 @@ export class AuthController {
   }
 
   @Post('reset-password')
-  @Throttle({
-    default: {
-      limit: parseInt(process.env.THROTTLE_LIMIT || '10', 10),
-      ttl: parseInt(process.env.THROTTLE_TTL || '60', 10),
-    },
-  })
   @ApplyResetPasswordDoc()
   async resetPassword(@Body() body: { token: string; newPassword: string }, @RequestLang() lang: string | undefined) {
     await this.authService.resetPassword(body.token, body.newPassword, lang);
@@ -100,24 +75,12 @@ export class AuthController {
 
   @Post('refresh')
   @HttpCode(200)
-  @Throttle({
-    default: {
-      limit: parseInt(process.env.THROTTLE_LIMIT || '10', 10),
-      ttl: parseInt(process.env.THROTTLE_TTL || '60', 10),
-    },
-  })
   @ApplyRefreshDoc()
   async refresh(@Body() body: { refreshToken: string }) {
     return this.authService.refreshToken(body.refreshToken);
   }
 
   @Post('verify-email')
-  @Throttle({
-    default: {
-      limit: parseInt(process.env.THROTTLE_LIMIT || '10', 10),
-      ttl: parseInt(process.env.THROTTLE_TTL || '60', 10),
-    },
-  })
   @ApplyVerifyEmailDoc()
   async verifyEmail(@Body() body: { token: string }, @RequestLang() lang: string | undefined) {
     await this.authService.verifyEmail(body.token);
@@ -125,12 +88,6 @@ export class AuthController {
   }
 
   @Post('confirm-email-change')
-  @Throttle({
-    default: {
-      limit: parseInt(process.env.THROTTLE_LIMIT || '10', 10),
-      ttl: parseInt(process.env.THROTTLE_TTL || '60', 10),
-    },
-  })
   @ApplyConfirmEmailChangeDoc()
   async confirmEmailChange(@Body() body: { token: string }, @RequestLang() lang: string | undefined) {
     await this.authService.confirmEmailChange(body.token, lang);
@@ -138,12 +95,6 @@ export class AuthController {
   }
 
   @Post('resend-verification')
-  @Throttle({
-    default: {
-      limit: parseInt(process.env.THROTTLE_LIMIT || '10', 10),
-      ttl: parseInt(process.env.THROTTLE_TTL || '60', 10),
-    },
-  })
   @ApplyResendVerificationDoc()
   async resendVerification(@Body() body: { email: string }, @RequestLang() lang: string | undefined) {
     const user = await this.authService.findUserByEmail(body.email);
