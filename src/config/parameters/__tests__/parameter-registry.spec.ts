@@ -107,6 +107,58 @@ describe('ParameterRegistry', () => {
     });
   });
 
+  describe('findByKey', () => {
+    it('should return parameter definition for registered key', () => {
+      const param: ParameterDefinition = {
+        key: 'APP_NAME',
+        type: 'string',
+        default: 'my-app',
+        group: 'app',
+        ttl: 300,
+      };
+      registry.register(param);
+      const result = registry.findByKey('APP_NAME');
+      expect(result).toEqual(param);
+    });
+
+    it('should return undefined for unregistered key', () => {
+      const result = registry.findByKey('NONEXISTENT');
+      expect(result).toBeUndefined();
+    });
+  });
+
+  describe('get', () => {
+    it('should return parameter definition via get alias', () => {
+      const param: ParameterDefinition = {
+        key: 'MAX_LOGIN_ATTEMPTS',
+        type: 'number',
+        default: 5,
+        group: 'auth',
+        ttl: 300,
+      };
+      registry.register(param);
+      const result = registry.get('MAX_LOGIN_ATTEMPTS');
+      expect(result).toEqual(param);
+    });
+
+    it('should return undefined for unregistered key via get', () => {
+      const result = registry.get('NONEXISTENT');
+      expect(result).toBeUndefined();
+    });
+
+    it('should return same result as findByKey', () => {
+      const param: ParameterDefinition = {
+        key: 'APP_NAME',
+        type: 'string',
+        default: 'my-app',
+        group: 'app',
+        ttl: 300,
+      };
+      registry.register(param);
+      expect(registry.get('APP_NAME')).toEqual(registry.findByKey('APP_NAME'));
+    });
+  });
+
   describe('getAll', () => {
     it('should return all registered parameters', () => {
       const param1: ParameterDefinition = {
