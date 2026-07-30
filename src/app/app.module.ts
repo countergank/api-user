@@ -1,5 +1,5 @@
-import { Module } from '@nestjs/common';
-import { APP_INTERCEPTOR } from '@nestjs/core';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
+import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { EventEmitterModule } from '@nestjs/event-emitter';
@@ -18,6 +18,8 @@ import { I18nModule } from '../common/i18n/i18n.module';
 import { AuditModule } from '../common/audit/audit.module';
 import { AuditInterceptor } from '../common/audit/audit.interceptor';
 import { AuditAspectInterceptor } from '../common/audit/audit-aspect.interceptor';
+import { AllExceptionsFilter } from '../common/filters/all-exceptions.filter';
+import { TraceIdMiddleware } from '../common/middleware/trace-id.middleware';
 import { AppController } from './controller/app.controller';
 import { AppService } from './service/app.service';
 
@@ -33,6 +35,10 @@ import { AppService } from './service/app.service';
     {
       provide: APP_INTERCEPTOR,
       useClass: AuditAspectInterceptor,
+    },
+    {
+      provide: APP_FILTER,
+      useClass: AllExceptionsFilter,
     },
   ],
   imports: [
@@ -62,4 +68,8 @@ import { AppService } from './service/app.service';
     EmailModule,
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(TraceIdMiddleware).forRoutes('*');
+  }
+}
