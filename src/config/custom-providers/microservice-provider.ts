@@ -1,13 +1,13 @@
 import { ConfigService } from '@nestjs/config';
 import { ClientProxyFactory } from '@nestjs/microservices';
-import { CustomLogger } from '../../common/logger';
+import { createStandaloneLogger } from '../../common/logger';
 import { MicroservicesNames } from './microservices-names.enum';
 
 export const MicroserviceFactory = (name: MicroservicesNames) => {
   return {
     provide: String(name),
     useFactory: (configService: ConfigService) => {
-      const logger = new CustomLogger(name);
+      const logger = createStandaloneLogger(name);
       try {
         // Lee la variable *_MICROSERVICE_ENABLED para saber si el microservicio está habilitado
         const microservice_enabled = configService.getOrThrow(`${name}_MICROSERVICE_ENABLED`);
@@ -18,7 +18,7 @@ export const MicroserviceFactory = (name: MicroservicesNames) => {
             options: { host: microservice_host, port: microservice_port },
           });
         }
-        logger.log(`${name} microservice is disabled by configuration.`);
+        logger.info(`${name} microservice is disabled by configuration.`);
         return null;
       } catch (error) {
         logger.warn(error);

@@ -3,8 +3,10 @@ import { EmailProvider, EmailSendParams, EmailSendResult } from '../interfaces/e
 
 export class ResendProvider implements EmailProvider {
   private resend: Resend;
+  private fromEmail: string;
 
-  constructor() {
+  constructor(config: { fromEmail: string }) {
+    this.fromEmail = config.fromEmail;
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {
       throw new Error('RESEND_API_KEY is required when using Resend provider');
@@ -15,7 +17,7 @@ export class ResendProvider implements EmailProvider {
   async send(params: EmailSendParams): Promise<EmailSendResult> {
     try {
       const { data, error } = await this.resend.emails.send({
-        from: params.from || process.env.RESEND_FROM_EMAIL || process.env.EMAIL_FROM || 'onboarding@resend.dev',
+        from: params.from || this.fromEmail,
         to: params.to,
         subject: params.subject,
         html: params.html,

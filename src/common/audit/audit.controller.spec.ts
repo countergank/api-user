@@ -56,9 +56,8 @@ describe(AuditController.name, () => {
       mockAuditService.findPaginated.mockResolvedValue(mockResult);
 
       const filters: AuditLogFilterDTO = { page: 1, limit: 20 };
-      const req = { headers: { 'accept-language': 'en' } };
 
-      const result = await controller.findAuditLogs(filters, req);
+      const result = await controller.findAuditLogs(filters);
 
       expect(auditService.findPaginated).toHaveBeenCalledWith({
         userId: undefined,
@@ -89,9 +88,8 @@ describe(AuditController.name, () => {
         page: 2,
         limit: 10,
       };
-      const req = { headers: {} };
 
-      await controller.findAuditLogs(filters, req);
+      await controller.findAuditLogs(filters);
 
       expect(auditService.findPaginated).toHaveBeenCalledWith({
         userId: 'user-123',
@@ -109,9 +107,8 @@ describe(AuditController.name, () => {
       mockAuditService.findPaginated.mockResolvedValue({ data: [], total: 0 });
 
       const filters: AuditLogFilterDTO = { page: 1, limit: 20 };
-      const req = { headers: {} };
 
-      const result = await controller.findAuditLogs(filters, req);
+      const result = await controller.findAuditLogs(filters);
 
       expect(result.data).toEqual([]);
       expect(result.total).toBe(0);

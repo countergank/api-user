@@ -1,12 +1,14 @@
 import * as nodemailer from 'nodemailer';
 import { EmailProvider, EmailSendParams, EmailSendResult } from '../interfaces/email-provider.interface';
+import { EmailProviderConfig } from '../interfaces/email-provider-config.interface';
 
 export class SmtpProvider implements EmailProvider {
   private transporter: nodemailer.Transporter;
+  private fromEmail: string;
 
-  constructor() {
-    const host = process.env.EMAIL_HOST;
-    const port = process.env.EMAIL_PORT;
+  constructor(config: EmailProviderConfig) {
+    const { host, port, secure } = config;
+    this.fromEmail = config.fromEmail;
     const user = process.env.EMAIL_USER;
     const pass = process.env.EMAIL_PASS;
 
@@ -16,8 +18,8 @@ export class SmtpProvider implements EmailProvider {
 
     this.transporter = nodemailer.createTransport({
       host,
-      port: Number(port),
-      secure: process.env.EMAIL_SECURE === 'true',
+      port,
+      secure,
       auth: { user, pass },
     });
   }
@@ -25,7 +27,7 @@ export class SmtpProvider implements EmailProvider {
   async send(params: EmailSendParams): Promise<EmailSendResult> {
     try {
       const info = await this.transporter.sendMail({
-        from: params.from || process.env.EMAIL_FROM,
+        from: params.from || this.fromEmail,
         to: params.to,
         subject: params.subject,
         html: params.html,

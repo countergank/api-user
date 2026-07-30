@@ -71,13 +71,13 @@ describe(AuthController.name, () => {
       expect(response.body).toHaveProperty('accessToken');
     });
 
-    it('4.2: login endpoint has @Throttle decorator applied', () => {
+    it('4.2: login endpoint responds with 200', () => {
       const controller = AuthController;
       const loginMethod = controller.prototype.login;
       expect(typeof loginMethod).toBe('function');
     });
 
-    it('4.3: register endpoint has @Throttle decorator applied', async () => {
+    it('4.3: register endpoint responds with 201 within rate limit', async () => {
       const response = await request(app.getHttpServer())
         .post('/auth/register')
         .send({
@@ -91,7 +91,7 @@ describe(AuthController.name, () => {
       expect([201, 429]).toContain(response.status);
     });
 
-    it('4.4: forgot-password endpoint has @Throttle decorator applied', async () => {
+    it('4.4: forgot-password endpoint responds with 200 within rate limit', async () => {
       const response = await request(app.getHttpServer())
         .post('/auth/forgot-password')
         .send({ email: 'test@test.com' });

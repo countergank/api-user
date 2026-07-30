@@ -3,12 +3,14 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { getConnectionToken } from '@nestjs/mongoose';
 import { AccountLockedException } from '../common/errors/account-locked.exception';
 import { User, UserRole } from '../user/entities/user.entity';
 import { UserService } from '../user/service/user.service';
 import { AuthService } from './auth.service';
 import { UserMock } from '../user/mocks/user.mock';
 import { Mock } from '../../test/helpers';
+import { CacheService } from '../config/cache';
 
 describe(AuthService.name, () => {
   let service: AuthService;
@@ -16,13 +18,30 @@ describe(AuthService.name, () => {
   let jwtService: JwtService;
   let configService: ConfigService;
 
+  const mockCacheService = {
+    get: jest.fn(),
+    set: jest.fn().mockResolvedValue(undefined),
+    del: jest.fn().mockResolvedValue(undefined),
+  };
+
   const mockUser = new UserMock().randomize();
 
+  const mockConnection = {
+    startSession: jest.fn().mockResolvedValue({
+      withTransaction: jest.fn((cb) => cb()),
+      endSession: jest.fn(),
+    }),
+  };
+
   beforeEach(async () => {
+    jest.clearAllMocks();
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [AuthService, UserService, JwtService, EventEmitter2, ConfigService],
     })
       .useMocker((token) => {
+        if (token === getConnectionToken()) return mockConnection;
+        if (token === CacheService) return mockCacheService;
         if (typeof token === 'function') return Mock(token);
       })
       .compile();
@@ -148,6 +167,44 @@ describe(AuthService.name, () => {
 
       // Password validation should NOT be called for locked accounts
       expect(validatePasswordSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe(`${AuthService.name}.${AuthService.prototype.validateUser.name}`, () => {
+    it('should return cached user on cache hit', async () => {
+      const user = new UserMock();
+      const findByIdSpy = jest.spyOn(userService, 'findById');
+      mockCacheService.get.mockResolvedValue(user as any);
+
+      const result = await service.validateUser(user.id);
+
+      expect(result).toEqual(user);
+      expect(mockCacheService.get).toHaveBeenCalledWith(`user:${user.id}`);
+      expect(findByIdSpy).not.toHaveBeenCalled();
+      expect(mockCacheService.set).not.toHaveBeenCalled();
+    });
+
+    it('should query DB on cache miss and populate cache', async () => {
+      const user = new UserMock();
+      mockCacheService.get.mockResolvedValue(undefined);
+      jest.spyOn(userService, 'findById').mockResolvedValue(user);
+
+      const result = await service.validateUser(user.id);
+
+      expect(result).toEqual(user);
+      expect(userService.findById).toHaveBeenCalledWith(user.id);
+      expect(mockCacheService.set).toHaveBeenCalledWith(`user:${user.id}`, user);
+    });
+
+    it('should fall through to DB when cache.get returns undefined', async () => {
+      const user = new UserMock();
+      mockCacheService.get.mockResolvedValue(undefined);
+      jest.spyOn(userService, 'findById').mockResolvedValue(user);
+
+      const result = await service.validateUser(user.id);
+
+      expect(userService.findById).toHaveBeenCalled();
+      expect(result).toEqual(user);
     });
   });
 });

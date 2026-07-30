@@ -1,0 +1,19 @@
+# <type>(<scope>): <subject>
+# |<----  Using a Maximum Of 50 Characters  ---->|
+
+
+# Explain *why* this change was made. The body should provide
+# context that the subject line cannot. Wrap at 72 characters.
+# Use the imperative mood ("fix bug" not "fixed bug" or "fixes bug").
+#
+# Blank line separates subject from body.
+# Blank line separates body from footers.
+
+
+# --- Footers ---
+# BREAKING CHANGE: <description of incompatible change>
+# Closes #<issue-number>
+# Refs #<issue-number>
+#
+# Footers go after a blank line. Each footer is a single line.
+# Use GitHub keywords (Closes, Fixes, Resolves) to auto-close issues.

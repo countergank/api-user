@@ -4,19 +4,19 @@
  */
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../../app/app.module';
-import { CustomLogger } from '../../common/logger';
+import { createStandaloneLogger } from '../../common/logger';
 import { UserRole } from '../../user/entities/user.entity';
 import { UserService } from '../../user/service/user.service';
 
 async function seedUsers() {
-  const logger = new CustomLogger('SeedUsers');
+  const logger = createStandaloneLogger('SeedUsers');
 
   try {
-    logger.log('Iniciando...');
+    logger.info('Iniciando...');
     const app = await NestFactory.createApplicationContext(AppModule);
     const userService = app.get(UserService);
 
-    logger.log('Creando usuarios con diferentes roles...');
+    logger.info('Creando usuarios con diferentes roles...');
 
     // Admin users
     try {
@@ -30,9 +30,9 @@ async function seedUsers() {
         permissions: [],
         isActive: true,
       });
-      logger.log('✓ admin@test.com / XyzAdmin1@ -> admin');
+      logger.info('✓ admin@test.com / XyzAdmin1@ -> admin');
     } catch (_e) {
-      logger.log('admin@test.com ya existe');
+      logger.info('admin@test.com ya existe');
     }
 
     try {
@@ -46,9 +46,9 @@ async function seedUsers() {
         permissions: [],
         isActive: true,
       });
-      logger.log('✓ admin2@test.com / XyzAdmin2@ -> admin');
+      logger.info('✓ admin2@test.com / XyzAdmin2@ -> admin');
     } catch (_e) {
-      logger.log('admin2@test.com ya existe');
+      logger.info('admin2@test.com ya existe');
     }
 
     // Regular users
@@ -63,9 +63,9 @@ async function seedUsers() {
         permissions: [],
         isActive: true,
       });
-      logger.log('✓ user@test.com / XyzUser1@ -> user');
+      logger.info('✓ user@test.com / XyzUser1@ -> user');
     } catch (_e) {
-      logger.log('user@test.com ya existe');
+      logger.info('user@test.com ya existe');
     }
 
     // Viewer users
@@ -80,16 +80,16 @@ async function seedUsers() {
         permissions: [],
         isActive: true,
       });
-      logger.log('✓ viewer@test.com / XyzViewer1@ -> viewer');
+      logger.info('✓ viewer@test.com / XyzViewer1@ -> viewer');
     } catch (_e) {
-      logger.log('viewer@test.com ya existe');
+      logger.info('viewer@test.com ya existe');
     }
 
-    logger.log('Seed completado exitosamente');
+    logger.info('Seed completado exitosamente');
     await app.close();
   } catch (error) {
     const err = error as Error;
-    logger.error(err.message, err.stack);
+    logger.error({ err }, 'Seed failed');
     process.exit(1);
   }
 }

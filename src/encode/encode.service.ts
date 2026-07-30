@@ -1,10 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import bcrypt from 'bcryptjs';
-import { CustomLogger } from '../common/logger';
 
 @Injectable()
 export class EncodeService {
-  private readonly logger = new CustomLogger(EncodeService.name);
+  private readonly logger = new Logger(EncodeService.name);
   private SALT_ROUNDS = 10;
 
   hash(value: string): string {

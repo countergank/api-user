@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { CustomLogger } from '../../common/logger';
 import { EmailEvents } from '../constants/email.events';
 import {
   EmailChangeConfirmedEvent,
@@ -11,17 +10,21 @@ import {
   UserRegisteredEvent,
 } from '../interfaces/email-events.interface';
 import { EmailService } from '../service/email.service';
+import { AppConfigService } from '../../config/app-config.service';
 
 @Injectable()
 export class EmailListener {
-  private readonly logger = new CustomLogger(EmailListener.name);
+  private readonly logger = new Logger(EmailListener.name);
 
-  constructor(private readonly emailService: EmailService) {}
+  constructor(
+    private readonly emailService: EmailService,
+    private readonly config: AppConfigService,
+  ) {}
 
   @OnEvent(EmailEvents.USER_REGISTERED)
   async handleUserRegistered(payload: UserRegisteredEvent): Promise<void> {
     try {
-      const verificationLink = `${process.env.FRONTEND_URL}/verify?token=${payload.verificationToken}`;
+      const verificationLink = `${this.config.frontendUrl}/verify?token=${payload.verificationToken}`;
       await this.emailService.sendBySlug(
         'welcome',
         payload.email,
@@ -39,7 +42,7 @@ export class EmailListener {
   @OnEvent(EmailEvents.FORGOT_PASSWORD)
   async handleForgotPassword(payload: ForgotPasswordEvent): Promise<void> {
     try {
-      const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${payload.resetToken}`;
+      const resetLink = `${this.config.frontendUrl}/reset-password?token=${payload.resetToken}`;
       await this.emailService.sendBySlug(
         'password-reset',
         payload.email,
@@ -73,7 +76,7 @@ export class EmailListener {
   @OnEvent(EmailEvents.EMAIL_CHANGE_REQUESTED)
   async handleEmailChangeRequested(payload: EmailChangeRequestedEvent): Promise<void> {
     try {
-      const confirmationLink = `${process.env.FRONTEND_URL}/confirm-email?token=${payload.pendingEmailToken}`;
+      const confirmationLink = `${this.config.frontendUrl}/confirm-email?token=${payload.pendingEmailToken}`;
       await this.emailService.sendBySlug(
         'email-change',
         payload.newEmail,
@@ -107,7 +110,7 @@ export class EmailListener {
   @OnEvent(EmailEvents.RESEND_VERIFICATION)
   async handleResendVerification(payload: ResendVerificationEvent): Promise<void> {
     try {
-      const verificationLink = `${process.env.FRONTEND_URL}/verify?token=${payload.verificationToken}`;
+      const verificationLink = `${this.config.frontendUrl}/verify?token=${payload.verificationToken}`;
       await this.emailService.sendBySlug(
         'welcome',
         payload.email,
