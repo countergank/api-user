@@ -2,15 +2,15 @@ import fastifyCompress from '@fastify/compress';
 import fastifyHelmet from '@fastify/helmet';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe } from './common/pipes/validation.pipe';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger } from 'nestjs-pino';
 import hyperid from 'hyperid';
 import { HttpAdapterHost } from '@nestjs/core';
 import { AppModule } from './app/app.module';
-import { ErrorFilter } from './common/errors/error-filter';
-import { I18nService } from './common/i18n/i18n.service';
+
+import { isProd } from './common/utils';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -31,17 +31,8 @@ async function bootstrap() {
   const originsArray = corsOrigins.split(',').map((origin) => origin.trim()).filter(Boolean);
   app.enableCors({ origin: originsArray, credentials: false });
 
-  const i18nService = app.get(I18nService);
-  app.useGlobalFilters(new ErrorFilter(i18nService));
   app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-      transformOptions: {
-        enableImplicitConversion: true,
-      },
-    }),
+    new ValidationPipe(),
   );
 
   await app.register(fastifyHelmet);
