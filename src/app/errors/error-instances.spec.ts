@@ -1,4 +1,4 @@
-import { AppError, AppVersionNotFoundError } from './error-instances.error';
+import { AppError } from './error-instances.error';
 import { ErrorCodes, ErrorMessages } from './error.dictionary';
 
 describe(AppError.name, () => {
@@ -8,15 +8,5 @@ describe(AppError.name, () => {
     expect(error).toBeInstanceOf(AppError);
     expect(error.message).toBe(ErrorMessages[ErrorCodes.Base]);
     expect(error.code.includes(ErrorCodes.Base)).toBeTruthy();
-  });
-});
-
-describe(AppVersionNotFoundError.name, () => {
-  it(`should create en instance of ${AppVersionNotFoundError.name}`, () => {
-    const error = new AppVersionNotFoundError();
-
-    expect(error).toBeInstanceOf(AppVersionNotFoundError);
-    expect(error.message).toBe(ErrorMessages[ErrorCodes.AppVersionNotFound]);
-    expect(error.code.includes(ErrorCodes.AppVersionNotFound)).toBeTruthy();
   });
 });

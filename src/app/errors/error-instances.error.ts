@@ -13,15 +13,4 @@ export class AppError extends ErrorBase {
   }
 }
 
-export class AppVersionNotFoundError extends ErrorBase {
-  constructor(e?: unknown) {
-    const errorGroup = ErrorBaseEnum.App;
-    const code = ErrorCodes.AppVersionNotFound;
-    const message = ErrorMessages[code];
-    const error = e ?? message;
-    super(errorGroup, code, error);
-    Object.setPrototypeOf(this, AppVersionNotFoundError.prototype);
-  }
-}
-
-export const AppErrors = [new AppError().getErrorPublic(), new AppVersionNotFoundError().getErrorPublic()];
+export const AppErrors = [new AppError().getErrorPublic()];
