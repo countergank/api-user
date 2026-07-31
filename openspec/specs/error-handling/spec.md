@@ -2,14 +2,18 @@
 
 ## Overview & Scope
 
-This capability defines the unified error handling system established in Phase 1 of COU-203:
+This capability defines the unified error handling system for the api-user service:
+
 - ErrorResponseDto with traceId and timestamp for all errors
 - TraceIdMiddleware that captures request ID and sets x-trace-id header
 - AllExceptionsFilter that catches and formats all exceptions using ErrorResponseDto
 - DomainError class with ErrorKind registry for standardized error codes
 - ValidationPipe that produces ErrorResponseDto-shaped validation errors
+- Services and repositories throw `DomainError.fromKind(ErrorKind.*)` instead of legacy error classes
+- Controllers delegate error handling entirely to AllExceptionsFilter (zero try/catch blocks)
+- AllExceptionsFilter translates error messages via i18n respecting `Accept-Language` (es/en/pt) with fallback to default message
 
-*Focus is on Phase 1 foundation only - existing ErrorBase hierarchy remains preserved during phased migration.*
+Established in COU-203 (Phase 1 foundation: ErrorResponseDto, TraceIdMiddleware, AllExceptionsFilter, DomainError, ValidationPipe) and completed in COU-208 (full migration from legacy error classes to `DomainError.fromKind` pattern across user/app services, repository, and controllers, plus i18n translation of error messages).
 
 ## ErrorResponseDto
 
@@ -31,7 +35,7 @@ interface ErrorResponseDto {
 |-------|------|----------|-------------|
 | statusCode | number | YES | HTTP status code (e.g., 404, 400, 500) |
 | code | string | YES | Error code - accepts both backend-template format and api-user UA-{GROUP}-{CODE} format |
-| message | string | YES | Error message, i18n-translated if DomainError provides I18nService |
+| message | string | YES | Error message, i18n-translated respecting Accept-Language with fallback to default |
 | details | any | NO | Additional error context or validation error details |
 | traceId | string | YES | Unique trace ID for request correlation (provided by TraceIdMiddleware) |
 | timestamp | string | YES | ISO 8601 timestamp of error occurrence |
@@ -75,8 +79,8 @@ Sample value: `req_abc123def456`
 
 Filter catches exceptions in this order:
 
-1. **DomainError** → Convert to HttpException with ErrorResponseDto format
-2. **HttpException** → Preserve existing behavior but enrich with traceId/timestamp
+1. **DomainError** → Convert to HttpException with ErrorResponseDto format, message translated via i18n
+2. **HttpException** → Preserve existing behavior but enrich with traceId/timestamp; translate message via i18n if a translation key exists
 3. **ErrorBase** → Convert to HttpException with ErrorResponseDto format
 4. **Error** → Convert to generic HttpException with ErrorResponseDto format
 
@@ -84,7 +88,10 @@ Filter catches exceptions in this order:
 
 - Injects traceId from request (set by TraceIdMiddleware) into ErrorResponseDto
 - Injects ISO 8601 timestamp into ErrorResponseDto
-- Preserves i18n capability via I18nService (api-user already has this)
+- Translates `DomainError` messages via `I18nService.translate('errors.{kind}', lang)` where `lang` is resolved from the `Accept-Language` request header (es/en/pt)
+- Falls back to the hardcoded default message when no translation exists (MUST NOT crash)
+- Handles i18n for `HttpException` messages when the message matches a translation key
+- Language resolution uses the request's `Accept-Language` header (the filter cannot rely on `I18nContext.current()` because AsyncLocalStorage context is lost inside exception filters)
 - Logs to nestjs-pino with appropriate error levels:
   - WARN for recoverable errors (HttpException)
   - ERROR for unrecoverable errors (ErrorBase, Error)
@@ -99,7 +106,7 @@ All exceptions return ErrorResponseDto regardless of type:
 {
     "statusCode": 404,
     "code": "UA-USR-001",
-    "message": "User not found",
+    "message": "Usuario no encontrado",
     "details": null,
     "traceId": "req_abc123def456",
     "timestamp": "2026-01-01T12:00:00.000Z"
@@ -147,8 +154,52 @@ const ErrorKind = {
 
 ### Message Resolution
 
-- With I18nService: `i18n.t('error.domain.ENTITY_NOT_FOUND')`
+- With I18nService: `I18nService.translate('errors.{kind}', lang)` (e.g. `I18nService.translate('errors.USER_NOT_FOUND', lang)`)
 - Without I18nService: fallback to hardcoded English message
+
+## Service & Repository Error Throwing
+
+### Requirement: Services use DomainError.fromKind for all domain errors
+
+The system MUST throw `DomainError.fromKind(ErrorKind.*)` in all services and the repository instead of throwing legacy error classes. This eliminates legacy error class usage in service layers.
+
+#### Scenario: User service throws DomainError
+
+- GIVEN a user service method receiving invalid input (e.g., user ID not found)
+- WHEN the service attempts to find or modify the user
+- THEN service MUST throw `DomainError.fromKind(ErrorKind.USER_NOT_FOUND, { id })` instead of legacy `UserNotFoundError`
+
+#### Scenario: Repository throws DomainError
+
+- GIVEN a repository operation fails (e.g., population error in user seeder)
+- WHEN repository attempts to load related entities
+- THEN repository MUST throw `DomainError.fromKind(ErrorKind.INTERNAL)` instead of legacy `UserPopulateError`
+
+#### Scenario: App service throws DomainError
+
+- GIVEN application startup process attempts to load missing version
+- WHEN version service processes version identifier
+- THEN service MUST throw `DomainError.fromKind(ErrorKind.APP_VERSION_NOT_FOUND, { version })` instead of legacy `AppVersionNotFoundError`
+
+## Controller Error Delegation
+
+### Requirement: Controllers delegate errors without try/catch
+
+The system MUST have controllers that delegate error handling entirely to AllExceptionsFilter without catching domain errors. All try/catch blocks that catch domain errors MUST be removed from controllers.
+
+#### Scenario: Controller delegates User service errors
+
+- GIVEN a controller endpoint calls user service with invalid input
+- WHEN controller delegates to service method
+- THEN controller MUST NOT catch `DomainError`, MUST allow exception to propagate to AllExceptionsFilter
+- AND service `DomainError` MUST be caught by AllExceptionsFilter before HttpException
+
+#### Scenario: Controller delegates App service errors
+
+- GIVEN a controller endpoint calls app service with missing resource
+- WHEN controller delegates to service method
+- THEN controller MUST NOT catch `DomainError`, MUST allow exception to propagate to AllExceptionsFilter
+- AND service `DomainError` MUST be caught by AllExceptionsFilter before HttpException
 
 ## ValidationPipe
 
@@ -211,10 +262,30 @@ Validation errors return:
 - WHEN validation pipe processes the request
 - THEN error response MUST contain ErrorResponseDto with traceId and timestamp
 
+#### User Service Throws DomainError
+- GIVEN a user service method with invalid input (user ID not found)
+- WHEN the service attempts to find or modify the user
+- THEN error response MUST contain ErrorResponseDto with DomainError kind (e.g. USER_NOT_FOUND)
+
+#### Repository Throws DomainError
+- GIVEN a repository operation fails (e.g., population error in user seeder)
+- WHEN repository attempts to load related entities
+- THEN repository MUST throw DomainError.fromKind(ErrorKind.INTERNAL)
+
+#### App Service Throws DomainError
+- GIVEN application startup attempts to load a missing version
+- WHEN version service processes the version identifier
+- THEN service MUST throw DomainError.fromKind(ErrorKind.APP_VERSION_NOT_FOUND)
+
 #### DomainError Translation
-- GIVEN a DomainError with i18n service
+- GIVEN a DomainError with i18n service available
 - WHEN error is caught by AllExceptionsFilter
-- THEN error message MUST be translated via i18n service
+- THEN error message MUST be translated via `I18nService.translate('errors.USER_NOT_FOUND', lang)` respecting the `Accept-Language` header
+
+#### HttpException Translation
+- GIVEN an HttpException whose message matches an i18n error key
+- WHEN error is caught by AllExceptionsFilter
+- THEN response message SHOULD use the i18n translation respecting `Accept-Language`
 
 #### ValidationPipe Error Isolation
 - GIVEN a request with mixed valid and invalid fields
@@ -246,12 +317,13 @@ All criteria MUST pass before apply is complete:
 2. **TraceId Consistency**: traceId in response MUST match x-trace-id header value
 3. **Filter Priority**: DomainError MUST be caught before HttpException, ErrorBase, and Error
 4. **Code Format**: Error codes MUST accept both "ENTITY_NOT_FOUND" and "UA-{GROUP}-{CODE}" formats
-5. **i18n Integration**: DomainError messages MUST use I18nService when available
+5. **i18n Integration**: DomainError messages MUST use I18nService when available, translated per `Accept-Language` with fallback to default message
 6. **Validation Format**: Validation errors MUST return ErrorResponseDto shape
 7. **Global Application**: All controllers MUST have zero try/catch blocks for error handling
 8. **Middleware Coverage**: All routes MUST pass through TraceIdMiddleware
 9. **Filter Registration**: AllExceptionsFilter MUST be registered as APP_FILTER provider
 10. **Error Logging**: All errors MUST be logged to nestjs-pino with appropriate levels
+11. **Legacy Error Removal**: Services and repositories MUST throw `DomainError.fromKind` instead of legacy error classes (UserNotFoundError, UserEmailAlreadyExistsError, UserNameAlreadyExistsError, AppVersionNotFoundError, UserPopulateError), and legacy error class files MUST be removed
 
 ## Rollback Plan
 
@@ -260,7 +332,7 @@ During rollback:
 1. Remove ErrorResponseDto, TraceIdMiddleware, AllExceptionsFilter, DomainError, ValidationPipe registrations
 2. Restore previous ErrorFilter global registration in main.ts
 3. Ensure controllers retain existing try/catch blocks
-4. Maintain ErrorBase hierarchy unchanged
+4. Restore legacy error classes (UserNotFoundError, UserEmailAlreadyExistsError, UserNameAlreadyExistsError, AppVersionNotFoundError, UserPopulateError) and their usage in services/controllers
 5. Remove or disable new error handling infrastructure files
 
 ## Dependencies
@@ -282,4 +354,4 @@ During rollback:
 | i18n | Internationalization service for multi-language message support |
 | nestjs-pino | NestJS adapter for Pino logging framework |
 
-*(End of generated spec for COU-203 Phase 1 error handling system)*
+*(Generated spec for COU-203 error handling system, extended by COU-208 DomainError migration and i18n translation)*
