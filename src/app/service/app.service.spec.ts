@@ -67,6 +67,9 @@ describe(AppService.name, () => {
       const serviceWithMissingConfig = module.get<AppService>(AppService);
 
       await expect(serviceWithMissingConfig.getVersion()).rejects.toBeInstanceOf(DomainError);
+      await expect(serviceWithMissingConfig.getVersion()).rejects.toMatchObject({
+        kind: expect.objectContaining({ kind: 'APP_VERSION_NOT_FOUND' }),
+      });
     });
   });
 });
