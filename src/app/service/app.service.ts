@@ -6,7 +6,7 @@ import { Message } from '../../common/class/message.class';
 import { versionStructure } from '../../common/utils/global';
 import { MicroservicesNames } from '../../config/custom-providers/microservices-names.enum';
 import { Version } from '../class/version.class';
-import { AppVersionNotFoundError } from '../errors/error-instances.error';
+import { DomainError } from '../../common/errors/domain.error';
 
 @Injectable()
 export class AppService {
@@ -33,7 +33,7 @@ export class AppService {
     const version = this.configService.getOrThrow('npm_package_version');
 
     if (!packageName || !env || !version) {
-      throw new AppVersionNotFoundError();
+      throw DomainError.fromKind('APP_VERSION_NOT_FOUND');
     }
 
     return new Version({ version: versionStructure(packageName, env, version) });

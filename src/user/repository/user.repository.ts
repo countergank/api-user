@@ -4,7 +4,7 @@ import { Model } from 'mongoose';
 import { escapeRegExp, isLocal } from '../../common/utils';
 import { EncodeService } from '../../encode/encode.service';
 import { User, UserRole } from '../entities/user.entity';
-import { UserPopulateError } from '../errors/error-instances.error';
+import { DomainError } from '../../common/errors/domain.error';
 import { SORTABLE_FIELDS } from '../dto/pagination-query.dto';
 
 @Injectable()
@@ -35,7 +35,7 @@ export class UserRepository implements OnApplicationBootstrap {
       });
     } catch (error) {
       this.logger.error(error);
-      throw new UserPopulateError(error);
+      throw DomainError.fromKind('INTERNAL', { message: 'Failed to populate root user' });
     }
   }
 
