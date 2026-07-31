@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { Connection, Model } from 'mongoose';
 import { clearMongoCollection, clearMongoConnection, createConnection } from '../../../test/helpers';
+import { DomainError } from '../../common/errors/domain.error';
 import { EncodeService } from '../../encode/encode.service';
 import { HashMock } from '../../encode/mocks/hash.mock';
 import { User, UserSchema } from '../entities/user.entity';
@@ -51,6 +52,27 @@ describe(UserRepository.name, () => {
 
   it(`${UserRepository.name} should be defined`, () => {
     expect(repository).toBeDefined();
+  });
+
+  describe(`${UserRepository.name}.populateUsers`, () => {
+    it('should throw DomainError with kind INTERNAL when population fails', async () => {
+      // Make the injected EncodeService throw so createWithRole fails inside
+      // populateUsers, which must wrap and re-throw as an INTERNAL DomainError.
+      const hashSpy = jest.spyOn((repository as any).encodeService, 'hash').mockImplementation(() => {
+        throw new Error('hash failure');
+      });
+
+      try {
+        const populatePromise = (repository as any).populateUsers();
+        await expect(populatePromise).rejects.toBeInstanceOf(DomainError);
+        await expect(populatePromise).rejects.toMatchObject({
+          message: 'Failed to populate root user',
+          kind: expect.objectContaining({ kind: 'INTERNAL' }),
+        });
+      } finally {
+        hashSpy.mockRestore();
+      }
+    });
   });
 
   describe(`${UserRepository.name}.${UserRepository.prototype.create.name}`, () => {

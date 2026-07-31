@@ -23,7 +23,7 @@ export class UserRepository implements OnApplicationBootstrap {
 
   private async populateUsers(): Promise<User> {
     try {
-      return this.createWithRole({
+      return await this.createWithRole({
         name: 'User',
         lastName: 'Root',
         email: 'countergank.ti@gmail.com',
