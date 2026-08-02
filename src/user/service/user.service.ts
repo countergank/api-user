@@ -1,4 +1,4 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
 import { Connection } from 'mongoose';
 import { randomUUID } from 'node:crypto';
@@ -144,7 +144,7 @@ export class UserService {
   async requestEmailChange(userId: string, newEmail: string): Promise<{ token: string; expires: Date; user: User }> {
     const existing = await this.findByEmail(newEmail);
     if (existing) {
-      throw new ConflictException('EMAIL_ALREADY_EXISTS');
+      throw DomainError.fromKind('EMAIL_ALREADY_EXISTS');
     }
 
     const user = await this.findById(userId);
@@ -211,9 +211,7 @@ export class UserService {
       }
 
       // Strip undefined values to avoid unintentionally unsetting fields
-      const updateData = Object.fromEntries(
-        Object.entries(dto).filter(([_, v]) => v !== undefined),
-      );
+      const updateData = Object.fromEntries(Object.entries(dto).filter(([_, v]) => v !== undefined));
 
       return this.userRepository.update(id, updateData);
     });

@@ -420,4 +420,17 @@ describe(UserRepository.name, () => {
       expect(result.total).toBe(2);
     });
   });
+
+  describe(`${UserRepository.name}.${UserRepository.prototype.update.name}`, () => {
+    it('should throw DomainError when updating password for non-existent user', async () => {
+      await expect(
+        (repository as any).update('507f1f77bcf86cd799439011', { password: 'NewPass123@' }),
+      ).rejects.toBeInstanceOf(DomainError);
+      await expect(
+        (repository as any).update('507f1f77bcf86cd799439011', { password: 'NewPass123@' }),
+      ).rejects.toMatchObject({
+        kind: expect.objectContaining({ kind: 'USER_NOT_FOUND' }),
+      });
+    });
+  });
 });

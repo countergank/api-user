@@ -41,7 +41,7 @@ export class AppService {
 
   async messageMicroservice(messagePattern: string, body: Message<unknown>): Promise<Message<unknown>> {
     if (!this.microserviceEnabled || !this.client) {
-      throw new Error('ExampleMicroservice is disabled or not available.');
+      throw DomainError.fromKind('MICROSERVICE_UNAVAILABLE');
     }
     const microserviceRespDTO = await lastValueFrom(
       this.client.send<Message<unknown>, Message<unknown>>(messagePattern, body),

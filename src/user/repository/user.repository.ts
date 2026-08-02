@@ -134,7 +134,7 @@ export class UserRepository implements OnApplicationBootstrap {
     if (data.password) {
       const user = await this.userModel.findById(id).exec();
       if (!user) {
-        throw new Error(`User ${id} not found`);
+        throw DomainError.fromKind('USER_NOT_FOUND', { message: `User ${id} not found` });
       }
       user.set(data);
       return user.save();
@@ -170,12 +170,7 @@ export class UserRepository implements OnApplicationBootstrap {
     if (filters.search) {
       const searchRegex = new RegExp(escapeRegExp(filters.search), 'i');
       andConditions.push({
-        $or: [
-          { name: searchRegex },
-          { lastName: searchRegex },
-          { email: searchRegex },
-          { userName: searchRegex },
-        ],
+        $or: [{ name: searchRegex }, { lastName: searchRegex }, { email: searchRegex }, { userName: searchRegex }],
       });
     }
 
@@ -202,8 +197,6 @@ export class UserRepository implements OnApplicationBootstrap {
   }
 
   async softDelete(id: string): Promise<User> {
-    return this.userModel
-      .findByIdAndUpdate(id, { isActive: false, deletedAt: new Date() }, { new: true })
-      .exec();
+    return this.userModel.findByIdAndUpdate(id, { isActive: false, deletedAt: new Date() }, { new: true }).exec();
   }
 }

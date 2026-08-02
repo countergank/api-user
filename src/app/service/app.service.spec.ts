@@ -72,4 +72,31 @@ describe(AppService.name, () => {
       });
     });
   });
+
+  describe(`${AppService.prototype.messageMicroservice.name}`, () => {
+    it('should throw DomainError when microservice is disabled', async () => {
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          AppService,
+          {
+            provide: ConfigService,
+            useValue: {
+              getOrThrow: (key: string) => {
+                if (key.includes('_MICROSERVICE_ENABLED')) return 'false';
+                throw new Error(`Missing config key: ${key}`);
+              },
+            },
+          },
+          { provide: MicroservicesNames.EXAMPLE, useValue: {} as ClientProxy },
+        ],
+      }).compile();
+
+      const disabledService = module.get<AppService>(AppService);
+
+      await expect(disabledService.messageMicroservice('pattern', {} as any)).rejects.toBeInstanceOf(DomainError);
+      await expect(disabledService.messageMicroservice('pattern', {} as any)).rejects.toMatchObject({
+        kind: expect.objectContaining({ kind: 'MICROSERVICE_UNAVAILABLE' }),
+      });
+    });
+  });
 });

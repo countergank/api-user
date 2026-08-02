@@ -28,6 +28,7 @@ describe(UserService.name, () => {
     existsByNameExcludingSelf: jest.fn(),
     create: jest.fn(),
     findById: jest.fn(),
+    findByEmail: jest.fn(),
     findAll: jest.fn(),
     update: jest.fn(),
     softDelete: jest.fn(),
@@ -132,9 +133,7 @@ describe(UserService.name, () => {
     it(`should throw DomainError when email conflicts with another user`, async () => {
       jest.spyOn(userRepository, 'findById').mockResolvedValue(user);
       jest.spyOn(userRepository, 'existsByEmailExcludingSelf').mockResolvedValue(true);
-      await expect(service.updateUser(user.id, { email: 'other@example.com' })).rejects.toBeInstanceOf(
-        DomainError,
-      );
+      await expect(service.updateUser(user.id, { email: 'other@example.com' })).rejects.toBeInstanceOf(DomainError);
       await expect(service.updateUser(user.id, { email: 'other@example.com' })).rejects.toMatchObject({
         kind: expect.objectContaining({ kind: 'ENTITY_EMAIL_ALREADY_EXISTS' }),
       });
@@ -143,9 +142,7 @@ describe(UserService.name, () => {
     it(`should throw DomainError when userName conflicts with another user`, async () => {
       jest.spyOn(userRepository, 'findById').mockResolvedValue(user);
       jest.spyOn(userRepository, 'existsByNameExcludingSelf').mockResolvedValue(true);
-      await expect(service.updateUser(user.id, { userName: 'otheruser' })).rejects.toBeInstanceOf(
-        DomainError,
-      );
+      await expect(service.updateUser(user.id, { userName: 'otheruser' })).rejects.toBeInstanceOf(DomainError);
       await expect(service.updateUser(user.id, { userName: 'otheruser' })).rejects.toMatchObject({
         kind: expect.objectContaining({ kind: 'ENTITY_NAME_ALREADY_EXISTS' }),
       });
@@ -265,6 +262,28 @@ describe(UserService.name, () => {
       expect(result.data).toEqual([]);
       expect(result.total).toBe(0);
       expect(result.totalPages).toBe(0);
+    });
+  });
+
+  describe(`${UserService.name}.${UserService.prototype.requestEmailChange.name}`, () => {
+    const user = new UserMock();
+
+    it('should throw DomainError when target email already exists', async () => {
+      jest.spyOn(userRepository, 'findByEmail').mockResolvedValue(user);
+      await expect(service.requestEmailChange('some-id', user.email)).rejects.toBeInstanceOf(DomainError);
+      await expect(service.requestEmailChange('some-id', user.email)).rejects.toMatchObject({
+        kind: expect.objectContaining({ kind: 'EMAIL_ALREADY_EXISTS' }),
+      });
+    });
+
+    it('should request an email change when target email is free', async () => {
+      jest.spyOn(userRepository, 'findByEmail').mockResolvedValue(null);
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(user);
+      jest.spyOn(userRepository, 'update').mockResolvedValue(user);
+
+      const result = await service.requestEmailChange(user.id, 'new@example.com');
+      expect(result.user).toBe(user);
+      expect(result.token).toBeDefined();
     });
   });
 
