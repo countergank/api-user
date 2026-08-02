@@ -1,6 +1,7 @@
-import { Injectable, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import { Injectable, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
+import { DomainError } from '../../common/errors/domain.error';
 
 @Injectable()
 export class PermissionGuard {
@@ -20,7 +21,7 @@ export class PermissionGuard {
     const user = request.user;
 
     if (!user) {
-      throw new ForbiddenException('User not authenticated');
+      throw DomainError.fromKind('FORBIDDEN');
     }
 
     const userPermissions = user.permissions || [];
@@ -40,7 +41,7 @@ export class PermissionGuard {
     });
 
     if (!hasAllPermissions) {
-      throw new ForbiddenException('Insufficient permissions');
+      throw DomainError.fromKind('FORBIDDEN');
     }
 
     return true;

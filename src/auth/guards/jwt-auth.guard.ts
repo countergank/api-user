@@ -1,6 +1,7 @@
-import { Injectable, ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import { Injectable, ExecutionContext } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ClsService } from 'nestjs-cls';
+import { DomainError } from '../../common/errors/domain.error';
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
@@ -14,7 +15,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
 
   handleRequest(err: any, user: any, _info: any, context?: ExecutionContext) {
     if (err || !user) {
-      throw err || new UnauthorizedException('INVALID_TOKEN');
+      throw err || DomainError.fromKind('INVALID_TOKEN');
     }
 
     const userId = user._id ?? user.id;
