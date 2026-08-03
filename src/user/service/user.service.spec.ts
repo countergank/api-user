@@ -11,9 +11,11 @@ import { UserService } from './user.service';
 import { PaginationQueryDTO } from '../dto/pagination-query.dto';
 import { PaginatedUserResponseDTO } from '../dto/paginated-user-response.dto';
 import { CacheService } from '../../config/cache';
+import { EncodeService } from '../../encode/encode.service';
 
 describe(UserService.name, () => {
   let service: UserService;
+  let encodeService: { compare: jest.Mock; hash: jest.Mock };
 
   const mockCacheService = {
     get: jest.fn(),
@@ -56,6 +58,10 @@ describe(UserService.name, () => {
       .compile();
 
     service = module.get<UserService>(UserService);
+    encodeService = module.get<EncodeService>(EncodeService) as unknown as {
+      compare: jest.Mock;
+      hash: jest.Mock;
+    };
   });
 
   it(`${UserService.name} should be defined`, () => {
@@ -284,6 +290,50 @@ describe(UserService.name, () => {
       const result = await service.requestEmailChange(user.id, 'new@example.com');
       expect(result.user).toBe(user);
       expect(result.token).toBeDefined();
+    });
+  });
+
+  describe(`${UserService.name}.${UserService.prototype.changePassword.name}`, () => {
+    const user = new UserMock();
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('should fetch user with includePassword option for transient password validation', async () => {
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(user);
+      jest.spyOn(userRepository, 'update').mockResolvedValue(user);
+      encodeService.compare.mockResolvedValue(true);
+      encodeService.hash.mockResolvedValue('hashed-value');
+
+      await service.changePassword(user.id, 'current-pass', 'new-pass');
+
+      expect(userRepository.findById).toHaveBeenCalledWith(user.id, { includePassword: true });
+      expect(userRepository.update).toHaveBeenCalledWith(user.id, { password: 'hashed-value' });
+    });
+
+    it('should throw CURRENT_PASSWORD_INCORRECT and not update when current password is invalid', async () => {
+      const userWithPassword = Object.assign(new UserMock(), { password: 'stored-hash' });
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(userWithPassword);
+      encodeService.compare.mockResolvedValue(false);
+
+      await expect(service.changePassword(user.id, 'wrong-pass', 'new-pass')).rejects.toMatchObject({
+        kind: expect.objectContaining({ kind: 'CURRENT_PASSWORD_INCORRECT' }),
+      });
+      expect(userRepository.update).not.toHaveBeenCalled();
+      expect(encodeService.hash).not.toHaveBeenCalled();
+    });
+
+    it('should update with hashed new password (never plaintext)', async () => {
+      const userWithPassword = Object.assign(new UserMock(), { password: 'stored-hash' });
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(userWithPassword);
+      encodeService.compare.mockResolvedValue(true);
+      encodeService.hash.mockResolvedValue('hashed-new-password');
+
+      await service.changePassword(user.id, 'current-pass', 'plain-new-password');
+
+      expect(encodeService.hash).toHaveBeenCalledWith('plain-new-password');
+      expect(userRepository.update).toHaveBeenCalledWith(user.id, { password: 'hashed-new-password' });
     });
   });
 
