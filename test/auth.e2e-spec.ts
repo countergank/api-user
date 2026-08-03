@@ -54,7 +54,7 @@ describe('AuthController (e2e)', () => {
       await request(app.getHttpServer())
         .post('/auth/register')
         .send(testUser)
-        .expect(400);
+        .expect(409);
     });
   });
 

@@ -64,12 +64,12 @@ describe('Admin Users CRUD (e2e)', () => {
     expect(res.body.lastName).toBe('Name');
   });
 
-  it('PATCH /admin/users/:id — should return 400 for non-existent user', async () => {
+  it('PATCH /admin/users/:id — should return 404 for non-existent user', async () => {
     await request(app.getHttpServer())
       .patch('/admin/users/000000000000000000000000')
       .set('Authorization', `Bearer ${adminToken}`)
       .send({ name: 'Test' })
-      .expect(400);
+      .expect(404);
   });
 
   it('PATCH /admin/users/:id — should return 401 without auth', async () => {
@@ -104,11 +104,11 @@ describe('Admin Users CRUD (e2e)', () => {
   });
 
   // --- Toggle active ---
-  it('PATCH /admin/users/:id/active — should return 400 for deleted user', async () => {
+  it('PATCH /admin/users/:id/active — should return 410 for deleted user', async () => {
     await request(app.getHttpServer())
       .patch(`/admin/users/${adminUserId}/active`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .expect(400);
+      .expect(410);
   });
 
   // --- Pagination ---
