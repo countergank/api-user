@@ -3,8 +3,6 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { EmailEvents } from '../../email/constants/email.events';
-import { EncodeService } from '../../encode/encode.service';
-import { DomainError } from '../../common/errors/domain.error';
 import { I18nService } from '../../common/i18n/i18n.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestLang } from '../../common/decorators/request-lang.decorator';
@@ -24,7 +22,6 @@ import { User } from '../entities/user.entity';
 export class UserProfileController {
   constructor(
     private userService: UserService,
-    private encodeService: EncodeService,
     private eventEmitter: EventEmitter2,
     @Inject(I18nService) private i18n: I18nService,
   ) {}
@@ -65,14 +62,7 @@ export class UserProfileController {
     @Body() dto: ChangePasswordDTO,
     @RequestLang() lang: string | undefined,
   ) {
-    const isValid = await this.encodeService.compare(dto.currentPassword, user.password);
-    if (!isValid) {
-      throw DomainError.fromKind('CURRENT_PASSWORD_INCORRECT');
-    }
-
-    await this.userService.update(user.id, {
-      password: dto.newPassword,
-    });
+    await this.userService.changePassword(user.id, dto.currentPassword, dto.newPassword);
 
     this.eventEmitter.emit(EmailEvents.PASSWORD_CHANGED, {
       userId: user.id,

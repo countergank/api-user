@@ -127,6 +127,15 @@ export class UserService {
     return this.encodeService.hash(password);
   }
 
+  async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void> {
+    const user = await this.findById(userId, { includePassword: true });
+    if (!(await this.validatePassword(currentPassword, user.password))) {
+      throw DomainError.fromKind('CURRENT_PASSWORD_INCORRECT');
+    }
+    const hashed = await this.hashPassword(newPassword);
+    await this.update(userId, { password: hashed });
+  }
+
   async existsByEmailOrUsername(email: string, userName: string): Promise<boolean> {
     const [emailExists, usernameExists] = await Promise.all([
       this.userRepository.existsByEmail(email),
