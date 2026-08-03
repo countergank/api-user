@@ -1,9 +1,10 @@
-import { BadRequestException, Body, Controller, Get, HttpCode, Inject, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Inject, Patch, Post, UseGuards } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { EmailEvents } from '../../email/constants/email.events';
 import { EncodeService } from '../../encode/encode.service';
+import { DomainError } from '../../common/errors/domain.error';
 import { I18nService } from '../../common/i18n/i18n.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestLang } from '../../common/decorators/request-lang.decorator';
@@ -59,10 +60,14 @@ export class UserProfileController {
   @Post('change-password')
   @HttpCode(200)
   @ApplyChangePasswordDoc()
-  async changePassword(@CurrentUser() user: User, @Body() dto: ChangePasswordDTO, @RequestLang() lang: string | undefined) {
+  async changePassword(
+    @CurrentUser() user: User,
+    @Body() dto: ChangePasswordDTO,
+    @RequestLang() lang: string | undefined,
+  ) {
     const isValid = await this.encodeService.compare(dto.currentPassword, user.password);
     if (!isValid) {
-      throw new BadRequestException('CURRENT_PASSWORD_INCORRECT');
+      throw DomainError.fromKind('CURRENT_PASSWORD_INCORRECT');
     }
 
     await this.userService.update(user.id, {
@@ -82,7 +87,11 @@ export class UserProfileController {
   @Post('change-email')
   @HttpCode(200)
   @ApplyChangeEmailDoc()
-  async changeEmail(@CurrentUser() user: User, @Body() body: { email: string }, @RequestLang() lang: string | undefined) {
+  async changeEmail(
+    @CurrentUser() user: User,
+    @Body() body: { email: string },
+    @RequestLang() lang: string | undefined,
+  ) {
     const { token } = await this.userService.requestEmailChange(user.id, body.email);
 
     this.eventEmitter.emit(EmailEvents.EMAIL_CHANGE_REQUESTED, {

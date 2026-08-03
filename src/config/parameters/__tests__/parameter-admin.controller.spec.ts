@@ -1,12 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import {
-  ConflictException,
-  NotFoundException,
-  UnprocessableEntityException,
-} from '@nestjs/common';
+import { DomainError } from '../../../common/errors/domain.error';
 import { ParameterAdminController } from '../parameter-admin.controller';
 import { ParameterService } from '../parameter.service';
-import { ParameterRegistry } from '../parameter-registry';
 import { ParameterEntry } from '../parameter.types';
 
 describe(ParameterAdminController.name, () => {
@@ -36,14 +31,7 @@ describe(ParameterAdminController.name, () => {
   const mockService = {
     getAll: jest.fn(),
     getByGroup: jest.fn(),
-    get: jest.fn(),
-    set: jest.fn(),
-    has: jest.fn(),
-  };
-
-  const mockRegistry = {
-    findByKey: jest.fn(),
-    getAll: jest.fn(),
+    update: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -51,10 +39,7 @@ describe(ParameterAdminController.name, () => {
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ParameterAdminController],
-      providers: [
-        { provide: ParameterService, useValue: mockService },
-        { provide: ParameterRegistry, useValue: mockRegistry },
-      ],
+      providers: [{ provide: ParameterService, useValue: mockService }],
     }).compile();
 
     controller = module.get<ParameterAdminController>(ParameterAdminController);
@@ -104,87 +89,43 @@ describe(ParameterAdminController.name, () => {
   });
 
   describe('update', () => {
-    beforeEach(() => {
-      mockRegistry.findByKey.mockImplementation((key: string) => {
-        const entry = mockEntries.find((e) => e.key === key);
-        if (!entry) return undefined;
-        return { key: entry.key, type: entry.type, default: entry.default, group: entry.group, ttl: entry.ttl };
-      });
-    });
-
-    it('should update parameter value and return updated entry', async () => {
-      const nonOverriddenEntry: ParameterEntry = { ...mockEntries[1] };
+    it('should delegate to service and return the updated entry', async () => {
       const updatedEntry: ParameterEntry = {
-        ...nonOverriddenEntry,
+        ...mockEntries[1],
         value: 10,
       };
-
-      mockService.has.mockReturnValue(true);
-      mockService.getAll.mockResolvedValue([nonOverriddenEntry]);
-      mockService.set.mockResolvedValue(undefined);
-      mockRegistry.findByKey.mockReturnValue({
-        key: 'MAX_LOGIN_ATTEMPTS',
-        type: 'number',
-        default: 5,
-        group: 'auth',
-        ttl: 300,
-      });
-      // After update, return the modified entry
-      mockService.getAll.mockResolvedValueOnce([nonOverriddenEntry]);
-      mockService.getAll.mockResolvedValueOnce([updatedEntry]);
+      mockService.update.mockResolvedValue(updatedEntry);
 
       const result = await controller.update('MAX_LOGIN_ATTEMPTS', { value: '10' });
 
-      expect(result).toBeDefined();
-      expect(mockService.has).toHaveBeenCalledWith('MAX_LOGIN_ATTEMPTS');
-      expect(mockService.set).toHaveBeenCalledWith('MAX_LOGIN_ATTEMPTS', 10);
+      expect(mockService.update).toHaveBeenCalledWith('MAX_LOGIN_ATTEMPTS', '10');
+      expect(result).toEqual(updatedEntry);
     });
 
-    it('should throw NotFoundException for non-existent key', async () => {
-      mockService.has.mockReturnValue(false);
+    it('should propagate DomainError PARAMETER_NOT_FOUND from service', async () => {
+      mockService.update.mockRejectedValue(DomainError.fromKind('PARAMETER_NOT_FOUND'));
 
-      await expect(
-        controller.update('NONEXISTENT', { value: 'test' }),
-      ).rejects.toThrow(NotFoundException);
-
-      expect(mockService.set).not.toHaveBeenCalled();
+      await expect(controller.update('NONEXISTENT', { value: 'test' })).rejects.toBeInstanceOf(DomainError);
+      expect(mockService.update).toHaveBeenCalledWith('NONEXISTENT', 'test');
     });
 
-    it('should throw ConflictException for env-overridden parameter', async () => {
-      mockService.has.mockReturnValue(true);
-      mockService.getAll.mockResolvedValue(mockEntries);
+    it('should propagate DomainError PARAMETER_OVERRIDDEN from service', async () => {
+      mockService.update.mockRejectedValue(DomainError.fromKind('PARAMETER_OVERRIDDEN'));
 
-      await expect(
-        controller.update('EMAIL_PROVIDER', { value: 'new-value' }),
-      ).rejects.toThrow(ConflictException);
-
-      expect(mockService.set).not.toHaveBeenCalled();
+      await expect(controller.update('EMAIL_PROVIDER', { value: 'new-value' })).rejects.toBeInstanceOf(DomainError);
     });
 
-    it('should throw UnprocessableEntityException for invalid number value', async () => {
-      const numberEntry: ParameterEntry = {
-        key: 'MAX_LOGIN_ATTEMPTS',
-        type: 'number',
-        value: 5,
-        default: 5,
-        group: 'auth',
-        ttl: 300,
-        isOverridden: false,
-      };
+    it('should propagate DomainError PARAMETER_VALUE_INVALID from service', async () => {
+      mockService.update.mockRejectedValue(DomainError.fromKind('PARAMETER_VALUE_INVALID'));
 
-      mockService.has.mockReturnValue(true);
-      mockService.getAll.mockResolvedValue([numberEntry]);
-      mockRegistry.findByKey.mockReturnValue({
-        key: 'MAX_LOGIN_ATTEMPTS',
-        type: 'number',
-        default: 5,
-        group: 'auth',
-        ttl: 300,
-      });
+      await expect(controller.update('MAX_LOGIN_ATTEMPTS', { value: 'invalid' })).rejects.toBeInstanceOf(DomainError);
+    });
 
-      await expect(
-        controller.update('MAX_LOGIN_ATTEMPTS', { value: 'invalid' }),
-      ).rejects.toThrow(UnprocessableEntityException);
+    it('should rethrow the exact DomainError instance (no try/catch swallowing)', async () => {
+      const domainError = DomainError.fromKind('PARAMETER_OVERRIDDEN');
+      mockService.update.mockRejectedValue(domainError);
+
+      await expect(controller.update('EMAIL_PROVIDER', { value: 'new-value' })).rejects.toBe(domainError);
     });
   });
 });

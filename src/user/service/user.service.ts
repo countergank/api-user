@@ -1,4 +1,4 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
 import { Connection } from 'mongoose';
 import { randomUUID } from 'node:crypto';
@@ -10,12 +10,7 @@ import { PaginatedUserResponseDTO } from '../dto/paginated-user-response.dto';
 import { UserDTO } from '../dto/user.dto';
 import { EncodeService } from '../../encode/encode.service';
 import { User, UserRole } from '../entities/user.entity';
-import {
-  UserAlreadyDeletedError,
-  UserEmailAlreadyExistsError,
-  UserNameAlreadyExistsError,
-  UserNotFoundError,
-} from '../errors/error-instances.error';
+import { DomainError } from '../../common/errors/domain.error';
 import { UserRepository } from '../repository/user.repository';
 import { AuditAction } from '../../common/audit/audit.decorator';
 import { runInTransaction } from '../../common/utils/transaction';
@@ -50,10 +45,10 @@ export class UserService {
     ]);
 
     if (usernameAlreadyExists) {
-      throw new UserNameAlreadyExistsError();
+      throw DomainError.fromKind('ENTITY_NAME_ALREADY_EXISTS');
     }
     if (emailAlreadyExists) {
-      throw new UserEmailAlreadyExistsError();
+      throw DomainError.fromKind('ENTITY_EMAIL_ALREADY_EXISTS');
     }
     createUserDTO = plainToInstance(CreateUserDTO, createUserDTO);
     const newUser = createUserDTO.toEntity();
@@ -78,10 +73,10 @@ export class UserService {
     ]);
 
     if (usernameAlreadyExists) {
-      throw new UserNameAlreadyExistsError();
+      throw DomainError.fromKind('ENTITY_NAME_ALREADY_EXISTS');
     }
     if (emailAlreadyExists) {
-      throw new UserEmailAlreadyExistsError();
+      throw DomainError.fromKind('ENTITY_EMAIL_ALREADY_EXISTS');
     }
 
     const created = await this.userRepository.createWithRole(data);
@@ -97,7 +92,7 @@ export class UserService {
   async findById(id: string, opts?: { includePassword?: boolean }): Promise<User> {
     const user: User = await this.userRepository.findById(id, opts);
     if (!user) {
-      throw new UserNotFoundError();
+      throw DomainError.fromKind('USER_NOT_FOUND');
     }
     return user;
   }
@@ -149,7 +144,7 @@ export class UserService {
   async requestEmailChange(userId: string, newEmail: string): Promise<{ token: string; expires: Date; user: User }> {
     const existing = await this.findByEmail(newEmail);
     if (existing) {
-      throw new ConflictException('EMAIL_ALREADY_EXISTS');
+      throw DomainError.fromKind('EMAIL_ALREADY_EXISTS');
     }
 
     const user = await this.findById(userId);
@@ -198,27 +193,25 @@ export class UserService {
     const result = await runInTransaction(this.connection, async () => {
       const user = await this.userRepository.findById(id);
       if (!user) {
-        throw new UserNotFoundError();
+        throw DomainError.fromKind('USER_NOT_FOUND');
       }
 
       if (dto.email) {
         const emailConflict = await this.userRepository.existsByEmailExcludingSelf(dto.email, id);
         if (emailConflict) {
-          throw new UserEmailAlreadyExistsError();
+          throw DomainError.fromKind('ENTITY_EMAIL_ALREADY_EXISTS');
         }
       }
 
       if (dto.userName) {
         const nameConflict = await this.userRepository.existsByNameExcludingSelf(dto.userName, id);
         if (nameConflict) {
-          throw new UserNameAlreadyExistsError();
+          throw DomainError.fromKind('ENTITY_NAME_ALREADY_EXISTS');
         }
       }
 
       // Strip undefined values to avoid unintentionally unsetting fields
-      const updateData = Object.fromEntries(
-        Object.entries(dto).filter(([_, v]) => v !== undefined),
-      );
+      const updateData = Object.fromEntries(Object.entries(dto).filter(([_, v]) => v !== undefined));
 
       return this.userRepository.update(id, updateData);
     });
@@ -236,7 +229,7 @@ export class UserService {
   async deleteUser(id: string): Promise<{ userId: string }> {
     const user = await this.userRepository.findById(id);
     if (!user) {
-      throw new UserNotFoundError();
+      throw DomainError.fromKind('USER_NOT_FOUND');
     }
 
     // Idempotent: if already soft-deleted, return success without modifying
@@ -261,11 +254,11 @@ export class UserService {
   async toggleActiveUser(id: string): Promise<User> {
     const user = await this.userRepository.findById(id);
     if (!user) {
-      throw new UserNotFoundError();
+      throw DomainError.fromKind('USER_NOT_FOUND');
     }
 
     if (user.deletedAt) {
-      throw new UserAlreadyDeletedError();
+      throw DomainError.fromKind('USER_ALREADY_DELETED');
     }
 
     const newIsActive = !user.isActive;

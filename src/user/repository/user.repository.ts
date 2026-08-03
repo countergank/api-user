@@ -4,7 +4,7 @@ import { Model } from 'mongoose';
 import { escapeRegExp, isLocal } from '../../common/utils';
 import { EncodeService } from '../../encode/encode.service';
 import { User, UserRole } from '../entities/user.entity';
-import { UserPopulateError } from '../errors/error-instances.error';
+import { DomainError } from '../../common/errors/domain.error';
 import { SORTABLE_FIELDS } from '../dto/pagination-query.dto';
 
 @Injectable()
@@ -23,7 +23,7 @@ export class UserRepository implements OnApplicationBootstrap {
 
   private async populateUsers(): Promise<User> {
     try {
-      return this.createWithRole({
+      return await this.createWithRole({
         name: 'User',
         lastName: 'Root',
         email: 'countergank.ti@gmail.com',
@@ -35,7 +35,7 @@ export class UserRepository implements OnApplicationBootstrap {
       });
     } catch (error) {
       this.logger.error(error);
-      throw new UserPopulateError(error);
+      throw DomainError.fromKind('INTERNAL', { message: 'Failed to populate root user' });
     }
   }
 
@@ -134,7 +134,7 @@ export class UserRepository implements OnApplicationBootstrap {
     if (data.password) {
       const user = await this.userModel.findById(id).exec();
       if (!user) {
-        throw new Error(`User ${id} not found`);
+        throw DomainError.fromKind('USER_NOT_FOUND', { message: `User ${id} not found` });
       }
       user.set(data);
       return user.save();
@@ -170,12 +170,7 @@ export class UserRepository implements OnApplicationBootstrap {
     if (filters.search) {
       const searchRegex = new RegExp(escapeRegExp(filters.search), 'i');
       andConditions.push({
-        $or: [
-          { name: searchRegex },
-          { lastName: searchRegex },
-          { email: searchRegex },
-          { userName: searchRegex },
-        ],
+        $or: [{ name: searchRegex }, { lastName: searchRegex }, { email: searchRegex }, { userName: searchRegex }],
       });
     }
 
@@ -202,8 +197,6 @@ export class UserRepository implements OnApplicationBootstrap {
   }
 
   async softDelete(id: string): Promise<User> {
-    return this.userModel
-      .findByIdAndUpdate(id, { isActive: false, deletedAt: new Date() }, { new: true })
-      .exec();
+    return this.userModel.findByIdAndUpdate(id, { isActive: false, deletedAt: new Date() }, { new: true }).exec();
   }
 }

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { JwtService } from '@nestjs/jwt';
@@ -8,7 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { EmailEvents } from '../email/constants/email.events';
 import { User, UserRole } from '../user/entities/user.entity';
 import { UserService } from '../user/service/user.service';
-import { AccountLockedException } from '../common/errors/account-locked.exception';
+import { DomainError } from '../common/errors/domain.error';
 import { AuditAction } from '../common/audit/audit.decorator';
 import { runInTransaction } from '../common/utils/transaction';
 import { CacheService } from '../config/cache';
@@ -59,7 +59,7 @@ export class AuthService {
   ): Promise<AuthResponse> {
     const existing = await this.userService.existsByEmailOrUsername(email, userName);
     if (existing) {
-      throw new BadRequestException('EMAIL_OR_USERNAME_EXISTS');
+      throw DomainError.fromKind('EMAIL_OR_USERNAME_EXISTS');
     }
 
     const verificationToken = randomUUID();
@@ -99,12 +99,12 @@ export class AuthService {
   async login(email: string, password: string): Promise<AuthResponse> {
     const user = await this.userService.findByEmail(email, { includePassword: true });
     if (!user) {
-      throw new UnauthorizedException('INVALID_CREDENTIALS');
+      throw DomainError.fromKind('INVALID_CREDENTIALS');
     }
 
     // Check lockout BEFORE password validation (security: skip bcrypt if locked)
     if (user.lockedUntil && user.lockedUntil > new Date()) {
-      throw new AccountLockedException();
+      throw DomainError.fromKind('ACCOUNT_LOCKED');
     }
 
     const isValid = await this.userService.validatePassword(password, user.password);
@@ -122,7 +122,7 @@ export class AuthService {
       }
 
       await this.userService.update(user.id, updateData);
-      throw new UnauthorizedException('INVALID_CREDENTIALS');
+      throw DomainError.fromKind('INVALID_CREDENTIALS');
     }
 
     // Successful login: reset lockout state if it existed
@@ -134,7 +134,7 @@ export class AuthService {
     }
 
     if (!user.isActive) {
-      throw new UnauthorizedException('ACCOUNT_INACTIVE');
+      throw DomainError.fromKind('ACCOUNT_INACTIVE');
     }
 
     return this.generateAuthResponse(user);
@@ -189,7 +189,7 @@ export class AuthService {
   async resetPassword(token: string, newPassword: string, lang?: string): Promise<void> {
     const user = await this.userService.findByResetToken(token);
     if (!user || !user.resetPasswordExpires || user.resetPasswordExpires < new Date()) {
-      throw new BadRequestException('EXPIRED_RESET_TOKEN');
+      throw DomainError.fromKind('EXPIRED_RESET_TOKEN');
     }
 
     // Hash the new password before updating
@@ -219,7 +219,7 @@ export class AuthService {
   async verifyEmail(token: string): Promise<void> {
     const user = await this.userService.findByEmailVerificationToken(token);
     if (!user || !user.emailVerificationExpires || user.emailVerificationExpires < new Date()) {
-      throw new BadRequestException('EXPIRED_VERIFICATION_TOKEN');
+      throw DomainError.fromKind('EXPIRED_VERIFICATION_TOKEN');
     }
 
     await runInTransaction(this.connection, async () => {
@@ -239,12 +239,12 @@ export class AuthService {
   async confirmEmailChange(token: string, lang?: string): Promise<void> {
     const user = await this.userService.findByPendingEmailToken(token);
     if (!user || !user.pendingEmailExpires || user.pendingEmailExpires < new Date()) {
-      throw new BadRequestException('EXPIRED_CONFIRMATION_TOKEN');
+      throw DomainError.fromKind('EXPIRED_CONFIRMATION_TOKEN');
     }
 
     const newEmail = user.pendingEmail;
     if (!newEmail) {
-      throw new BadRequestException('NO_PENDING_EMAIL_CHANGE');
+      throw DomainError.fromKind('NO_PENDING_EMAIL_CHANGE');
     }
 
     await runInTransaction(this.connection, async () => {
@@ -297,16 +297,18 @@ export class AuthService {
     getResourceId: (result) => (result as AuthResponse).user.id,
   })
   async refreshToken(refreshToken: string): Promise<AuthResponse> {
+    let payload: JwtPayload;
     try {
-      const payload = this.jwtService.verify(refreshToken);
-      const user = await this.userService.findById(payload.sub);
-      if (!user) {
-        throw new UnauthorizedException('INVALID_TOKEN');
-      }
-      return this.generateAuthResponse(user);
+      payload = this.jwtService.verify(refreshToken) as JwtPayload;
     } catch {
-      throw new UnauthorizedException('INVALID_REFRESH_TOKEN');
+      throw DomainError.fromKind('INVALID_REFRESH_TOKEN');
     }
+
+    const user = await this.userService.findById(payload.sub);
+    if (!user) {
+      throw DomainError.fromKind('INVALID_TOKEN');
+    }
+    return this.generateAuthResponse(user);
   }
 
   private generateAuthResponse(user: User, verificationToken?: string): AuthResponse {

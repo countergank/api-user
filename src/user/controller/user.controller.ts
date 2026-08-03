@@ -1,19 +1,15 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Delete,
   Get,
   Inject,
-  InternalServerErrorException,
-  Logger,
   Param,
   Patch,
   Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
-import mongoose from 'mongoose';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -35,12 +31,6 @@ import { PaginatedUserResponseDTO } from '../dto/paginated-user-response.dto';
 import { UpdateUserDTO } from '../dto/update-user.dto';
 import { UserDTO } from '../dto/user.dto';
 import { User } from '../entities/user.entity';
-import {
-  UserAlreadyDeletedError,
-  UserEmailAlreadyExistsError,
-  UserNameAlreadyExistsError,
-  UserNotFoundError,
-} from '../errors/error-instances.error';
 import { UserService } from '../service/user.service';
 import { I18nService } from '../../common/i18n/i18n.service';
 import { RequestLang } from '../../common/decorators/request-lang.decorator';
@@ -55,7 +45,6 @@ import { RequestLang } from '../../common/decorators/request-lang.decorator';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN)
 export class UserController {
-  private readonly logger = new Logger(UserController.name);
   constructor(
     private readonly userService: UserService,
     @Inject(I18nService) private i18n: I18nService,
@@ -68,83 +57,44 @@ export class UserController {
   @CreateUserDoc()
   @Post()
   async create(@Body() createUserDTO: CreateUserDTO): Promise<CreateUserResponseDTO> {
-    try {
-      const user: User = await this.userService.createWithRole({
-        email: createUserDTO.email,
-        userName: createUserDTO.userName,
-        password: createUserDTO.password,
-        name: createUserDTO.name,
-        lastName: createUserDTO.lastName,
-        role: createUserDTO.role,
-        permissions: [],
-        isActive: true, // Admin crea usuarios activos
-      });
-      return CreateUserResponseDTO.of(user);
-    } catch (error) {
-      if (error instanceof UserNameAlreadyExistsError || error instanceof UserEmailAlreadyExistsError) {
-        throw new BadRequestException(error.getErrorPublic());
-      }
-      const err = error as Error;
-      this.logger.error(err.message, err.stack);
-      throw new InternalServerErrorException();
-    }
+    const user: User = await this.userService.createWithRole({
+      email: createUserDTO.email,
+      userName: createUserDTO.userName,
+      password: createUserDTO.password,
+      name: createUserDTO.name,
+      lastName: createUserDTO.lastName,
+      role: createUserDTO.role,
+      permissions: [],
+      isActive: true, // Admin crea usuarios activos
+    });
+    return CreateUserResponseDTO.of(user);
   }
 
   @FindAllUserDoc()
   @Get()
   async findAll(@Query() query?: PaginationQueryDTO): Promise<UserDTO[] | PaginatedUserResponseDTO<UserDTO>> {
-    try {
-      // Backward compat: if no page param, return plain array
-      if (!query || query.page === undefined) {
-        const users: User[] = await this.userService.findAll();
-        return users.map((user) => UserDTO.of(user));
-      }
-
-      // Paginated response
-      return this.userService.findPaginated(query);
-    } catch (error) {
-      const err = error as Error;
-      this.logger.error(err.message, err.stack);
-      throw new InternalServerErrorException();
+    // Backward compat: if no page param, return plain array
+    if (!query || query.page === undefined) {
+      const users: User[] = await this.userService.findAll();
+      return users.map((user) => UserDTO.of(user));
     }
+
+    // Paginated response
+    return this.userService.findPaginated(query);
   }
 
   @FindByIdUserDoc()
   @Get(':id')
   async findById(@Param('id') id: string): Promise<UserDTO> {
-    try {
-      const user: User = await this.userService.findById(id);
-      return UserDTO.of(user);
-    } catch (error) {
-      if (error instanceof UserNotFoundError) {
-        throw new BadRequestException(error.getErrorPublic());
-      }
-      if (error instanceof mongoose.Error.CastError) {
-        throw new BadRequestException('INVALID_USER_ID');
-      }
-      const err = error as Error;
-      this.logger.error(err.message, err.stack);
-      throw new InternalServerErrorException();
-    }
+    const user: User = await this.userService.findById(id);
+    return UserDTO.of(user);
   }
 
   @UnlockUserDoc()
   @Patch(':id/unlock')
   async unlock(@Param('id') id: string, @RequestLang() lang: string | undefined): Promise<{ message: string; userId: string }> {
-    try {
-      await this.userService.unlockUser(id);
-      return { message: await this.t('messages.account_unlocked', lang), userId: id };
-    } catch (error) {
-      if (error instanceof UserNotFoundError) {
-        throw new BadRequestException(error.getErrorPublic());
-      }
-      if (error instanceof mongoose.Error.CastError) {
-        throw new BadRequestException('INVALID_USER_ID');
-      }
-      const err = error as Error;
-      this.logger.error(err.message, err.stack);
-      throw new InternalServerErrorException();
-    }
+    await this.userService.unlockUser(id);
+    return { message: await this.t('messages.account_unlocked', lang), userId: id };
   }
 
   @UpdateUserDoc()
@@ -155,24 +105,8 @@ export class UserController {
   })
   @Patch(':id')
   async update(@Param('id') id: string, @Body() dto: UpdateUserDTO): Promise<UserDTO> {
-    try {
-      const user: User = await this.userService.updateUser(id, dto);
-      return UserDTO.of(user);
-    } catch (error) {
-      if (
-        error instanceof UserNotFoundError ||
-        error instanceof UserNameAlreadyExistsError ||
-        error instanceof UserEmailAlreadyExistsError
-      ) {
-        throw new BadRequestException(error.getErrorPublic());
-      }
-      if (error instanceof mongoose.Error.CastError) {
-        throw new BadRequestException('INVALID_USER_ID');
-      }
-      const err = error as Error;
-      this.logger.error(err.message, err.stack);
-      throw new InternalServerErrorException();
-    }
+    const user: User = await this.userService.updateUser(id, dto);
+    return UserDTO.of(user);
   }
 
   @DeleteUserDoc()
@@ -183,20 +117,8 @@ export class UserController {
   })
   @Delete(':id')
   async delete(@Param('id') id: string, @RequestLang() lang: string | undefined): Promise<{ message: string; userId: string }> {
-    try {
-      const result = await this.userService.deleteUser(id);
-      return { message: await this.t('messages.user_deleted', lang), userId: result.userId };
-    } catch (error) {
-      if (error instanceof UserNotFoundError) {
-        throw new BadRequestException(error.getErrorPublic());
-      }
-      if (error instanceof mongoose.Error.CastError) {
-        throw new BadRequestException('INVALID_USER_ID');
-      }
-      const err = error as Error;
-      this.logger.error(err.message, err.stack);
-      throw new InternalServerErrorException();
-    }
+    const result = await this.userService.deleteUser(id);
+    return { message: await this.t('messages.user_deleted', lang), userId: result.userId };
   }
 
   @ToggleActiveDoc()
@@ -207,19 +129,7 @@ export class UserController {
   })
   @Patch(':id/active')
   async toggleActive(@Param('id') id: string): Promise<UserDTO> {
-    try {
-      const user: User = await this.userService.toggleActiveUser(id);
-      return UserDTO.of(user);
-    } catch (error) {
-      if (error instanceof UserNotFoundError || error instanceof UserAlreadyDeletedError) {
-        throw new BadRequestException(error.getErrorPublic());
-      }
-      if (error instanceof mongoose.Error.CastError) {
-        throw new BadRequestException('INVALID_USER_ID');
-      }
-      const err = error as Error;
-      this.logger.error(err.message, err.stack);
-      throw new InternalServerErrorException();
-    }
+    const user: User = await this.userService.toggleActiveUser(id);
+    return UserDTO.of(user);
   }
 }

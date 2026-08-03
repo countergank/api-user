@@ -6,7 +6,7 @@ import { Message } from '../../common/class/message.class';
 import { versionStructure } from '../../common/utils/global';
 import { MicroservicesNames } from '../../config/custom-providers/microservices-names.enum';
 import { Version } from '../class/version.class';
-import { AppVersionNotFoundError } from '../errors/error-instances.error';
+import { DomainError } from '../../common/errors/domain.error';
 
 @Injectable()
 export class AppService {
@@ -33,7 +33,7 @@ export class AppService {
     const version = this.configService.getOrThrow('npm_package_version');
 
     if (!packageName || !env || !version) {
-      throw new AppVersionNotFoundError();
+      throw DomainError.fromKind('APP_VERSION_NOT_FOUND');
     }
 
     return new Version({ version: versionStructure(packageName, env, version) });
@@ -41,7 +41,7 @@ export class AppService {
 
   async messageMicroservice(messagePattern: string, body: Message<unknown>): Promise<Message<unknown>> {
     if (!this.microserviceEnabled || !this.client) {
-      throw new Error('ExampleMicroservice is disabled or not available.');
+      throw DomainError.fromKind('MICROSERVICE_UNAVAILABLE');
     }
     const microserviceRespDTO = await lastValueFrom(
       this.client.send<Message<unknown>, Message<unknown>>(messagePattern, body),

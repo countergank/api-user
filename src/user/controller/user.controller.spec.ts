@@ -1,4 +1,3 @@
-import { BadRequestException, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getConnectionToken } from '@nestjs/mongoose';
 import { Mock } from '../../../test/helpers';
@@ -8,12 +7,6 @@ import { UpdateUserDTO } from '../dto/update-user.dto';
 import { PaginationQueryDTO } from '../dto/pagination-query.dto';
 import { PaginatedUserResponseDTO } from '../dto/paginated-user-response.dto';
 import { User } from '../entities/user.entity';
-import {
-  UserAlreadyDeletedError,
-  UserEmailAlreadyExistsError,
-  UserNameAlreadyExistsError,
-  UserNotFoundError,
-} from '../errors/error-instances.error';
 import { CreateUserDTOMock } from '../mocks/create-user-dto.mock';
 import { UpdateUserDTOMock } from '../mocks/update-user-dto.mock';
 import { UserMock } from '../mocks/user.mock';
@@ -60,18 +53,6 @@ describe(UserController.name, () => {
       jest.spyOn(userService, 'createWithRole').mockResolvedValue(user);
       await expect(controller.create(createUserDTO)).resolves.toBeInstanceOf(CreateUserResponseDTO);
     });
-    it(`should return a ${UserEmailAlreadyExistsError.name}`, async () => {
-      jest.spyOn(userService, 'createWithRole').mockRejectedValueOnce(new UserEmailAlreadyExistsError());
-      await expect(controller.create(createUserDTO)).rejects.toThrow(BadRequestException);
-    });
-    it(`should return a ${UserNameAlreadyExistsError.name}`, async () => {
-      jest.spyOn(userService, 'createWithRole').mockRejectedValueOnce(new UserNameAlreadyExistsError());
-      await expect(controller.create(createUserDTO)).rejects.toThrow(BadRequestException);
-    });
-    it(`should return a ${InternalServerErrorException.name}`, async () => {
-      jest.spyOn(userService, 'createWithRole').mockRejectedValueOnce(new Error('Error from test'));
-      await expect(controller.create(createUserDTO)).rejects.toThrow(InternalServerErrorException);
-    });
   });
 
   describe(`${UserController.name}.${UserController.prototype.findById.name}`, () => {
@@ -80,26 +61,12 @@ describe(UserController.name, () => {
       jest.spyOn(userService, 'findById').mockResolvedValue(user);
       await expect(controller.findById(user.id)).resolves.toBeInstanceOf(UserDTO);
     });
-    it(`should return a ${UserNotFoundError.name}`, async () => {
-      const user = new UserMock();
-      jest.spyOn(userService, 'findById').mockRejectedValueOnce(new UserNotFoundError());
-      await expect(controller.findById(user.id)).rejects.toThrow(BadRequestException);
-    });
-
-    it(`should return a ${InternalServerErrorException.name}`, async () => {
-      jest.spyOn(userService, 'findById').mockRejectedValueOnce(new Error('Error from test'));
-      await expect(controller.findById(user.id)).rejects.toThrow(InternalServerErrorException);
-    });
   });
 
   describe(`${UserController.name}.${UserController.prototype.findAll.name}`, () => {
     it(`should be return a ${User.name}`, async () => {
       jest.spyOn(userService, 'findAll').mockResolvedValue([new UserMock()]);
       await expect(controller.findAll()).resolves.toBeInstanceOf(Array<UserDTO>);
-    });
-    it(`should return a ${InternalServerErrorException.name}`, async () => {
-      jest.spyOn(userService, 'findAll').mockRejectedValueOnce(new Error('Error from test'));
-      await expect(controller.findAll()).rejects.toThrow(InternalServerErrorException);
     });
 
     it('should return paginated envelope when page param is present', async () => {
@@ -152,15 +119,6 @@ describe(UserController.name, () => {
 
       expect(userService.findPaginated).toHaveBeenCalledWith(filters);
     });
-
-    it('should return 500 when findPaginated throws unexpected error', async () => {
-      const filters: PaginationQueryDTO = { page: 1, limit: 20, sortBy: 'createdAt', sortOrder: 'desc' };
-      jest.spyOn(userService, 'findPaginated').mockImplementation(() => {
-        throw new Error('DB connection lost');
-      });
-
-      await expect(controller.findAll(filters)).rejects.toThrow(InternalServerErrorException);
-    });
   });
 
   describe(`${UserController.name}.${UserController.prototype.unlock.name}`, () => {
@@ -172,16 +130,6 @@ describe(UserController.name, () => {
         message: 'messages.account_unlocked',
         userId: user.id,
       });
-    });
-
-    it(`should return a ${UserNotFoundError.name}`, async () => {
-      jest.spyOn(userService, 'unlockUser').mockRejectedValueOnce(new UserNotFoundError());
-      await expect(controller.unlock(user.id, undefined)).rejects.toThrow(BadRequestException);
-    });
-
-    it(`should return a ${InternalServerErrorException.name}`, async () => {
-      jest.spyOn(userService, 'unlockUser').mockRejectedValueOnce(new Error('Error from test'));
-      await expect(controller.unlock(user.id, undefined)).rejects.toThrow(InternalServerErrorException);
     });
   });
 
@@ -196,26 +144,6 @@ describe(UserController.name, () => {
     it(`should update a ${User.name} and return ${UserDTO.name}`, async () => {
       jest.spyOn(userService, 'updateUser').mockResolvedValue(user);
       await expect(controller.update(user.id, updateDto)).resolves.toBeInstanceOf(UserDTO);
-    });
-
-    it(`should return ${BadRequestException} when ${UserNotFoundError.name}`, async () => {
-      jest.spyOn(userService, 'updateUser').mockRejectedValueOnce(new UserNotFoundError());
-      await expect(controller.update(user.id, updateDto)).rejects.toThrow(BadRequestException);
-    });
-
-    it(`should return ${BadRequestException} when ${UserEmailAlreadyExistsError.name}`, async () => {
-      jest.spyOn(userService, 'updateUser').mockRejectedValueOnce(new UserEmailAlreadyExistsError());
-      await expect(controller.update(user.id, updateDto)).rejects.toThrow(BadRequestException);
-    });
-
-    it(`should return ${BadRequestException} when ${UserNameAlreadyExistsError.name}`, async () => {
-      jest.spyOn(userService, 'updateUser').mockRejectedValueOnce(new UserNameAlreadyExistsError());
-      await expect(controller.update(user.id, updateDto)).rejects.toThrow(BadRequestException);
-    });
-
-    it(`should return ${InternalServerErrorException.name} on unexpected error`, async () => {
-      jest.spyOn(userService, 'updateUser').mockRejectedValueOnce(new Error('DB connection lost'));
-      await expect(controller.update(user.id, updateDto)).rejects.toThrow(InternalServerErrorException);
     });
   });
 
@@ -237,18 +165,6 @@ describe(UserController.name, () => {
       const result = await controller.delete(user.id, undefined);
       expect(result).toEqual({ message: 'messages.user_deleted', userId: user.id });
     });
-
-    it(`should return a ${UserNotFoundError.name}`, async () => {
-      jest.spyOn(userService, 'deleteUser').mockRejectedValueOnce(new UserNotFoundError());
-      await expect(controller.delete(user.id, undefined)).rejects.toThrow(BadRequestException);
-    });
-
-    it(`should return ${InternalServerErrorException.name} on unexpected error`, async () => {
-      jest.spyOn(userService, 'deleteUser').mockImplementation(() => {
-        throw new Error('DB connection lost');
-      });
-      await expect(controller.delete(user.id, undefined)).rejects.toThrow(InternalServerErrorException);
-    });
   });
 
   describe(`${UserController.name}.${UserController.prototype.toggleActive.name}`, () => {
@@ -262,21 +178,6 @@ describe(UserController.name, () => {
       const toggledUser = { ...user, isActive: false };
       jest.spyOn(userService, 'toggleActiveUser').mockResolvedValue(toggledUser);
       await expect(controller.toggleActive(user.id)).resolves.toBeInstanceOf(UserDTO);
-    });
-
-    it(`should return ${BadRequestException.name} when ${UserNotFoundError.name}`, async () => {
-      jest.spyOn(userService, 'toggleActiveUser').mockRejectedValueOnce(new UserNotFoundError());
-      await expect(controller.toggleActive(user.id)).rejects.toThrow(BadRequestException);
-    });
-
-    it(`should return ${BadRequestException.name} when ${UserAlreadyDeletedError.name}`, async () => {
-      jest.spyOn(userService, 'toggleActiveUser').mockRejectedValueOnce(new UserAlreadyDeletedError());
-      await expect(controller.toggleActive(user.id)).rejects.toThrow(BadRequestException);
-    });
-
-    it(`should return ${InternalServerErrorException.name} on unexpected error`, async () => {
-      jest.spyOn(userService, 'toggleActiveUser').mockRejectedValueOnce(new Error('DB connection lost'));
-      await expect(controller.toggleActive(user.id)).rejects.toThrow(InternalServerErrorException);
     });
   });
 });

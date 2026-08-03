@@ -2,14 +2,18 @@
 
 ## Overview & Scope
 
-This capability defines the unified error handling system established in Phase 1 of COU-203:
+This capability defines the unified error handling system for the api-user service:
+
 - ErrorResponseDto with traceId and timestamp for all errors
 - TraceIdMiddleware that captures request ID and sets x-trace-id header
 - AllExceptionsFilter that catches and formats all exceptions using ErrorResponseDto
-- DomainError class with ErrorKind registry for standardized error codes
+- DomainError class with ErrorKind registry for standardized error codes (29 kinds)
 - ValidationPipe that produces ErrorResponseDto-shaped validation errors
+- Services, repositories, and guards throw `DomainError.fromKind(ErrorKind.*)` instead of legacy error classes or raw `HttpException`
+- Controllers delegate error handling entirely to AllExceptionsFilter (zero try/catch blocks)
+- AllExceptionsFilter translates error messages via i18n respecting `Accept-Language` (es/en/pt) with fallback to default message
 
-*Focus is on Phase 1 foundation only - existing ErrorBase hierarchy remains preserved during phased migration.*
+Established in COU-203 (Phase 1 foundation: ErrorResponseDto, TraceIdMiddleware, AllExceptionsFilter, DomainError, ValidationPipe), completed in COU-208 (full migration from legacy error classes to `DomainError.fromKind` pattern across user/app services, repository, and controllers, plus i18n translation of error messages), and extended in COU-209 (migration of auth, email template, parameters, guards, user-profile, and app service errors to `DomainError.fromKind`; removal of the legacy `ErrorBase` hierarchy and 13 legacy error files; 14 new i18n keys completing full translation coverage for all 29 ErrorKind values in en/es/pt).
 
 ## ErrorResponseDto
 
@@ -31,7 +35,7 @@ interface ErrorResponseDto {
 |-------|------|----------|-------------|
 | statusCode | number | YES | HTTP status code (e.g., 404, 400, 500) |
 | code | string | YES | Error code - accepts both backend-template format and api-user UA-{GROUP}-{CODE} format |
-| message | string | YES | Error message, i18n-translated if DomainError provides I18nService |
+| message | string | YES | Error message, i18n-translated respecting Accept-Language with fallback to default |
 | details | any | NO | Additional error context or validation error details |
 | traceId | string | YES | Unique trace ID for request correlation (provided by TraceIdMiddleware) |
 | timestamp | string | YES | ISO 8601 timestamp of error occurrence |
@@ -75,8 +79,8 @@ Sample value: `req_abc123def456`
 
 Filter catches exceptions in this order:
 
-1. **DomainError** → Convert to HttpException with ErrorResponseDto format
-2. **HttpException** → Preserve existing behavior but enrich with traceId/timestamp
+1. **DomainError** → Convert to HttpException with ErrorResponseDto format, message translated via i18n
+2. **HttpException** → Preserve existing behavior but enrich with traceId/timestamp; translate message via i18n if a translation key exists
 3. **ErrorBase** → Convert to HttpException with ErrorResponseDto format
 4. **Error** → Convert to generic HttpException with ErrorResponseDto format
 
@@ -84,7 +88,10 @@ Filter catches exceptions in this order:
 
 - Injects traceId from request (set by TraceIdMiddleware) into ErrorResponseDto
 - Injects ISO 8601 timestamp into ErrorResponseDto
-- Preserves i18n capability via I18nService (api-user already has this)
+- Translates `DomainError` messages via `I18nService.translate('errors.{kind}', lang)` where `lang` is resolved from the `Accept-Language` request header (es/en/pt)
+- Falls back to the hardcoded default message when no translation exists (MUST NOT crash)
+- Handles i18n for `HttpException` messages when the message matches a translation key
+- Language resolution uses the request's `Accept-Language` header (the filter cannot rely on `I18nContext.current()` because AsyncLocalStorage context is lost inside exception filters)
 - Logs to nestjs-pino with appropriate error levels:
   - WARN for recoverable errors (HttpException)
   - ERROR for unrecoverable errors (ErrorBase, Error)
@@ -99,7 +106,7 @@ All exceptions return ErrorResponseDto regardless of type:
 {
     "statusCode": 404,
     "code": "UA-USR-001",
-    "message": "User not found",
+    "message": "Usuario no encontrado",
     "details": null,
     "traceId": "req_abc123def456",
     "timestamp": "2026-01-01T12:00:00.000Z"
@@ -126,16 +133,58 @@ class DomainError extends Error {
 
 ### ErrorKind Registry
 
-Registry structure:
+Registry structure (as const object, single source of truth in `src/common/errors/error-kind.ts`):
 
 ```typescript
 const ErrorKind = {
-    ENTITY_NOT_FOUND: "ENTITY_NOT_FOUND",      // backend-template style
-    UA_AUTH_001: "UA-AUTH-001",               // api-user style
-    UA_USR_001: "UA-USR-001",                 // api-user style
-    // ... more entries
+    USER_NOT_FOUND: {
+        kind: 'USER_NOT_FOUND',
+        group: 'USR',
+        code: 'UA-USR-001',
+        statusCode: 404,
+        defaultMessage: 'User not found',
+    },
+    // ... 28 more entries
 };
 ```
+
+Every entry defines `kind`, `group`, `code` (UA-{GROUP}-{CODE} format), `statusCode`, and `defaultMessage`.
+
+Full registry (29 kinds):
+
+| Kind | Group | Code | Status |
+|------|-------|------|--------|
+| INTERNAL | COM | UA-COM-001 | 500 |
+| ENTITY_NOT_FOUND | COM | UA-COM-002 | 404 |
+| ENTITY_NAME_ALREADY_EXISTS | COM | UA-COM-003 | 409 |
+| ENTITY_EMAIL_ALREADY_EXISTS | COM | UA-COM-004 | 409 |
+| VALIDATION_ERROR | COM | UA-COM-005 | 400 |
+| APP_ERROR | APP | UA-APP-001 | 500 |
+| APP_VERSION_NOT_FOUND | APP | UA-APP-002 | 404 |
+| MICROSERVICE_UNAVAILABLE | APP | UA-APP-003 | 503 |
+| USER_NOT_FOUND | USR | UA-USR-001 | 404 |
+| USER_ALREADY_DELETED | USR | UA-USR-002 | 410 |
+| CURRENT_PASSWORD_INCORRECT | USR | UA-USR-003 | 400 |
+| EMAIL_ALREADY_EXISTS | USR | UA-USR-004 | 409 |
+| EMAIL_OR_USERNAME_EXISTS | AUTH | UA-AUTH-001 | 409 |
+| INVALID_CREDENTIALS | AUTH | UA-AUTH-002 | 401 |
+| ACCOUNT_LOCKED | AUTH | UA-AUTH-003 | 423 |
+| ACCOUNT_INACTIVE | AUTH | UA-AUTH-004 | 401 |
+| EXPIRED_RESET_TOKEN | AUTH | UA-AUTH-005 | 400 |
+| EXPIRED_VERIFICATION_TOKEN | AUTH | UA-AUTH-006 | 400 |
+| EXPIRED_CONFIRMATION_TOKEN | AUTH | UA-AUTH-007 | 400 |
+| NO_PENDING_EMAIL_CHANGE | AUTH | UA-AUTH-008 | 400 |
+| INVALID_REFRESH_TOKEN | AUTH | UA-AUTH-009 | 401 |
+| INVALID_TOKEN | SEC | UA-SEC-001 | 401 |
+| FORBIDDEN | SEC | UA-SEC-002 | 403 |
+| TEMPLATE_SLUG_ALREADY_EXISTS | EML | UA-EML-001 | 409 |
+| TEMPLATE_NOT_FOUND | EML | UA-EML-002 | 404 |
+| TEMPLATE_FILE_NOT_FOUND | EML | UA-EML-003 | 400 |
+| PARAMETER_NOT_FOUND | PAR | UA-PAR-001 | 404 |
+| PARAMETER_OVERRIDDEN | PAR | UA-PAR-002 | 409 |
+| PARAMETER_VALUE_INVALID | PAR | UA-PAR-003 | 422 |
+
+All 29 kinds have matching i18n keys in en, es, and pt under the `errors.{kind}` pattern.
 
 ### Static Factory
 
@@ -147,8 +196,167 @@ const ErrorKind = {
 
 ### Message Resolution
 
-- With I18nService: `i18n.t('error.domain.ENTITY_NOT_FOUND')`
+- With I18nService: `I18nService.translate('errors.{kind}', lang)` (e.g. `I18nService.translate('errors.USER_NOT_FOUND', lang)`)
 - Without I18nService: fallback to hardcoded English message
+
+## Service & Repository Error Throwing
+
+### Requirement: Services use DomainError.fromKind for all domain errors
+
+The system MUST throw `DomainError.fromKind(ErrorKind.*)` in all services and the repository instead of throwing legacy error classes. This eliminates legacy error class usage in service layers.
+
+#### Scenario: User service throws DomainError
+
+- GIVEN a user service method receiving invalid input (e.g., user ID not found)
+- WHEN the service attempts to find or modify the user
+- THEN service MUST throw `DomainError.fromKind(ErrorKind.USER_NOT_FOUND, { id })` instead of legacy `UserNotFoundError`
+
+#### Scenario: Repository throws DomainError
+
+- GIVEN a repository operation fails (e.g., population error in user seeder)
+- WHEN repository attempts to load related entities
+- THEN repository MUST throw `DomainError.fromKind(ErrorKind.INTERNAL)` instead of legacy `UserPopulateError`
+
+#### Scenario: App service throws DomainError
+
+- GIVEN application startup process attempts to load missing version
+- WHEN version service processes version identifier
+- THEN service MUST throw `DomainError.fromKind(ErrorKind.APP_VERSION_NOT_FOUND, { version })` instead of legacy `AppVersionNotFoundError`
+
+## Controller Error Delegation
+
+### Requirement: Controllers delegate errors without try/catch
+
+The system MUST have controllers that delegate error handling entirely to AllExceptionsFilter without catching domain errors. All try/catch blocks that catch domain errors MUST be removed from controllers.
+
+#### Scenario: Controller delegates User service errors
+
+- GIVEN a controller endpoint calls user service with invalid input
+- WHEN controller delegates to service method
+- THEN controller MUST NOT catch `DomainError`, MUST allow exception to propagate to AllExceptionsFilter
+- AND service `DomainError` MUST be caught by AllExceptionsFilter before HttpException
+
+#### Scenario: Controller delegates App service errors
+
+- GIVEN a controller endpoint calls app service with missing resource
+- WHEN controller delegates to service method
+- THEN controller MUST NOT catch `DomainError`, MUST allow exception to propagate to AllExceptionsFilter
+- AND service `DomainError` MUST be caught by AllExceptionsFilter before HttpException
+
+## ErrorKind Coverage (COU-209)
+
+### Requirement: All domain error kinds across migrated modules
+
+The system MUST throw `DomainError.fromKind(ErrorKind.*)` for every domain error across auth, email templates, parameters, guards, user-profile, and app service errors, replacing raw `HttpException` throws and legacy error classes.
+
+#### Scenario: Auth service throws DomainError kinds
+
+- GIVEN auth service register/login/reset/verify/refresh flows
+- WHEN any auth validation fails
+- THEN service MUST throw `DomainError.fromKind` with the matching kind: EMAIL_OR_USERNAME_EXISTS, INVALID_CREDENTIALS, ACCOUNT_LOCKED, ACCOUNT_INACTIVE, EXPIRED_RESET_TOKEN, EXPIRED_VERIFICATION_TOKEN, EXPIRED_CONFIRMATION_TOKEN, NO_PENDING_EMAIL_CHANGE, INVALID_TOKEN, INVALID_REFRESH_TOKEN
+
+#### Scenario: Email template service throws DomainError
+
+- GIVEN email template service create/resolve/load flows
+- WHEN slug conflict, missing template, or missing file is detected
+- THEN service MUST throw `DomainError.fromKind(ErrorKind.TEMPLATE_*)` (TEMPLATE_SLUG_ALREADY_EXISTS, TEMPLATE_NOT_FOUND, TEMPLATE_FILE_NOT_FOUND)
+
+#### Scenario: Parameters service throws DomainError
+
+- GIVEN parameters service get/set flows
+- WHEN parameter is missing, env-overridden, or value type is invalid
+- THEN service MUST throw `DomainError.fromKind(ErrorKind.PARAMETER_*)` (PARAMETER_NOT_FOUND, PARAMETER_OVERRIDDEN, PARAMETER_VALUE_INVALID)
+
+#### Scenario: Guards throw DomainError
+
+- GIVEN jwt-auth / roles / permissions guards
+- WHEN token is invalid or user lacks required role/permission
+- THEN guard MUST throw `DomainError.fromKind(ErrorKind.INVALID_TOKEN | FORBIDDEN)`
+
+#### Scenario: User profile and user service throw DomainError
+
+- GIVEN user profile change password with wrong current password
+- WHEN changePassword validates the current password
+- THEN controller MUST throw `DomainError.fromKind(ErrorKind.CURRENT_PASSWORD_INCORRECT)`
+- AND user service email change to an already-used email MUST throw `DomainError.fromKind(ErrorKind.EMAIL_ALREADY_EXISTS)`
+
+#### Scenario: Parameter admin controller delegates without try/catch
+
+- GIVEN parameter admin controller with invalid parameter key or value
+- WHEN controller calls parameter service method
+- THEN controller MUST NOT catch errors or throw HttpException directly
+- AND service MUST throw `DomainError.fromKind(ErrorKind.PARAMETER_*)` propagated to AllExceptionsFilter
+
+### Requirement: defaults.decorator Swagger types point to ErrorResponseDto
+
+The system MUST re-point the Swagger response DTOs in `defaults.decorator.ts` from the legacy `bad-request.error.ts` / `internal-server.error.ts` types to `ErrorResponseDto`, after those legacy DTO files are removed.
+
+#### Scenario: Swagger docs use ErrorResponseDto
+
+- GIVEN an endpoint decorated with applyDocsDecorators
+- WHEN Swagger UI renders the error responses
+- THEN the documented response type MUST be ErrorResponseDto
+- AND no reference to bad-request.error.ts or internal-server.error.ts MUST remain
+
+### Requirement: Legacy ErrorBase hierarchy is removed
+
+The system MUST remove the legacy `ErrorBase` error hierarchy, legacy error dictionaries, and the legacy error filter once all their consumers have migrated to `DomainError.fromKind`. Removed files (COU-209):
+
+- `src/common/errors/error-base/error-base.ts`, `error-base.enums.ts`, `error-base.helpers.ts`, `error-base.types.ts`
+- `src/common/errors/error/error-instances.error.ts`, `error/error.dictionary.ts`
+- `src/app/errors/error-instances.error.ts`, `src/app/errors/error.dictionary.ts`
+- `src/user/errors/error.dictionary.ts`
+- `src/common/errors/error-filter.ts`
+- `src/common/errors/bad-request.error.ts`, `src/common/errors/internal-server.error.ts`
+- `src/common/errors/account-locked.exception.ts`
+
+## i18n Error Translations (COU-209)
+
+### Requirement: Every ErrorKind value has a translation key in all supported languages
+
+The system MUST have an `errors.{kind}` translation key for every value in the ErrorKind registry (29 kinds), in en, es, and pt. The `AllExceptionsFilter` MUST resolve `DomainError` messages through `errors.${exception.kind.kind}` (implemented in `all-exceptions.filter.ts`) so no domain error falls back to the English `defaultMessage`.
+
+Fifteen registry kinds already had matching translation keys from legacy auth-style i18n usage; COU-209 added the 14 missing keys in all three languages: `INTERNAL`, `APP_ERROR`, `APP_VERSION_NOT_FOUND`, `ENTITY_NOT_FOUND`, `ENTITY_NAME_ALREADY_EXISTS`, `ENTITY_EMAIL_ALREADY_EXISTS`, `USER_ALREADY_DELETED`, `TEMPLATE_SLUG_ALREADY_EXISTS`, `TEMPLATE_NOT_FOUND`, `TEMPLATE_FILE_NOT_FOUND`, `PARAMETER_NOT_FOUND`, `PARAMETER_OVERRIDDEN`, `PARAMETER_VALUE_INVALID`, `MICROSERVICE_UNAVAILABLE`.
+
+#### Scenario: New common kind INTERNAL translates in Portuguese
+
+- GIVEN a `DomainError` with kind `INTERNAL`
+- AND a request with `Accept-Language: pt`
+- WHEN `AllExceptionsFilter` processes the error
+- THEN the response message MUST be "Erro interno do servidor"
+
+#### Scenario: New email template kind translates in Spanish
+
+- GIVEN a `DomainError` with kind `TEMPLATE_NOT_FOUND`
+- AND a request with `Accept-Language: es`
+- WHEN `AllExceptionsFilter` processes the error
+- THEN the response message MUST be "Plantilla no encontrada"
+
+#### Scenario: New parameter kind translates in Portuguese
+
+- GIVEN a `DomainError` with kind `PARAMETER_NOT_FOUND`
+- AND a request with `Accept-Language: pt`
+- WHEN `AllExceptionsFilter` processes the error
+- THEN the response message MUST be "Parâmetro não encontrado"
+
+#### Scenario: Missing translations fall back to defaultMessage
+
+- GIVEN a `DomainError` with a kind that has no `errors.{kind}` translation
+- AND a request with `Accept-Language: es`
+- WHEN `AllExceptionsFilter` processes the error
+- THEN the response message MUST be the kind's `defaultMessage`
+- AND the raw i18n key MUST NOT be returned to the client
+
+### Requirement: Existing auth-style keys keep resolving after migration
+
+The system MUST retain the existing auth-style keys (`EMAIL_OR_USERNAME_EXISTS`, `INVALID_CREDENTIALS`, `ACCOUNT_LOCKED`, `ACCOUNT_INACTIVE`, `EXPIRED_RESET_TOKEN`, `EXPIRED_VERIFICATION_TOKEN`, `EXPIRED_CONFIRMATION_TOKEN`, `NO_PENDING_EMAIL_CHANGE`, `INVALID_TOKEN`, `INVALID_REFRESH_TOKEN`, `CURRENT_PASSWORD_INCORRECT`, `EMAIL_ALREADY_EXISTS`, `FORBIDDEN`) so converting auth `HttpException` throws to `DomainError.fromKind(...)` produces the same localized messages.
+
+#### Scenario: INVALID_CREDENTIALS translates in English
+
+- GIVEN a `DomainError` with kind `INVALID_CREDENTIALS`
+- AND a request with `Accept-Language: en`
+- WHEN `AllExceptionsFilter` processes the error
+- THEN the response message MUST be "Invalid credentials"
 
 ## ValidationPipe
 
@@ -211,10 +419,30 @@ Validation errors return:
 - WHEN validation pipe processes the request
 - THEN error response MUST contain ErrorResponseDto with traceId and timestamp
 
+#### User Service Throws DomainError
+- GIVEN a user service method with invalid input (user ID not found)
+- WHEN the service attempts to find or modify the user
+- THEN error response MUST contain ErrorResponseDto with DomainError kind (e.g. USER_NOT_FOUND)
+
+#### Repository Throws DomainError
+- GIVEN a repository operation fails (e.g., population error in user seeder)
+- WHEN repository attempts to load related entities
+- THEN repository MUST throw DomainError.fromKind(ErrorKind.INTERNAL)
+
+#### App Service Throws DomainError
+- GIVEN application startup attempts to load a missing version
+- WHEN version service processes the version identifier
+- THEN service MUST throw DomainError.fromKind(ErrorKind.APP_VERSION_NOT_FOUND)
+
 #### DomainError Translation
-- GIVEN a DomainError with i18n service
+- GIVEN a DomainError with i18n service available
 - WHEN error is caught by AllExceptionsFilter
-- THEN error message MUST be translated via i18n service
+- THEN error message MUST be translated via `I18nService.translate('errors.USER_NOT_FOUND', lang)` respecting the `Accept-Language` header
+
+#### HttpException Translation
+- GIVEN an HttpException whose message matches an i18n error key
+- WHEN error is caught by AllExceptionsFilter
+- THEN response message SHOULD use the i18n translation respecting `Accept-Language`
 
 #### ValidationPipe Error Isolation
 - GIVEN a request with mixed valid and invalid fields
@@ -246,12 +474,20 @@ All criteria MUST pass before apply is complete:
 2. **TraceId Consistency**: traceId in response MUST match x-trace-id header value
 3. **Filter Priority**: DomainError MUST be caught before HttpException, ErrorBase, and Error
 4. **Code Format**: Error codes MUST accept both "ENTITY_NOT_FOUND" and "UA-{GROUP}-{CODE}" formats
-5. **i18n Integration**: DomainError messages MUST use I18nService when available
+5. **i18n Integration**: DomainError messages MUST use I18nService when available, translated per `Accept-Language` with fallback to default message
 6. **Validation Format**: Validation errors MUST return ErrorResponseDto shape
 7. **Global Application**: All controllers MUST have zero try/catch blocks for error handling
 8. **Middleware Coverage**: All routes MUST pass through TraceIdMiddleware
 9. **Filter Registration**: AllExceptionsFilter MUST be registered as APP_FILTER provider
 10. **Error Logging**: All errors MUST be logged to nestjs-pino with appropriate levels
+11. **Legacy Error Removal**: Services and repositories MUST throw `DomainError.fromKind` instead of legacy error classes (UserNotFoundError, UserEmailAlreadyExistsError, UserNameAlreadyExistsError, AppVersionNotFoundError, UserPopulateError), and legacy error class files MUST be removed
+12. **Full ErrorKind Coverage (COU-209)**: ErrorKind entries exist for every in-scope error: EMAIL_OR_USERNAME_EXISTS, INVALID_CREDENTIALS, ACCOUNT_LOCKED, ACCOUNT_INACTIVE, EXPIRED_RESET_TOKEN, EXPIRED_VERIFICATION_TOKEN, EXPIRED_CONFIRMATION_TOKEN, NO_PENDING_EMAIL_CHANGE, INVALID_TOKEN, INVALID_REFRESH_TOKEN, CURRENT_PASSWORD_INCORRECT, EMAIL_ALREADY_EXISTS, FORBIDDEN, TEMPLATE_SLUG_ALREADY_EXISTS, TEMPLATE_NOT_FOUND, TEMPLATE_FILE_NOT_FOUND, PARAMETER_NOT_FOUND, PARAMETER_OVERRIDDEN, PARAMETER_VALUE_INVALID, MICROSERVICE_UNAVAILABLE
+13. **No Legacy Usage**: Zero raw HttpException throws remain in in-scope services/controllers/guards (grep verification)
+14. **AccountLocked Replaced**: AccountLockedException completely removed and replaced by ErrorKind.ACCOUNT_LOCKED
+15. **Parameter Controller Delegation**: Parameter admin controller has zero try/catch and zero direct HttpException throws
+16. **Swagger Re-pointed**: defaults.decorator.ts references ErrorResponseDto only; bad-request.error.ts and internal-server.error.ts removed
+17. **Full i18n Coverage (COU-209)**: All 29 ErrorKind registry kinds have `errors.{kind}` keys in en, es, and pt (15 existing + 14 added), with language parity across the three JSON files
+18. **i18n Fallback**: Missing translations fall back to `ErrorKind.defaultMessage`; the i18n key is never returned to the client
 
 ## Rollback Plan
 
@@ -260,8 +496,11 @@ During rollback:
 1. Remove ErrorResponseDto, TraceIdMiddleware, AllExceptionsFilter, DomainError, ValidationPipe registrations
 2. Restore previous ErrorFilter global registration in main.ts
 3. Ensure controllers retain existing try/catch blocks
-4. Maintain ErrorBase hierarchy unchanged
+4. Restore legacy error classes (UserNotFoundError, UserEmailAlreadyExistsError, UserNameAlreadyExistsError, AppVersionNotFoundError, UserPopulateError) and their usage in services/controllers
 5. Remove or disable new error handling infrastructure files
+6. Remove the COU-209 ErrorKind entries and restore legacy error classes (AccountLockedException, GenericError, etc.) from git history
+7. Restore legacy error throws in migrated services and the removed legacy error files from git history
+8. Remove the 14 added i18n keys from en/es/pt JSON files (42 entries total)
 
 ## Dependencies
 
@@ -282,4 +521,4 @@ During rollback:
 | i18n | Internationalization service for multi-language message support |
 | nestjs-pino | NestJS adapter for Pino logging framework |
 
-*(End of generated spec for COU-203 Phase 1 error handling system)*
+*(Generated spec for COU-203 error handling system, extended by COU-208 DomainError migration and i18n translation, and by COU-209 full ErrorKind coverage, legacy error hierarchy removal, and complete en/es/pt translation coverage)*

@@ -20,7 +20,21 @@
     "EXPIRED_RESET_TOKEN": "Token de redefinição inválido ou expirado",
     "EXPIRED_VERIFICATION_TOKEN": "Token de verificação inválido ou expirado",
     "EXPIRED_CONFIRMATION_TOKEN": "Token de confirmação inválido ou expirado",
-    "INVALID_USER_ID": "ID de usuário inválido"
+    "INVALID_USER_ID": "ID de usuário inválido",
+    "INTERNAL": "Erro interno do servidor",
+    "APP_ERROR": "Erro do aplicativo",
+    "APP_VERSION_NOT_FOUND": "Versão do app não encontrada",
+    "ENTITY_NOT_FOUND": "Entidade não encontrada",
+    "ENTITY_NAME_ALREADY_EXISTS": "O nome já existe",
+    "ENTITY_EMAIL_ALREADY_EXISTS": "O email já existe",
+    "USER_ALREADY_DELETED": "O usuário já foi excluído",
+    "TEMPLATE_SLUG_ALREADY_EXISTS": "Já existe um template com este slug",
+    "TEMPLATE_NOT_FOUND": "Template não encontrado",
+    "TEMPLATE_FILE_NOT_FOUND": "Arquivo de template padrão não encontrado",
+    "PARAMETER_NOT_FOUND": "Parâmetro não encontrado",
+    "PARAMETER_OVERRIDDEN": "O parâmetro é sobrescrito pela variável de ambiente",
+    "PARAMETER_VALUE_INVALID": "Valor inválido para o parâmetro",
+    "MICROSERVICE_UNAVAILABLE": "Microserviço indisponível"
   },
   "validation": {
     "IS_EMAIL": "deve ser um email válido",
