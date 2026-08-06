@@ -5,8 +5,8 @@ const path = require('node:path');
 // Set required env vars with defaults
 process.env.NODE_ENV = 'local';
 process.env.VERSION = '1.0.0';
-process.env.DATABASE_USER = 'root';
-process.env.DATABASE_PASSWORD = '';
+process.env.DATABASE_USER = 'dev_user';
+process.env.DATABASE_PASSWORD = 'dev_password';
 process.env.DATABASE_HOST = 'localhost';
 process.env.DATABASE_PORT = '27017';
 process.env.DATABASE_NAME = 'api_user';

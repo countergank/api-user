@@ -35,7 +35,7 @@ describe('seed-admin helper', () => {
 
       // seedAdminForE2E will throw at the request() step with a mock,
       // but the key assertion is that app.get(UserService) was called
-      await expect(seedAdminForE2E(mockApp as any)).rejects.toThrow();
+      await expect(seedAdminForE2E(mockApp as unknown as Parameters<typeof seedAdminForE2E>[0])).rejects.toThrow();
     });
   });
 });

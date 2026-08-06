@@ -30,8 +30,8 @@ export async function seedAdminForE2E(app: INestApplication): Promise<AdminSeedR
       permissions: [],
       isActive: true,
     });
-  } catch (error: any) {
-    if (error?.kind !== 'ENTITY_EMAIL_ALREADY_EXISTS') throw error;
+  } catch (error: unknown) {
+    if ((error as { kind?: string })?.kind !== 'ENTITY_EMAIL_ALREADY_EXISTS') throw error;
   }
 
   const loginResponse = await request(app.getHttpServer())
