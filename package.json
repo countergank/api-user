@@ -46,6 +46,7 @@
     "@nestjs/swagger": "^7.4.0",
     "@nestjs/terminus": "^10.3.0",
     "@nestjs/throttler": "^5.2.0",
+    "@scalar/nestjs-api-reference": "^1.2.12",
     "@types/passport-local": "^1.0.38",
     "bcryptjs": "^2.4.3",
     "class-transformer": "^0.5.1",
