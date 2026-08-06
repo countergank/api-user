@@ -17,14 +17,14 @@ process.env.DEBUG = 'false';
 process.env.LOG_LEVEL = 'silent';
 process.env.EXAMPLE_MICROSERVICE_ENABLED = 'false';
 
-// Rate limiting — low limits for integration testing
-process.env.LOGIN_THROTTLE_LIMIT = '3';
+// Rate limiting — elevated limits for parallel e2e testing
+process.env.LOGIN_THROTTLE_LIMIT = '20';
 process.env.LOGIN_THROTTLE_TTL = '60';
-process.env.REGISTER_THROTTLE_LIMIT = '3';
+process.env.REGISTER_THROTTLE_LIMIT = '30';
 process.env.REGISTER_THROTTLE_TTL = '60';
-process.env.THROTTLE_LIMIT = '5';
+process.env.THROTTLE_LIMIT = '30';
 process.env.THROTTLE_TTL = '60';
-process.env.FORGOT_PASSWORD_THROTTLE_LIMIT = '3';
+process.env.FORGOT_PASSWORD_THROTTLE_LIMIT = '15';
 process.env.FORGOT_PASSWORD_THROTTLE_TTL = '60';
 
 // Account lockout — low threshold for testing

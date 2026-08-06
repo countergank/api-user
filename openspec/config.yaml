@@ -50,10 +50,26 @@ rules:
 # Testing configuration
 testing:
   runner: jest
+  framework: ts-jest
+  environment: node
   command: npm test
+  unit_command: npm run test:unit
+  e2e_command: npm run test:e2e
+  cov_command: npm run test:cov
+  watch_command: npm run test:watch
   layers:
     unit: true
     integration: true
     e2e: true
   coverage: true
   coverage_command: npm run test:cov
+  coverage_thresholds:
+    statements: 55
+    branches: 45
+    functions: 35
+    lines: 55
+  setup_file: test/jest.setup.ts
+  unit_pattern: "*.spec.ts"
+  e2e_pattern: "*.e2e-spec.ts"
+  timeout: 30000
+  strict_tdd: true
