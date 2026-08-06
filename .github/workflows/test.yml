@@ -1,0 +1,98 @@
+name: Test
+
+on:
+  pull_request:
+    branches: [develop, staging, main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      mongodb:
+        image: mongo:6.0.3
+        ports:
+          - 27017:27017
+        options: >-
+          --replSet rs0
+          --bind_ip_all
+        env:
+          MONGO_INITDB_DATABASE: api_user
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Initialize MongoDB replica set
+        run: |
+          mongosh --eval 'rs.initiate({_id: "rs0", members: [{_id: 0, host: "localhost:27017"}]})'
+          for i in $(seq 1 30); do
+            state=$(mongosh --quiet --eval 'try { rs.status().myState } catch(e) { 0 }')
+            [ "$state" = "1" ] && break
+            sleep 1
+          done
+          mongosh --eval 'db.getSiblingDB("admin").createUser({user: "dev_user", pwd: "dev_password", roles: [{role: "root", db: "admin"}]})'
+
+      - name: Run unit tests
+        run: npm test
+        env:
+          NODE_ENV: local
+          DATABASE_USER: dev_user
+          DATABASE_PASSWORD: dev_password
+          DATABASE_HOST: localhost
+          DATABASE_PORT: '27017'
+          DATABASE_NAME: api_user
+          JWT_SECRET: ci-test-jwt-secret
+          ENCRYPTION_PASSWORD: ci_test_encryption_password_32ch
+          CORS_ORIGINS: http://localhost:3000
+          DEBUG: 'false'
+          LOG_LEVEL: silent
+          EXAMPLE_MICROSERVICE_ENABLED: 'false'
+          REDIS_HOST: localhost
+          REDIS_PORT: '6379'
+          THROTTLE_LIMIT: '100'
+          THROTTLE_TTL: '60'
+
+      - name: Run e2e tests
+        run: npm run test:e2e
+        env:
+          NODE_ENV: local
+          DATABASE_USER: dev_user
+          DATABASE_PASSWORD: dev_password
+          DATABASE_HOST: localhost
+          DATABASE_PORT: '27017'
+          DATABASE_NAME: api_user
+          JWT_SECRET: ci-test-jwt-secret
+          ENCRYPTION_PASSWORD: ci_test_encryption_password_32ch
+          CORS_ORIGINS: http://localhost:3000
+          DEBUG: 'false'
+          LOG_LEVEL: silent
+          EXAMPLE_MICROSERVICE_ENABLED: 'false'
+          REDIS_HOST: localhost
+          REDIS_PORT: '6379'
+          THROTTLE_LIMIT: '100'
+          THROTTLE_TTL: '60'
+          LOGIN_THROTTLE_LIMIT: '100'
+          LOGIN_THROTTLE_TTL: '60'
+          REGISTER_THROTTLE_LIMIT: '100'
+          REGISTER_THROTTLE_TTL: '60'
+          FORGOT_PASSWORD_THROTTLE_LIMIT: '100'
+          FORGOT_PASSWORD_THROTTLE_TTL: '60'
+          MAX_LOGIN_ATTEMPTS: '100'
+          LOCKOUT_DURATION_MINUTES: '1'
