@@ -1,6 +1,8 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { createTestApp } from './helpers/create-test-app';
+import { PermissionService } from '../src/rbac/services/permission.service';
+import { RoleService } from '../src/rbac/services/role.service';
 
 describe('RBAC (e2e)', () => {
   let app: INestApplication;
@@ -61,6 +63,13 @@ describe('RBAC (e2e)', () => {
       .expect(200);
 
     userToken = userLoginRes.body.accessToken;
+
+    // Seed roles and permissions directly through the app's services.
+    // This bypasses any stale cache issues and ensures the DB has data.
+    const permissionService = app.get(PermissionService);
+    const roleService = app.get(RoleService);
+    await permissionService.seedDefaultPermissions();
+    await roleService.seedDefaultRoles();
   });
 
   afterAll(async () => {

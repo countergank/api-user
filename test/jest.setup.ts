@@ -5,8 +5,8 @@ const path = require('node:path');
 // Set required env vars with defaults
 process.env.NODE_ENV = 'local';
 process.env.VERSION = '1.0.0';
-process.env.DATABASE_USER = 'root';
-process.env.DATABASE_PASSWORD = '';
+process.env.DATABASE_USER = 'dev_user';
+process.env.DATABASE_PASSWORD = 'dev_password';
 process.env.DATABASE_HOST = 'localhost';
 process.env.DATABASE_PORT = '27017';
 process.env.DATABASE_NAME = 'api_user';
@@ -17,14 +17,14 @@ process.env.DEBUG = 'false';
 process.env.LOG_LEVEL = 'silent';
 process.env.EXAMPLE_MICROSERVICE_ENABLED = 'false';
 
-// Rate limiting — low limits for integration testing
-process.env.LOGIN_THROTTLE_LIMIT = '3';
+// Rate limiting — elevated limits for parallel e2e testing
+process.env.LOGIN_THROTTLE_LIMIT = '20';
 process.env.LOGIN_THROTTLE_TTL = '60';
-process.env.REGISTER_THROTTLE_LIMIT = '3';
+process.env.REGISTER_THROTTLE_LIMIT = '30';
 process.env.REGISTER_THROTTLE_TTL = '60';
-process.env.THROTTLE_LIMIT = '5';
+process.env.THROTTLE_LIMIT = '30';
 process.env.THROTTLE_TTL = '60';
-process.env.FORGOT_PASSWORD_THROTTLE_LIMIT = '3';
+process.env.FORGOT_PASSWORD_THROTTLE_LIMIT = '15';
 process.env.FORGOT_PASSWORD_THROTTLE_TTL = '60';
 
 // Account lockout — low threshold for testing

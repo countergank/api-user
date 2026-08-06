@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { createTestApp } from './helpers/create-test-app';
+import { seedAdminForE2E } from './helpers/seed-admin';
 
 describe('Audit Logs (e2e)', () => {
   let app: INestApplication;
@@ -33,26 +34,10 @@ describe('Audit Logs (e2e)', () => {
     }
   }, 10000);
 
-  // Setup: register and verify admin user
+  // Setup: seed admin user with ADMIN role (public register creates USER only)
   beforeAll(async () => {
-    // Register admin
-    const adminReg = await request(app.getHttpServer())
-      .post('/auth/register')
-      .send(adminUser)
-      .expect(201);
-
-    // Verify admin email
-    await request(app.getHttpServer())
-      .post('/auth/verify-email')
-      .send({ token: adminReg.body.verificationToken })
-      .expect(201);
-
-    // Login admin
-    const adminLogin = await request(app.getHttpServer())
-      .post('/auth/login')
-      .send({ email: adminUser.email, password: adminUser.password })
-      .expect(200);
-    adminToken = adminLogin.body.accessToken;
+    const { adminToken: token } = await seedAdminForE2E(app);
+    adminToken = token;
 
     // Register regular user
     const userReg = await request(app.getHttpServer())
