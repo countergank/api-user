@@ -39,15 +39,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install mongosh
+        run: |
+          wget -qO- https://www.mongodb.org/static/pgp/server-6.0.asc | sudo tee /etc/apt/trusted.gpg.d/mongodb.asc
+          echo "deb [arch=amd64] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/6.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq mongodb-mongosh
+
       - name: Initialize MongoDB replica set
         run: |
-          mongosh --eval 'rs.initiate({_id: "rs0", members: [{_id: 0, host: "localhost:27017"}]})'
+          mongosh --host localhost --eval 'rs.initiate({_id: "rs0", members: [{_id: 0, host: "localhost:27017"}]})'
           for i in $(seq 1 30); do
-            state=$(mongosh --quiet --eval 'try { rs.status().myState } catch(e) { 0 }')
+            state=$(mongosh --host localhost --quiet --eval 'try { rs.status().myState } catch(e) { 0 }')
             [ "$state" = "1" ] && break
             sleep 1
           done
-          mongosh --eval 'db.getSiblingDB("admin").createUser({user: "dev_user", pwd: "dev_password", roles: [{role: "root", db: "admin"}]})'
+          mongosh --host localhost --eval 'db.getSiblingDB("admin").createUser({user: "dev_user", pwd: "dev_password", roles: [{role: "root", db: "admin"}]})'
 
       - name: Run unit tests
         run: npm test
