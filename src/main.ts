@@ -5,6 +5,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from './common/pipes/validation.pipe';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { apiReference } from '@scalar/nestjs-api-reference';
 import { Logger } from 'nestjs-pino';
 import hyperid from 'hyperid';
 import { HttpAdapterHost } from '@nestjs/core';
@@ -58,7 +59,22 @@ async function bootstrap() {
     })
     .build();
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('/docs', app, swaggerDocument, { customSiteTitle: `${String(name).toUpperCase()} Docs` });
+
+  // Serve OpenAPI JSON spec (required by Scalar and compatible with Swagger UI clients)
+  const httpAdapter = app.getHttpAdapter();
+  httpAdapter.get('/docs-json', (_req: any, res: any) => {
+    res.header('Content-Type', 'application/json');
+    res.send(swaggerDocument);
+  });
+
+  // Scalar API Reference UI at /docs (drop-in replacement for Swagger UI)
+  app.use(
+    '/docs',
+    apiReference({
+      url: '/docs-json',
+      withFastify: true,
+    }),
+  );
 
   await app.listen(port, host);
 }
