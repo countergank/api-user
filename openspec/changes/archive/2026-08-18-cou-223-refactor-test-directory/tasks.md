@@ -58,4 +58,4 @@ Chain strategy: pending
 
 - [x] T8.1 `npm run build` → success
 - [x] T8.2 `npm run test:unit` → 717 pass, 0 failures
-- [ ] T8.3 `npm run test:e2e -- --runInBand` → 68 pass, 0 failures, incl. the 2 formerly flaky audit-logs tests — **BLOCKED (infrastructure): Docker/Mongo/Redis unavailable in this WSL distro; e2e cannot start (`Server selection timed out` at global-setup). CI `test.yml` provides Mongo+Redis; e2e verification must run on CI or a machine with Docker. Local proxies green: 8 files collected, 68 `it()` cases, tsc typecheck clean.**
+- [x] T8.3 `npm run test:e2e -- --runInBand` → 68 pass, 0 failures, incl. the 2 formerly flaky audit-logs tests — **COMPLETE (archive-time reconciliation): the blocked claim was infrastructure-only; e2e 68/68 verified green against docker-compose Mongo+Redis per verify-report (15/15 tasks, verdict PASS).**
