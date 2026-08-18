@@ -1,6 +1,6 @@
 # Apply Progress: COU-223 — Refactor test directory & remove httpyac
 
-Status: 13/15 tasks complete; T1.2 partial (1 file retained), T8.3 blocked (infrastructure).
+Status: 14/15 tasks complete; T8.3 blocked (infrastructure). T1.2 resolved via remediation.
 Mode: Strict TDD. Artifact store: hybrid. Delivery: single PR (auto-chain, forecast Low).
 
 ## Commits
@@ -11,6 +11,7 @@ Mode: Strict TDD. Artifact store: hybrid. Delivery: single PR (auto-chain, forec
 | `e9addbe` | test(cou-223): move e2e specs into test/e2e/{domain} layout |
 | `68e6f99` | test(cou-223): add bounded audit-poll helper with fake-timer unit tests |
 | `529cb00` | test(cou-223): replace audit-logs sleeps with poll helper, dedupe profile tests |
+| `355a6ab` | test(cou-223): migrate test helpers into src/test-utils (remediation) |
 
 ## Work Unit Evidence
 
@@ -21,6 +22,7 @@ Mode: Strict TDD. Artifact store: hybrid. Delivery: single PR (auto-chain, forec
 | U3 audit-poll helper + config + script | `npm run test:helpers` → 8/8 passed, 1 suite | N/A — pure-logic fake-timer unit test; no runtime boundary | `git revert 68e6f99` deletes helper, config, script; no other file references them yet |
 | U4 sleep replacement + dedupe | `npx tsc --noEmit -p tsconfig.json` → exit 0; static count 68 `it()` (70 − 2 dupes) | e2e suite — BLOCKED (infra, same as U2); helper unit tests prove poll behavior | `git revert 529cb00` restores sleeps + duplicate tests; helper still present |
 | U5 full verification | `npm run build` → success; `npm run test:unit` → 717/717, 67 suites | `npm run test:e2e -- --runInBand` → BLOCKED: `Server selection timed out after 10000 ms` at global-setup (no MongoDB; Docker unavailable in this WSL distro). Must run on CI/machine with Docker. | Entire change reverts cleanly commit-by-commit |
+| U6 remediation — migrate helpers into src/test-utils | `npm run test:unit` → 717/717, 67 suites (RED: 0/1 focused spec failed `TS2307 Cannot find module '../../test/helpers'`; GREEN: 717/717 after re-pointing imports); `npm run test:helpers` → 8/8; `npm run build` → success; `npx tsc --noEmit` → exit 0 | N/A — dev-only test helpers, no runtime boundary (excluded from production build via `tsconfig.build.json` `src/test-utils`; verified absent from `dist/`) | `git revert 355a6ab` restores `test/helpers/index.ts` (rename) + original importers; only spec imports and tsconfig.build.json touched |
 
 ## TDD Cycle Evidence (Strict TDD)
 
@@ -35,10 +37,11 @@ Mode: Strict TDD. Artifact store: hybrid. Delivery: single PR (auto-chain, forec
 | T7.1 TX-02 doc | N/A (doc only) | N/A | N/A | N/A | N/A | ➖ Single | ✅ wording matches real infra (global-setup rs0) |
 | T8.1–T8.2 build + unit | full suite | Unit | ✅ 717 baseline | N/A | ✅ build success + 717/717 | ➖ | ✅ |
 | T8.3 e2e | full e2e suite | E2E | ✅ 70 `it()` baseline collected | N/A | ❌ BLOCKED — infra (no Mongo/Docker); not a test failure | ➖ | — |
+| T1.2 remediation | 12 affected src specs (approval) + full suite | Unit | ✅ 717/717 baseline (pre-change) | ✅ RED: `npx jest auth/auth.controller.spec.ts` → 1 suite failed, TS2307 `Cannot find module '../../test/helpers'` after deleting index.ts | ✅ GREEN: 717/717, 67 suites after re-pointing 12 importers to `../test-utils` (depth-relative) | ✅ 12 import sites across 4 depth levels verified; zero `test/helpers` references in src/ and test/ | ✅ `tsconfig.build.json` excludes `src/test-utils`; build success; `src/test-utils` absent from dist/; `npm run test:helpers` 8/8; tsc exit 0; pre-commit husky `npm test` 717/717 |
 
 ## Deviations from Design
 
-1. **`test/helpers/index.ts` NOT deleted (T1.2 partial)** — design/exploration claimed "zero imports anywhere"; this is FALSE. 12 unit spec files under `src/` import `Mock`/`createConnection`/`clearMongoCollection`/`clearMongoConnection` from `.../test/helpers` (verified: app.controller, auth.controller, auth.service, audit.controller, audit-log.repository, audit.integration, audit.module, audit-log.entity, user.controller, user-profile.controller, user.repository, user.service specs). Deleting it drops those 12 suites → violates ETH-13 (717 unit green). ETH-10 (delete index.ts) and ETH-13 conflict under the current import graph. Resolution: retained the file; flagged for orchestrator — either accept ETH-10 deviation or launch a follow-up change to migrate the 12 importers (e.g., duplicate helpers under `src/`).
+1. **~~`test/helpers/index.ts` NOT deleted (T1.2 partial)~~ RESOLVED via remediation (commit `355a6ab`)** — design/exploration claimed "zero imports anywhere"; this was FALSE: 12 unit spec files under `src/` import `Mock`/`createConnection`/`clearMongoCollection`/`clearMongoConnection` from `.../test/helpers`. Per user decision, the 12 importers were migrated to a new `src/test-utils/index.ts` (identical content, git rename detected), and `test/helpers/index.ts` deleted. `tsconfig.build.json` now excludes `src/test-utils` so these dev-only helpers never ship in the production build. ETH-10 and ETH-13 both hold now.
 2. **Import path updates added to moves (T2.1)** — design's file-change table said "git mv" only, but moved specs use relative imports (`./helpers/...`, `../src/...`) that would break at the new depth. Adjusted to `../../helpers/...`, `../../../src/...` so ETH-08 "collection unchanged" and ETH-01 (createTestApp) hold. Necessary, not a scope expansion.
 3. **`waitForAuditRow` first parameter renamed `app` → `_app`** — cosmetic; design signature preserved (callers pass positionally). Biomes `noUnusedVariables` flags the unused param; underscore prefix is the repo-compliant idiom.
 
@@ -53,8 +56,9 @@ Mode: Strict TDD. Artifact store: hybrid. Delivery: single PR (auto-chain, forec
 ## Verification Summary (local)
 
 - `npm run build` → success (final)
-- `npm run test:unit` → 717/717, 67 suites, 0 failures (final)
+- `npm run test:unit` → 717/717, 67 suites, 0 failures (final; also via pre-commit husky hook on commit 355a6ab)
 - `npm run test:helpers` → 8/8 (final)
 - `npx tsc --noEmit -p tsconfig.json` → exit 0 (all moved/edited specs typecheck)
 - `npx jest --config ./test/jest-e2e.json --listTests` → 8 files under `test/e2e/{domain}/`, 68 `it()` cases
 - `npm run test:e2e -- --runInBand` → BLOCKED at global-setup (Server selection timed out) — infra only
+- Migration greps: `grep -rn "test/helpers" --include="*.ts" src/` → 0; same in `test/` → 0; `dist/test-utils` → absent (build excludes it)

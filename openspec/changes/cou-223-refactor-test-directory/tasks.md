@@ -27,7 +27,7 @@ Chain strategy: pending
 ## Phase 1: Cleanup — Deletions (ETH-09, ETH-10)
 
 - [x] T1.1 `git rm -r test/httpyac/` (3-line `main/main.http` stub)
-- [ ] T1.2 `git rm` root `jest.e2e.config.js`, `test/helpers/index.ts`, `test/helpers/seed-admin.spec.ts`, `test/i18n/i18n.service.spec.ts` — **PARTIAL: 3 of 4 deleted. `test/helpers/index.ts` retained: 12 src unit specs import `Mock`/`createConnection`/`clearMongo*` from it (design's "zero imports" premise was false); deleting it breaks ETH-13. See apply-progress.**
+- [x] T1.2 `git rm` root `jest.e2e.config.js`, `test/helpers/index.ts`, `test/helpers/seed-admin.spec.ts`, `test/i18n/i18n.service.spec.ts` — **COMPLETE (4 of 4) after remediation commit 355a6ab: `test/helpers/index.ts` was live code imported by 12 src unit specs; migrated as-is to `src/test-utils/index.ts` (renamed via git, content unchanged), 12 importers re-pointed to `src/test-utils`, `src/test-utils` excluded from production build in `tsconfig.build.json`. Verification: 717/717 unit, 8/8 helper, build + tsc clean, zero `test/helpers` references in src/ and test/.**
 - [x] T1.3 Grep repo for `httpyac`, `helpers/index`, `jest.e2e.config.js` → no references left in code/config/CI/docs (only the change's own SDD artifacts and historical archive docs mention them; TX-02 live spec reference updated)
 
 ## Phase 2: Directory Moves (ETH-08)
