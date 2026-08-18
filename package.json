@@ -20,6 +20,7 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --detectOpenHandles --coverage --forceExit",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
+    "test:helpers": "jest --config ./test/jest-helper.json --forceExit",
     "prepare": "husky",
     "db:drop": "docker exec db-user mongosh --quiet --eval 'db.getSiblingDB(\"api_user\").dropDatabase()'",
     "seed:permissions": "docker compose exec api-user npx ts-node src/database/seeds/seed-permissions.ts",
