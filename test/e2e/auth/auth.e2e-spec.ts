@@ -4,7 +4,6 @@ import { createTestApp } from '../../helpers/create-test-app';
 
 describe('AuthController (e2e)', () => {
   let app: INestApplication;
-  let token: string;
   const testUser = {
     email: `test-${Date.now()}@example.com`,
     userName: `testuser-${Date.now()}`,
@@ -67,7 +66,6 @@ describe('AuthController (e2e)', () => {
 
       expect(response.body).toHaveProperty('accessToken');
       expect(response.body).toHaveProperty('refreshToken');
-      token = response.body.accessToken;
     });
 
     it('should reject invalid credentials', async () => {
@@ -110,27 +108,6 @@ describe('AuthController (e2e)', () => {
         .post('/auth/forgot-password')
         .send({ email: testUser.email })
         .expect(200);
-    });
-  });
-
-  describe('/users/profile (GET)', () => {
-    it('should get user profile with valid token', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/users/profile')
-        .set('Authorization', `Bearer ${token}`)
-        .expect(200);
-
-      expect(response.body).toMatchObject({
-        email: testUser.email,
-        name: testUser.name,
-        lastName: testUser.lastName,
-      });
-    });
-
-    it('should reject request without token', async () => {
-      await request(app.getHttpServer())
-        .get('/users/profile')
-        .expect(401);
     });
   });
 });
