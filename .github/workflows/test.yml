@@ -78,6 +78,15 @@ jobs:
           REDIS_PORT: '6379'
           THROTTLE_LIMIT: '100'
           THROTTLE_TTL: '60'
+          FRONTEND_URL: http://localhost:5173
+          EMAIL_ENABLED: 'false'
+          EMAIL_PROVIDER: smtp
+          EMAIL_HOST: localhost
+          EMAIL_PORT: '1025'
+          EMAIL_SECURE: 'false'
+          EMAIL_USER: test
+          EMAIL_PASS: test
+          EMAIL_FROM: test@countergank.com
 
       - name: Run e2e tests
         run: npm run test:e2e
@@ -106,3 +115,12 @@ jobs:
           FORGOT_PASSWORD_THROTTLE_TTL: '60'
           MAX_LOGIN_ATTEMPTS: '100'
           LOCKOUT_DURATION_MINUTES: '1'
+          FRONTEND_URL: http://localhost:5173
+          EMAIL_ENABLED: 'false'
+          EMAIL_PROVIDER: smtp
+          EMAIL_HOST: localhost
+          EMAIL_PORT: '1025'
+          EMAIL_SECURE: 'false'
+          EMAIL_USER: test
+          EMAIL_PASS: test
+          EMAIL_FROM: test@countergank.com
