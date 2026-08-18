@@ -1,7 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { createTestApp } from './helpers/create-test-app';
-import { seedAdminForE2E } from './helpers/seed-admin';
+import { createTestApp } from '../../helpers/create-test-app';
+import { seedAdminForE2E } from '../../helpers/seed-admin';
 
 describe('Audit Logs (e2e)', () => {
   let app: INestApplication;

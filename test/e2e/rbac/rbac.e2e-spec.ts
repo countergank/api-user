@@ -1,8 +1,8 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { createTestApp } from './helpers/create-test-app';
-import { PermissionService } from '../src/rbac/services/permission.service';
-import { RoleService } from '../src/rbac/services/role.service';
+import { createTestApp } from '../../helpers/create-test-app';
+import { PermissionService } from '../../../src/rbac/services/permission.service';
+import { RoleService } from '../../../src/rbac/services/role.service';
 
 describe('RBAC (e2e)', () => {
   let app: INestApplication;

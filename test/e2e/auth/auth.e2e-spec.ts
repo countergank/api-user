@@ -1,6 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { createTestApp } from './helpers/create-test-app';
+import { createTestApp } from '../../helpers/create-test-app';
 
 describe('AuthController (e2e)', () => {
   let app: INestApplication;
