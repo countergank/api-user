@@ -1,3 +1,0 @@
-@host=`http://{{HOST}}:{{PORT}}`
-
-GET /

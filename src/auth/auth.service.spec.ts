@@ -8,7 +8,7 @@ import { UserRole } from '../user/entities/user.entity';
 import { UserService } from '../user/service/user.service';
 import { AuthService } from './auth.service';
 import { UserMock } from '../user/mocks/user.mock';
-import { Mock } from '../../test/helpers';
+import { Mock } from '../test-utils';
 import { CacheService } from '../config/cache';
 
 /**

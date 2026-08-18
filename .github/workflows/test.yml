@@ -12,16 +12,6 @@ jobs:
     timeout-minutes: 30
 
     services:
-      mongodb:
-        image: mongo:6.0.3
-        ports:
-          - 27017:27017
-        options: >-
-          --replSet rs0
-          --bind_ip_all
-        env:
-          MONGO_INITDB_DATABASE: api_user
-
       redis:
         image: redis:7-alpine
         ports:
@@ -47,8 +37,20 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq mongodb-mongosh
 
+      - name: Start MongoDB (replica set)
+        run: |
+          docker run -d --name mongodb -p 27017:27017 \
+            -e MONGO_INITDB_DATABASE=api_user \
+            mongo:6.0.3 mongod --replSet rs0 --bind_ip_all
+
       - name: Initialize MongoDB replica set
         run: |
+          for i in $(seq 1 30); do
+            if mongosh --host localhost --quiet --eval 'db.runCommand({ping:1}).ok' 2>/dev/null | grep -q '^1$'; then
+              break
+            fi
+            sleep 1
+          done
           mongosh --host localhost --eval 'rs.initiate({_id: "rs0", members: [{_id: 0, host: "localhost:27017"}]})'
           for i in $(seq 1 30); do
             state=$(mongosh --host localhost --quiet --eval 'try { rs.status().myState } catch(e) { 0 }')
@@ -76,6 +78,15 @@ jobs:
           REDIS_PORT: '6379'
           THROTTLE_LIMIT: '100'
           THROTTLE_TTL: '60'
+          FRONTEND_URL: http://localhost:5173
+          EMAIL_ENABLED: 'false'
+          EMAIL_PROVIDER: smtp
+          EMAIL_HOST: localhost
+          EMAIL_PORT: '1025'
+          EMAIL_SECURE: 'false'
+          EMAIL_USER: test
+          EMAIL_PASS: test
+          EMAIL_FROM: test@countergank.com
 
       - name: Run e2e tests
         run: npm run test:e2e
@@ -104,3 +115,12 @@ jobs:
           FORGOT_PASSWORD_THROTTLE_TTL: '60'
           MAX_LOGIN_ATTEMPTS: '100'
           LOCKOUT_DURATION_MINUTES: '1'
+          FRONTEND_URL: http://localhost:5173
+          EMAIL_ENABLED: 'false'
+          EMAIL_PROVIDER: smtp
+          EMAIL_HOST: localhost
+          EMAIL_PORT: '1025'
+          EMAIL_SECURE: 'false'
+          EMAIL_USER: test
+          EMAIL_PASS: test
+          EMAIL_FROM: test@countergank.com

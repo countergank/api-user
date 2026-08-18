@@ -2,7 +2,7 @@ import { getModelToken } from '@nestjs/mongoose';
 import { Test, TestingModule } from '@nestjs/testing';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { Connection, Model } from 'mongoose';
-import { clearMongoCollection, clearMongoConnection, createConnection } from '../../../../test/helpers';
+import { clearMongoCollection, clearMongoConnection, createConnection } from '../../../test-utils';
 import { AuditLog, AuditLogSchema } from './audit-log.entity';
 
 describe('AuditLog Entity', () => {

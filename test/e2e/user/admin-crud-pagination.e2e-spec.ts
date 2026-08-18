@@ -2,8 +2,8 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { getModelToken } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { createTestApp } from '../helpers/create-test-app';
-import { User, UserRole } from '../../src/user/entities/user.entity';
+import { createTestApp } from '../../helpers/create-test-app';
+import { User, UserRole } from '../../../src/user/entities/user.entity';
 
 describe('Admin Users CRUD (e2e)', () => {
   let app: INestApplication;

@@ -1,7 +1,8 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { createTestApp } from './helpers/create-test-app';
-import { seedAdminForE2E } from './helpers/seed-admin';
+import { createTestApp } from '../../helpers/create-test-app';
+import { seedAdminForE2E } from '../../helpers/seed-admin';
+import { waitForAuditLogEntry } from '../../helpers/audit-poll';
 
 describe('Audit Logs (e2e)', () => {
   let app: INestApplication;
@@ -139,17 +140,8 @@ describe('Audit Logs (e2e)', () => {
         .send(newUser)
         .expect(201);
 
-      // Small delay for async audit persistence
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Verify audit log was created
-      const response = await request(app.getHttpServer())
-        .get('/admin/audit-logs?action=auth.register&resource=auth')
-        .set('Authorization', `Bearer ${adminToken}`)
-        .expect(200);
-
-      expect(response.body.total).toBeGreaterThan(0);
-      expect(response.body.data.length).toBeGreaterThan(0);
+      // Wait (bounded poll) for async audit persistence
+      await waitForAuditLogEntry(app, adminToken, { action: 'auth.register', resource: 'auth' });
     });
 
     it('should create audit log entry when user logs in', async () => {
@@ -159,16 +151,8 @@ describe('Audit Logs (e2e)', () => {
         .send({ email: regularUser.email, password: regularUser.password })
         .expect(200);
 
-      // Small delay for async audit persistence
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Verify audit log was created
-      const response = await request(app.getHttpServer())
-        .get('/admin/audit-logs?action=auth.login&resource=auth')
-        .set('Authorization', `Bearer ${adminToken}`)
-        .expect(200);
-
-      expect(response.body.total).toBeGreaterThan(0);
+      // Wait (bounded poll) for async audit persistence
+      await waitForAuditLogEntry(app, adminToken, { action: 'auth.login', resource: 'auth' });
     });
   });
 });

@@ -31,7 +31,7 @@ export class AuthController {
   @Post('register')
   @ApplyRegisterDoc()
   @AuditAction({
-    action: 'REGISTER',
+    action: 'auth.register',
     resource: 'auth',
     getResourceId: (result: any) => result?.user?.id,
   })
@@ -50,7 +50,7 @@ export class AuthController {
   @HttpCode(200)
   @ApplyLoginDoc()
   @AuditAction({
-    action: 'LOGIN',
+    action: 'auth.login',
     resource: 'auth',
     getResourceId: (result: any) => result?.user?.id,
   })

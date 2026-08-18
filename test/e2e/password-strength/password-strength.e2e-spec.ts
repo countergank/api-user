@@ -1,7 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { createTestApp } from './helpers/create-test-app';
-import { PASSWORD_ERROR_CODES } from '../src/common/interfaces/password-validation.interface';
+import { createTestApp } from '../../helpers/create-test-app';
+import { PASSWORD_ERROR_CODES } from '../../../src/common/interfaces/password-validation.interface';
 
 /**
  * Helper to check if any error message contains the expected code.

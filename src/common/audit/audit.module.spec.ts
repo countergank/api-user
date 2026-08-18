@@ -5,7 +5,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ClsModule } from 'nestjs-cls';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { Connection, Model } from 'mongoose';
-import { clearMongoConnection, createConnection } from '../../../test/helpers';
+import { clearMongoConnection, createConnection } from '../../test-utils';
 import { AuditModule } from './audit.module';
 import { AuditLog, AuditLogSchema } from './entities/audit-log.entity';
 import { AuditLogRepository } from './audit-log.repository';

@@ -5,7 +5,7 @@ import { AuditService } from './audit.service';
 import { I18nService } from '../../common/i18n/i18n.service';
 import { AuditLogFilterDTO } from './dto/audit-log-filter.dto';
 import { PaginatedAuditLogResponseDTO } from './dto/paginated-audit-log-response.dto';
-import { Mock } from '../../../test/helpers';
+import { Mock } from '../../test-utils';
 
 describe(AuditController.name, () => {
   let controller: AuditController;

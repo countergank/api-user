@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getConnectionToken } from '@nestjs/mongoose';
-import { Mock } from '../../../test/helpers';
+import { Mock } from '../../test-utils';
 import { CreateUserResponseDTO } from '../dto/create-user-response.dto';
 import { UserDTO } from '../dto/user.dto';
 import { UpdateUserDTO } from '../dto/update-user.dto';
