@@ -37,7 +37,7 @@ The MongoDB service in `docker-compose.yml` MUST be configured as a single-node 
 `MongoMemoryServer` MUST be configured with `replSet` arguments so integration tests support transactions. All test helper files that create `MongoMemoryServer` instances MUST include `{ instance: { args: ['--replSet', 'rs0'] } }`.
 
 #### Scenario: Integration tests support transactions
-- **GIVEN** `test/helpers/index.ts` creates `MongoMemoryServer` with replSet args
+- **GIVEN** the e2e test environment starts real MongoDB as a replica set (docker-compose `--replSet rs0` locally, `mongo:6.0.3 --replSet rs0` on CI) via `test/global-setup.js`
 - **WHEN** an integration test calls `mongoose.startSession()`
 - **THEN** the session is created without error
 - **AND** `session.withTransaction()` executes successfully
