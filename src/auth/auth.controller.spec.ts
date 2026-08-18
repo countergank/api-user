@@ -6,7 +6,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { DomainError } from '../common/errors/domain.error';
 import { AllExceptionsFilter } from '../common/filters/all-exceptions.filter';
-import { Mock } from '../../test/helpers';
+import { Mock } from '../test-utils';
 
 describe(AuthController.name, () => {
   describe('4.1-4.4: Rate limiting on auth endpoints', () => {

@@ -2,7 +2,7 @@ import { getModelToken } from '@nestjs/mongoose';
 import { Test, TestingModule } from '@nestjs/testing';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { Connection, Model } from 'mongoose';
-import { clearMongoCollection, clearMongoConnection, createConnection } from '../../../test/helpers';
+import { clearMongoCollection, clearMongoConnection, createConnection } from '../../test-utils';
 import { DomainError } from '../../common/errors/domain.error';
 import { EncodeService } from '../../encode/encode.service';
 import { HashMock } from '../../encode/mocks/hash.mock';

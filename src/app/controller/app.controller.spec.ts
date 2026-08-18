@@ -2,7 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { HealthCheckService } from '@nestjs/terminus';
 import { MongooseHealthIndicator } from '@nestjs/terminus';
-import { Mock } from '../../../test/helpers';
+import { Mock } from '../../test-utils';
 import { Version } from '../class/version.class';
 import { VersionMock } from '../mocks/version.mock';
 import { AppService } from '../service/app.service';
