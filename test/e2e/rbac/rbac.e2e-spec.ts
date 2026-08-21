@@ -121,4 +121,58 @@ describe('RBAC (e2e)', () => {
       expect(roleNames).toContain('viewer');
     });
   });
+
+  describe('PUT /roles/:id/permissions', () => {
+    let roleId: string;
+
+    beforeAll(async () => {
+      // Grab an existing role ID to update
+      const rolesRes = await request(app.getHttpServer())
+        .get('/roles')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      roleId = rolesRes.body.roles.find((r: any) => r.name === 'user')._id;
+    });
+
+    it('should update role permissions as admin (200)', async () => {
+      const response = await request(app.getHttpServer())
+        .put(`/roles/${roleId}/permissions`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ permissionIds: ['user:read'] })
+        .expect(200);
+
+      expect(response.body.role).toBeDefined();
+      expect(response.body.role._id).toBe(roleId);
+      expect(response.body.role.permissionIds).toContain('user:read');
+    });
+
+    it('should return 403 for non-admin authenticated user', async () => {
+      const response = await request(app.getHttpServer())
+        .put(`/roles/${roleId}/permissions`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({ permissionIds: ['user:read'] })
+        .expect(403);
+
+      expect(response.body.statusCode).toBe(403);
+      expect(response.body.code).toBe('UA-SEC-002');
+    });
+
+    it('should return 401 for unauthenticated request', async () => {
+      await request(app.getHttpServer())
+        .put(`/roles/${roleId}/permissions`)
+        .send({ permissionIds: ['user:read'] })
+        .expect(401);
+    });
+
+    it('should return 500 for unknown role id (no null-check in controller)', async () => {
+      // RoleService.updatePermissions returns null for missing roles,
+      // but the controller does not guard against null before indexing [0].
+      // This produces a TypeError → 500 via AllExceptionsFilter.
+      await request(app.getHttpServer())
+        .put(`/roles/nonexistent-${Date.now()}/permissions`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ permissionIds: ['user:read'] })
+        .expect(500);
+    });
+  });
 });

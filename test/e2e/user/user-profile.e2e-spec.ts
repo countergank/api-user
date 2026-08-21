@@ -100,4 +100,38 @@ describe('UserProfile (e2e)', () => {
         .expect(400);
     });
   });
+
+  // --- Extended: Change email ---
+
+  describe('/users/change-email (POST)', () => {
+    const newEmail = `changed-${Date.now()}@example.com`;
+
+    it('should initiate email change and return 200', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/users/change-email')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ email: newEmail })
+        .expect(200);
+
+      expect(response.body).toHaveProperty('message');
+    });
+
+    it('should reject change-email to a duplicate email', async () => {
+      // Try to change to an email that already exists (the root user seeded by the app)
+      const res = await request(app.getHttpServer())
+        .post('/users/change-email')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ email: 'countergank.ti@gmail.com' })
+        .expect(409);
+
+      expect(res.body).toHaveProperty('code', 'UA-USR-004');
+    });
+
+    it('should reject change-email without authentication', async () => {
+      await request(app.getHttpServer())
+        .post('/users/change-email')
+        .send({ email: 'some-new-email@example.com' })
+        .expect(401);
+    });
+  });
 });
