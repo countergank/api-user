@@ -116,3 +116,57 @@
 | 3 | `existsByName` queries wrong field | `src/user/repository/user.repository.ts:existsByName` | Creating user with duplicate `userName` returns 500 instead of 409 | Method queries `{name}` but receives `userName` argument |
 | 4 | Missing fields not validated for admin user creation | `src/user/dto/create-user.dto.ts` + ValidationPipe config | `POST /admin/users` with `{}` returns 500 instead of 400 | Empty body passes ValidationPipe; service throws on undefined fields |
 | 5 | Invalid ObjectId not handled | `AllExceptionsFilter` + `UserController.findById` | `GET /admin/users/not-a-valid-id` returns 500 instead of 400 | Mongoose CastError not caught by filter; no ObjectId validation pipe |
+
+## Slice 6: Production Bug Fixes (src/)
+
+### Bug 1: pendingEmailToken not cleared (HIGH security) — FIXED
+**Root cause**: `userService.update()` passed `{ pendingEmailToken: undefined }` to `findByIdAndUpdate`, which silently ignores `undefined` values.
+**Fix**: Split into two operations — `update()` sets the email, then `unsetFields()` explicitly removes pending email fields via MongoDB `$unset`.
+**Files changed**:
+- `src/user/repository/user.repository.ts` — `update()` now filters out `undefined` (correct behavior); added `unsetFields()` method
+- `src/user/service/user.service.ts` — added `unsetFields()` delegation
+- `src/auth/auth.service.ts` — `confirmEmailChange()` uses two-step update + unset; `verifyEmail()` same pattern
+**Test result**: ✅ auth 15/15 — token cleared, reuse rejected with 400
+
+### Bug 2: Duplicate email change → FALSE POSITIVE (test fix) — FIXED
+**Root cause**: Test used hardcoded email `countergank.ti@gmail.com` not present in test DB. Code was correct.
+**Fix**: Register a real user in the test, then attempt to change email to that user's email → asserts 409.
+**Files changed**:
+- `test/e2e/user/user-profile.e2e-spec.ts` — register a user, assert 409 with code UA-USR-004
+**Test result**: ✅ user-profile 8/8
+
+### Bug 3: existsByName queries wrong field — FIXED
+**Root cause**: `existsByName(name)` queried `{ name }` but callers pass `userName` (the unique field).
+**Fix**: Changed query to `{ userName }` in both `existsByName` and `existsByNameExcludingSelf`.
+**Files changed**:
+- `src/user/repository/user.repository.ts` — both methods now query `userName`
+- `src/user/repository/user.repository.spec.ts` — updated unit tests to use `userName`
+- `test/helpers/seed-admin.ts` — also catch `ENTITY_NAME_ALREADY_EXISTS` (now triggers correctly)
+**Test result**: ✅ admin-crud 27/27 — duplicate userName → 409
+
+### Bug 4: Missing fields → 500 — FIXED
+**Root cause**: `@IsNotEmpty()` only validates properties that exist. Empty body `{}` has no properties, so validation skipped. Also `PasswordStrengthValidator` crashed on `undefined` password.
+**Fix**: Added `@IsDefined()` to all required DTO fields, set `skipMissingProperties: false` in ValidationPipe, added null guard in `PasswordStrengthValidator`.
+**Files changed**:
+- `src/user/dto/create-user.dto.ts` — added `@IsDefined()` to 5 required fields
+- `src/common/pipes/validation.pipe.ts` — added `skipMissingProperties: false`
+- `src/common/validators/password-strength.validator.ts` — null guard for undefined password
+**Test result**: ✅ admin-crud 27/27 — empty body → 400
+
+### Bug 5: Role updatePermissions null-check — FIXED
+**Root cause**: `translateRbacItems([role], ...)[0]` with `role === null` → TypeError → 500.
+**Fix**: Added null check in controller, throws `ENTITY_NOT_FOUND` DomainError (404).
+**Files changed**:
+- `src/rbac/controllers/role.controller.ts` — null check → 404
+**Test result**: ✅ rbac 8/8 — unknown role → 404
+
+### Bug 6: Invalid ObjectId → 500 — FIXED
+**Root cause**: Mongoose `CastError` not handled by `AllExceptionsFilter` → falls to generic Error → 500.
+**Fix**: Added CastError detection (duck-typed) → returns 400 Bad Request.
+**Files changed**:
+- `src/common/filters/all-exceptions.filter.ts` — CastError handling with 400 response
+**Test result**: ✅ admin-crud 27/27 — invalid ObjectId → 400
+
+### Final Test Results (after all fixes)
+- **e2e**: ✅ **149 passed, 0 failed, 13 suites**
+- **unit**: ✅ **717 passed, 0 failed, 67 suites**

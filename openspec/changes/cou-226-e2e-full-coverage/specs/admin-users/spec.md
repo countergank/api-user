@@ -28,7 +28,18 @@ The system MUST accept POST /admin/users with user creation DTO (email, password
 
 - GIVEN a user with email "existing@test.com" already exists
 - WHEN POST /admin/users with { email: "existing@test.com", ... }
-- THEN returns HTTP 409 or 400 with duplicate-email error
+- THEN returns HTTP 409 with duplicate-email error (code UA-COM-004)
+
+#### Scenario: Duplicate userName rejected
+
+- GIVEN a user with userName "existing-user" already exists
+- WHEN POST /admin/users with { userName: "existing-user", ... }
+- THEN returns HTTP 409 with duplicate-name error (code UA-COM-003)
+
+#### Scenario: Missing required fields rejected
+
+- WHEN POST /admin/users with empty body {}
+- THEN returns HTTP 400 Bad Request with validation error (code UA-COM-005)
 
 #### Scenario: Invalid password rejected
 

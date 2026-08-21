@@ -35,8 +35,16 @@ The system MUST support email change confirmation via token.
 
 - GIVEN a user initiated email change and received a confirmation token
 - WHEN POST /auth/confirm-email-change with { token }
-- THEN returns HTTP 200 with success
+- THEN returns HTTP 201 with success
 - AND the user's email is updated to the new value
+- AND pendingEmail, pendingEmailToken, and pendingEmailExpires are cleared from the user document
+
+#### Scenario: Confirm email change with already-consumed token
+
+- GIVEN an email change token was already used successfully
+- WHEN POST /auth/confirm-email-change with the same token again
+- THEN returns HTTP 400 with expired/invalid token error (code UA-AUTH-007)
+- AND the token cannot be reused because it was cleared from the database
 
 #### Scenario: Confirm email change with invalid token
 
