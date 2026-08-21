@@ -143,15 +143,14 @@ describe('RBAC (e2e)', () => {
         .expect(401);
     });
 
-    it('should return 500 for unknown role id (no null-check in controller)', async () => {
-      // RoleService.updatePermissions returns null for missing roles,
-      // but the controller does not guard against null before indexing [0].
-      // This produces a TypeError → 500 via AllExceptionsFilter.
-      await request(app.getHttpServer())
-        .put(`/roles/nonexistent-${Date.now()}/permissions`)
+    it('should return 404 for unknown role id', async () => {
+      const res = await request(app.getHttpServer())
+        .put('/roles/000000000000000000000001/permissions')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({ permissionIds: ['user:read'] })
-        .expect(500);
+        .expect(404);
+
+      expect(res.body).toHaveProperty('code', 'UA-COM-002');
     });
   });
 });

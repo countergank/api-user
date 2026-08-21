@@ -32,7 +32,7 @@ export async function seedAdminForE2E(app: INestApplication): Promise<AdminSeedR
     });
   } catch (error: unknown) {
     const err = error as { kind?: { kind?: string } };
-    if (err?.kind?.kind !== 'ENTITY_EMAIL_ALREADY_EXISTS') throw error;
+    if (err?.kind?.kind !== 'ENTITY_EMAIL_ALREADY_EXISTS' && err?.kind?.kind !== 'ENTITY_NAME_ALREADY_EXISTS') throw error;
   }
 
   const loginResponse = await request(app.getHttpServer())

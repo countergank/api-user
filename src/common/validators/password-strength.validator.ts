@@ -27,6 +27,7 @@ const logger = createStandaloneLogger('PasswordStrengthValidator');
 export class PasswordStrengthValidator implements ValidatorConstraintInterface {
 
   validate(password: string): boolean {
+    if (!password) return false;
     const errors = this.validatePassword(password);
 
     // Store errors in a way that can be accessed by defaultMessage

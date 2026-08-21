@@ -9,6 +9,7 @@ import { I18nService } from '../../common/i18n/i18n.service';
 import { translateRbacItems } from '../../common/i18n/rbac-translate.helper';
 import { RequestLang } from '../../common/decorators/request-lang.decorator';
 import { ApplyFindAllRolesDoc, ApplyUpdateRolePermissionsDoc } from '../api-docs';
+import { DomainError } from '../../common/errors/domain.error';
 
 /**
  * Controller para gestión de roles (RBAC).
@@ -37,6 +38,9 @@ export class RoleController {
   @ApplyUpdateRolePermissionsDoc()
   async updatePermissions(@Param('id') id: string, @Body() body: { permissionIds: string[] }, @RequestLang() lang: string | undefined) {
     const role = await this.roleService.updatePermissions(id, body.permissionIds);
+    if (!role) {
+      throw DomainError.fromKind('ENTITY_NOT_FOUND');
+    }
     return { role: (await translateRbacItems([role], this.i18n, lang))[0] };
   }
 }

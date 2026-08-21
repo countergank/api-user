@@ -19,6 +19,7 @@ export class ValidationPipe extends NestValidationPipe {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
+      skipMissingProperties: false,
       transformOptions: {
         enableImplicitConversion: true,
       },

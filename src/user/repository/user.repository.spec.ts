@@ -91,9 +91,9 @@ describe(UserRepository.name, () => {
   });
 
   describe(`${UserRepository.name}.${UserRepository.prototype.existsByName.name}`, () => {
-    it(`should be return if ${User.name} exists by name`, async () => {
+    it(`should be return if ${User.name} exists by userName`, async () => {
       const user = await repository.create(new UserMock());
-      await expect(repository.existsByName(user.name)).resolves.toBe(true);
+      await expect(repository.existsByName(user.userName)).resolves.toBe(true);
     });
   });
 
@@ -167,15 +167,15 @@ describe(UserRepository.name, () => {
   });
 
   describe(`${UserRepository.name}.${UserRepository.prototype.existsByNameExcludingSelf.name}`, () => {
-    it(`should return false when name belongs to the same user`, async () => {
+    it(`should return false when userName belongs to the same user`, async () => {
       const user = await repository.create(new UserMock());
-      await expect(repository.existsByNameExcludingSelf(user.name, user.id as string)).resolves.toBe(false);
+      await expect(repository.existsByNameExcludingSelf(user.userName, user.id as string)).resolves.toBe(false);
     });
 
-    it(`should return true when name belongs to a different user`, async () => {
+    it(`should return true when userName belongs to a different user`, async () => {
       const user1 = await repository.create(new UserMock());
       const user2 = await repository.create(new UserMock().randomize());
-      await expect(repository.existsByNameExcludingSelf(user1.name, user2.id as string)).resolves.toBe(true);
+      await expect(repository.existsByNameExcludingSelf(user1.userName, user2.id as string)).resolves.toBe(true);
     });
   });
 

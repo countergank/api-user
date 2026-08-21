@@ -200,10 +200,9 @@ describe('AuthController (e2e)', () => {
       const userModel = app.get<Model<User>>(getModelToken(User.name));
       const user = await userModel.findOne({ email: newEmail }).exec();
       expect(user).toBeDefined();
-      // BUG: pendingEmailToken is NOT cleared because Mongoose findByIdAndUpdate
-      // ignores undefined values. The service uses { pendingEmailToken: undefined }
-      // which is silently dropped. Should use $unset or a different update strategy.
-      // expect(user!.pendingEmailToken).toBeUndefined();
+      expect(user!.pendingEmailToken).toBeUndefined();
+      expect(user!.pendingEmail).toBeUndefined();
+      expect(user!.pendingEmailExpires).toBeUndefined();
     });
 
     it('should reject confirm with invalid token', async () => {
@@ -216,16 +215,13 @@ describe('AuthController (e2e)', () => {
     });
 
     it('should reject confirm with already-consumed token', async () => {
-      // BUG: The token is NOT actually consumed because Mongoose findByIdAndUpdate
-      // silently drops undefined values. The service sets pendingEmailToken: undefined
-      // but this is ignored, so the token remains valid. This test documents the
-      // current (insecure) behavior — reusing a "consumed" token still succeeds.
+      // The token was cleared (fields $unset) in the previous test, so reusing it should fail
       const res = await request(app.getHttpServer())
         .post('/auth/confirm-email-change')
         .send({ token: changeToken })
-        .expect(201);
+        .expect(400);
 
-      expect(res.body).toHaveProperty('message');
+      expect(res.body).toHaveProperty('code', 'UA-AUTH-007');
     });
   });
 

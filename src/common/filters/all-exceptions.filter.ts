@@ -3,6 +3,7 @@ import {
   Catch,
   ArgumentsHost,
   HttpException,
+  HttpStatus,
   Logger,
   Optional,
 } from '@nestjs/common';
@@ -64,6 +65,17 @@ export class AllExceptionsFilter implements ExceptionFilter {
         errorDto.message = await this.tryTranslate(`errors.${errorDto.message}`, errorDto.message, lang);
       }
     }
+    // Priority 2b: Mongoose CastError (invalid ObjectId) → 400 Bad Request
+    else if (this.isMongooseCastError(exception)) {
+      errorDto = new ErrorResponseDto({
+        statusCode: HttpStatus.BAD_REQUEST,
+        code: 'UA-COM-005',
+        message: `Invalid ID format: ${exception.value}`,
+        traceId,
+        timestamp: new Date().toISOString(),
+      });
+      this.logger.warn(`CastError: ${errorDto.message}`);
+    }
     // Priority 3: plain Error or unknown
     else {
       const error = exception instanceof Error ? exception : new Error(String(exception));
@@ -97,5 +109,21 @@ export class AllExceptionsFilter implements ExceptionFilter {
   private async tryTranslate(key: string, fallback: string, lang?: string): Promise<string> {
     const translated = await this.i18n!.translate(key, lang);
     return translated !== key ? translated : fallback;
+  }
+
+  /**
+   * Detect a Mongoose CastError (thrown when an invalid ObjectId is passed).
+   * Uses duck-typing to avoid a hard dependency on mongoose.
+   */
+  private isMongooseCastError(exception: unknown): exception is { name: string; value: unknown; kind: string; path: string } {
+    return (
+      typeof exception === 'object' &&
+      exception !== null &&
+      'name' in exception &&
+      (exception as { name: string }).name === 'CastError' &&
+      'value' in exception &&
+      'kind' in exception &&
+      'path' in exception
+    );
   }
 }
