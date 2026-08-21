@@ -30,13 +30,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install mongosh
-        run: |
-          wget -qO- https://www.mongodb.org/static/pgp/server-6.0.asc | sudo tee /etc/apt/trusted.gpg.d/mongodb.asc
-          echo "deb [arch=amd64] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/6.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq mongodb-mongosh
-
       - name: Start MongoDB (replica set)
         run: |
           docker run -d --name mongodb -p 27017:27017 \
@@ -46,18 +39,18 @@ jobs:
       - name: Initialize MongoDB replica set
         run: |
           for i in $(seq 1 30); do
-            if mongosh --host localhost --quiet --eval 'db.runCommand({ping:1}).ok' 2>/dev/null | grep -q '^1$'; then
+            if docker exec mongodb mongosh --quiet --eval 'db.runCommand({ping:1}).ok' 2>/dev/null | grep -q '^1$'; then
               break
             fi
             sleep 1
           done
-          mongosh --host localhost --eval 'rs.initiate({_id: "rs0", members: [{_id: 0, host: "localhost:27017"}]})'
+          docker exec mongodb mongosh --eval 'rs.initiate({_id: "rs0", members: [{_id: 0, host: "localhost:27017"}]})'
           for i in $(seq 1 30); do
-            state=$(mongosh --host localhost --quiet --eval 'try { rs.status().myState } catch(e) { 0 }')
+            state=$(docker exec mongodb mongosh --quiet --eval 'try { rs.status().myState } catch(e) { 0 }')
             [ "$state" = "1" ] && break
             sleep 1
           done
-          mongosh --host localhost --eval 'db.getSiblingDB("admin").createUser({user: "dev_user", pwd: "dev_password", roles: [{role: "root", db: "admin"}]})'
+          docker exec mongodb mongosh --eval 'db.getSiblingDB("admin").createUser({user: "dev_user", pwd: "dev_password", roles: [{role: "root", db: "admin"}]})'
 
       - name: Run unit tests
         run: npm test
