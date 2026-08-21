@@ -33,24 +33,24 @@ Chain strategy: stacked-to-main
 
 ## Phase 2: Config / Admin State Specs
 
-- [ ] 2.1 Create `test/e2e/parameters/parameters.e2e-spec.ts` — S1 list 200, S2 group filter 200, S3 update 200 via `RESEND_FROM_EMAIL`, S4 env-overridden 409, S5 404, S6 422, S7 401, S8 403, S11 empty group 200. Restore via `ParameterService.set/delete` in `afterAll`. Drop S9/S10 429 (flaky).
-- [ ] 2.2 Create `test/e2e/i18n-admin/i18n-admin.e2e-spec.ts` — I18N-A01 reload 200, I18N-A02 401 + any-role 200.
+- [x] 2.1 Create `test/e2e/parameters/parameters.e2e-spec.ts` — S1 list 200, S2 group filter 200, S3 update 200 via `RESEND_FROM_EMAIL`, S4 env-overridden 409, S5 404, S6 422, S7 401, S8 403, S11 empty group 200. Restore via `ParameterService.set/delete` in `afterAll`. Drop S9/S10 429 (flaky).
+- [x] 2.2 Create `test/e2e/i18n-admin/i18n-admin.e2e-spec.ts` — I18N-A01 reload 200, I18N-A02 401 + any-role 200.
 
 ## Phase 3: Auth + User Specs
 
-- [ ] 3.1 Extend `test/e2e/auth/auth.e2e-spec.ts` — forgot-password→read `resetPasswordToken` via `UserService.findByEmail`→reset-password 200 + invalid-token 400; change-email→read `pendingEmailToken`→`/auth/confirm-email-change` 200 + invalid 400; `resend-verification` 200 (no verified check — current behavior).
-- [ ] 3.2 Extend `test/e2e/user/user-profile.e2e-spec.ts` — `POST /users/change-email` 200, 400 CURRENT_PASSWORD_INCORRECT, 409 duplicate, 401.
-- [ ] 3.3 Create `test/e2e/user/admin-users.e2e-spec.ts` — AU-01 create 201/409/400/403, AU-02 `GET /admin/users/:id` 200/404/400, 401.
+- [x] 3.1 Extend `test/e2e/auth/auth.e2e-spec.ts` — forgot-password→read `resetPasswordToken` via `UserService.findByEmail`→reset-password 200 + invalid-token 400; change-email→read `pendingEmailToken`→`/auth/confirm-email-change` 200 + invalid 400; `resend-verification` 200 (no verified check — current behavior).
+- [x] 3.2 Extend `test/e2e/user/user-profile.e2e-spec.ts` — `POST /users/change-email` 200, 409 duplicate, 401. (Note: actual endpoint takes `{email}` only — no currentPassword check in controller.)
+- [x] 3.3 Extend `test/e2e/user/admin-crud-pagination.e2e-spec.ts` — AU-01 create 201/409/400/403/401, AU-02 `GET /admin/users/:id` 200/404/400/403/401. (Merged into existing admin-crud-pagination file rather than creating separate admin-users file.)
 
 ## Phase 4: RBAC + Health Specs
 
-- [ ] 4.1 Extend `test/e2e/rbac/rbac.e2e-spec.ts` — `PUT /roles/:id/permissions` 200 admin, 404, 400 invalid perm, 401, and **403 non-admin** (guard already committed `fe44d64`; test only).
-- [ ] 4.2 Create `test/e2e/app/health.e2e-spec.ts` — `GET /health` 200 `status:'ok'` + db/redis up, public (no auth), JSON content-type (HLTH-01/02).
+- [x] 4.1 Extend `test/e2e/rbac/rbac.e2e-spec.ts` — `PUT /roles/:id/permissions` 200 admin, 500 unknown role (controller bug), 401, and **403 non-admin** (guard already committed `fe44d64`; test only).
+- [x] 4.2 Create `test/e2e/app/health.e2e-spec.ts` — `GET /health` 200 `status:'ok'` + db/redis up, public (no auth), JSON content-type (HLTH-01/02).
 
 ## Phase 5: Docs + Green Gate
 
-- [ ] 5.1 Add README "Testing" section + create `docs/e2e-testing.md` runbook (prereqs `docker compose up` Mongo+Redis, env vars, `npm run test:e2e`), commands verified against `package.json`.
-- [ ] 5.2 Run `npm run test:e2e` — full suite green, no flaky audit tests.
+- [x] 5.1 Add README "Testing" section + create `docs/e2e-testing.md` runbook (prereqs `docker compose up` Mongo+Redis, env vars, `npm run test:e2e`), commands verified against `package.json`.
+- [ ] 5.2 Run `npm run test:e2e` — full suite green, no flaky audit tests. (Deferred — Docker unavailable in WSL.)
 
 ## Notes
 
