@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { createTestApp } from '../../helpers/create-test-app';
+import { seedAdminForE2E } from '../../helpers/seed-admin';
 import { PermissionService } from '../../../src/rbac/services/permission.service';
 import { RoleService } from '../../../src/rbac/services/role.service';
 
@@ -8,14 +9,6 @@ describe('RBAC (e2e)', () => {
   let app: INestApplication;
   let adminToken: string;
   let userToken: string;
-
-  const adminUser = {
-    email: `admin-${Date.now()}@example.com`,
-    userName: `admin-${Date.now()}`,
-    password: 'Adm1nW0rd!x',
-    name: 'Admin',
-    lastName: 'User',
-  };
 
   const regularUser = {
     email: `user-${Date.now()}@example.com`,
@@ -28,23 +21,9 @@ describe('RBAC (e2e)', () => {
   beforeAll(async () => {
     app = await createTestApp();
 
-    // Register and verify admin user
-    const adminRegRes = await request(app.getHttpServer())
-      .post('/auth/register')
-      .send(adminUser)
-      .expect(201);
-
-    await request(app.getHttpServer())
-      .post('/auth/verify-email')
-      .send({ token: adminRegRes.body.verificationToken })
-      .expect(201);
-
-    const adminLoginRes = await request(app.getHttpServer())
-      .post('/auth/login')
-      .send({ email: adminUser.email, password: adminUser.password })
-      .expect(200);
-
-    adminToken = adminLoginRes.body.accessToken;
+    // Seed a REAL admin user (role: UserRole.ADMIN) via the helper
+    const { adminToken: t } = await seedAdminForE2E(app);
+    adminToken = t;
 
     // Register and verify regular user
     const userRegRes = await request(app.getHttpServer())

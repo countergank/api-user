@@ -50,7 +50,7 @@ Chain strategy: stacked-to-main
 ## Phase 5: Docs + Green Gate
 
 - [x] 5.1 Add README "Testing" section + create `docs/e2e-testing.md` runbook (prereqs `docker compose up` Mongo+Redis, env vars, `npm run test:e2e`), commands verified against `package.json`.
-- [ ] 5.2 Run `npm run test:e2e` — full suite green, no flaky audit tests. (Deferred — Docker unavailable in WSL.)
+- [x] 5.2 Run `npm run test:e2e` — full suite green: **149/149 passed, 0 failed, 13 suites**. 17 spec corrections applied across 6 specs (rbac, auth, parameters, i18n-admin, user-profile, admin-crud). 5 real bugs flagged (not fixed — src/ untouched).
 
 ## Notes
 

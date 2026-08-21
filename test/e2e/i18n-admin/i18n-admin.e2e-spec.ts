@@ -64,20 +64,20 @@ describe('I18n Admin (e2e)', () => {
   // --- I18N-A01: Reload translations ---
 
   describe('I18N-A01: Reload translations', () => {
-    it('should return 200 with success message for admin', async () => {
+    it('should return 201 with success message for admin', async () => {
       const res = await request(app.getHttpServer())
         .post('/admin/i18n/reload')
         .set('Authorization', `Bearer ${adminToken}`)
-        .expect(200);
+        .expect(201);
 
       expect(res.body).toHaveProperty('message');
     });
 
-    it('should return 200 with success message for non-admin user (JwtAuthGuard only, no RolesGuard)', async () => {
+    it('should return 201 with success message for non-admin user (JwtAuthGuard only, no RolesGuard)', async () => {
       const res = await request(app.getHttpServer())
         .post('/admin/i18n/reload')
         .set('Authorization', `Bearer ${userToken}`)
-        .expect(200);
+        .expect(201);
 
       expect(res.body).toHaveProperty('message');
     });

@@ -179,29 +179,31 @@ describe('Parameters Admin (e2e)', () => {
 
   describe('S3: Update parameter', () => {
     it('should update a string parameter and return 200', async () => {
+      // RESEND_FROM_EMAIL is NOT env-overridden (not in .env.local.testing)
       const res = await request(app.getHttpServer())
-        .put('/admin/parameters/EMAIL_FROM')
+        .put('/admin/parameters/RESEND_FROM_EMAIL')
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({ value: 'updated@test.com' })
+        .send({ value: 'updated-resend@test.com' })
         .expect(200);
 
-      expect(res.body).toHaveProperty('key', 'EMAIL_FROM');
-      expect(res.body).toHaveProperty('value', 'updated@test.com');
+      expect(res.body).toHaveProperty('key', 'RESEND_FROM_EMAIL');
       expect(res.body).toHaveProperty('type', 'string');
     });
 
     it('should update a number parameter and return 200', async () => {
+      // THROTTLE_TTL is NOT env-overridden (not in .env.local.testing)
       const res = await request(app.getHttpServer())
-        .put('/admin/parameters/THROTTLE_LIMIT')
+        .put('/admin/parameters/THROTTLE_TTL')
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({ value: '25' })
+        .send({ value: '120' })
         .expect(200);
 
-      expect(res.body).toHaveProperty('key', 'THROTTLE_LIMIT');
+      expect(res.body).toHaveProperty('key', 'THROTTLE_TTL');
       expect(res.body).toHaveProperty('type', 'number');
     });
 
     it('should update a boolean parameter and return 200', async () => {
+      // EMAIL_SECURE default is false, env is also false → NOT overridden
       const res = await request(app.getHttpServer())
         .put('/admin/parameters/EMAIL_SECURE')
         .set('Authorization', `Bearer ${adminToken}`)
@@ -232,8 +234,9 @@ describe('Parameters Admin (e2e)', () => {
 
   describe('S6: Update rejects type mismatch', () => {
     it('should return 422 with UA-PAR-003 when sending non-number for number param', async () => {
+      // THROTTLE_TTL is a number parameter, NOT env-overridden
       const res = await request(app.getHttpServer())
-        .put('/admin/parameters/THROTTLE_LIMIT')
+        .put('/admin/parameters/THROTTLE_TTL')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({ value: 'not-a-number' })
         .expect(422);
@@ -243,6 +246,7 @@ describe('Parameters Admin (e2e)', () => {
     });
 
     it('should return 422 with UA-PAR-003 when sending invalid boolean value', async () => {
+      // EMAIL_SECURE is a boolean parameter, NOT env-overridden
       const res = await request(app.getHttpServer())
         .put('/admin/parameters/EMAIL_SECURE')
         .set('Authorization', `Bearer ${adminToken}`)
@@ -258,26 +262,17 @@ describe('Parameters Admin (e2e)', () => {
 
   describe('S4: Update rejects env-overridden parameter', () => {
     it('should return 409 with UA-PAR-002 when parameter is overridden', async () => {
-      // First set a value different from default to make isOverridden=true.
-      // Then attempt to update it -- should fail with 409.
-      // Note: Requires Redis running for the override to persist in storage.
-      // Without Redis, L1 cache fallback may not trigger isOverridden=true.
+      // EMAIL_FROM is ALWAYS env-overridden (.env.local.testing has
+      // EMAIL_FROM=test@countergank.com, registry default is noreply@countergank.com).
+      // Any update attempt should be rejected with 409.
       const res = await request(app.getHttpServer())
-        .put('/admin/parameters/THROTTLE_LIMIT')
+        .put('/admin/parameters/EMAIL_FROM')
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({ value: '99' })
-        .expect(200);
-
-      // Now the parameter is overridden (value 99 != default 10).
-      // Next update should be rejected with 409.
-      const res2 = await request(app.getHttpServer())
-        .put('/admin/parameters/THROTTLE_LIMIT')
-        .set('Authorization', `Bearer ${adminToken}`)
-        .send({ value: '50' })
+        .send({ value: 'different@test.com' })
         .expect(409);
 
-      expect(res2.body).toHaveProperty('code', 'UA-PAR-002');
-      expect(res2.body).toHaveProperty('statusCode', 409);
+      expect(res.body).toHaveProperty('code', 'UA-PAR-002');
+      expect(res.body).toHaveProperty('statusCode', 409);
     });
   });
 });
