@@ -1,13 +1,6 @@
-# auth-login Specification
+# Delta for auth-login
 
-> Migrated from `openspec/SPEC.md` (deleted 2026-07-06).
-> Updated by cou-226-e2e-full-coverage — added reset-password, confirm-email-change, resend-verification.
-
-## Overview
-
-Authentication with JWT tokens.
-
-## Requirements
+## ADDED Requirements
 
 ### Requirement: Reset password flow
 

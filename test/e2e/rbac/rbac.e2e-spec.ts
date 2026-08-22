@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { createTestApp } from '../../helpers/create-test-app';
+import { seedAdminForE2E } from '../../helpers/seed-admin';
 import { PermissionService } from '../../../src/rbac/services/permission.service';
 import { RoleService } from '../../../src/rbac/services/role.service';
 
@@ -8,14 +9,6 @@ describe('RBAC (e2e)', () => {
   let app: INestApplication;
   let adminToken: string;
   let userToken: string;
-
-  const adminUser = {
-    email: `admin-${Date.now()}@example.com`,
-    userName: `admin-${Date.now()}`,
-    password: 'Adm1nW0rd!x',
-    name: 'Admin',
-    lastName: 'User',
-  };
 
   const regularUser = {
     email: `user-${Date.now()}@example.com`,
@@ -28,23 +21,9 @@ describe('RBAC (e2e)', () => {
   beforeAll(async () => {
     app = await createTestApp();
 
-    // Register and verify admin user
-    const adminRegRes = await request(app.getHttpServer())
-      .post('/auth/register')
-      .send(adminUser)
-      .expect(201);
-
-    await request(app.getHttpServer())
-      .post('/auth/verify-email')
-      .send({ token: adminRegRes.body.verificationToken })
-      .expect(201);
-
-    const adminLoginRes = await request(app.getHttpServer())
-      .post('/auth/login')
-      .send({ email: adminUser.email, password: adminUser.password })
-      .expect(200);
-
-    adminToken = adminLoginRes.body.accessToken;
+    // Seed a REAL admin user (role: UserRole.ADMIN) via the helper
+    const { adminToken: t } = await seedAdminForE2E(app);
+    adminToken = t;
 
     // Register and verify regular user
     const userRegRes = await request(app.getHttpServer())
@@ -119,6 +98,59 @@ describe('RBAC (e2e)', () => {
       expect(roleNames).toContain('admin');
       expect(roleNames).toContain('user');
       expect(roleNames).toContain('viewer');
+    });
+  });
+
+  describe('PUT /roles/:id/permissions', () => {
+    let roleId: string;
+
+    beforeAll(async () => {
+      // Grab an existing role ID to update
+      const rolesRes = await request(app.getHttpServer())
+        .get('/roles')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      roleId = rolesRes.body.roles.find((r: any) => r.name === 'user')._id;
+    });
+
+    it('should update role permissions as admin (200)', async () => {
+      const response = await request(app.getHttpServer())
+        .put(`/roles/${roleId}/permissions`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ permissionIds: ['user:read'] })
+        .expect(200);
+
+      expect(response.body.role).toBeDefined();
+      expect(response.body.role._id).toBe(roleId);
+      expect(response.body.role.permissionIds).toContain('user:read');
+    });
+
+    it('should return 403 for non-admin authenticated user', async () => {
+      const response = await request(app.getHttpServer())
+        .put(`/roles/${roleId}/permissions`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({ permissionIds: ['user:read'] })
+        .expect(403);
+
+      expect(response.body.statusCode).toBe(403);
+      expect(response.body.code).toBe('UA-SEC-002');
+    });
+
+    it('should return 401 for unauthenticated request', async () => {
+      await request(app.getHttpServer())
+        .put(`/roles/${roleId}/permissions`)
+        .send({ permissionIds: ['user:read'] })
+        .expect(401);
+    });
+
+    it('should return 404 for unknown role id', async () => {
+      const res = await request(app.getHttpServer())
+        .put('/roles/000000000000000000000001/permissions')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ permissionIds: ['user:read'] })
+        .expect(404);
+
+      expect(res.body).toHaveProperty('code', 'UA-COM-002');
     });
   });
 });

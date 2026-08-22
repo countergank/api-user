@@ -223,11 +223,11 @@ export class AuthService {
     }
 
     await runInTransaction(this.connection, async () => {
-      await this.userService.update(user.id, {
-        isActive: true,
-        emailVerificationToken: undefined,
-        emailVerificationExpires: undefined,
-      } as any);
+      await this.userService.update(user.id, { isActive: true } as any);
+      await this.userService.unsetFields(user.id, [
+        'emailVerificationToken',
+        'emailVerificationExpires',
+      ]);
     });
   }
 
@@ -248,12 +248,12 @@ export class AuthService {
     }
 
     await runInTransaction(this.connection, async () => {
-      await this.userService.update(user.id, {
-        email: newEmail,
-        pendingEmail: undefined,
-        pendingEmailToken: undefined,
-        pendingEmailExpires: undefined,
-      } as any);
+      await this.userService.update(user.id, { email: newEmail } as any);
+      await this.userService.unsetFields(user.id, [
+        'pendingEmail',
+        'pendingEmailToken',
+        'pendingEmailExpires',
+      ]);
     });
 
     this.eventEmitter.emit(EmailEvents.EMAIL_CHANGE_CONFIRMED, {

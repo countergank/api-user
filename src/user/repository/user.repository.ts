@@ -40,7 +40,7 @@ export class UserRepository implements OnApplicationBootstrap {
   }
 
   async existsByName(name: string): Promise<boolean> {
-    const exists = await this.userModel.exists({ name }).exec();
+    const exists = await this.userModel.exists({ userName: name }).exec();
     return Boolean(exists);
   }
 
@@ -55,7 +55,7 @@ export class UserRepository implements OnApplicationBootstrap {
   }
 
   async existsByNameExcludingSelf(name: string, excludeId: string): Promise<boolean> {
-    const exists = await this.userModel.exists({ name, _id: { $ne: excludeId } }).exec();
+    const exists = await this.userModel.exists({ userName: name, _id: { $ne: excludeId } }).exec();
     return Boolean(exists);
   }
 
@@ -139,7 +139,24 @@ export class UserRepository implements OnApplicationBootstrap {
       user.set(data);
       return user.save();
     }
-    return this.userModel.findByIdAndUpdate(id, data, { new: true }).exec();
+
+    // Filter out undefined values — Mongoose findByIdAndUpdate ignores them,
+    // which is the correct behavior: undefined means "don't touch this field."
+    // Callers that need to explicitly remove fields should use unsetFields().
+    const defined = Object.fromEntries(
+      Object.entries(data).filter(([, v]) => v !== undefined),
+    );
+
+    return this.userModel.findByIdAndUpdate(id, defined, { new: true }).exec();
+  }
+
+  /**
+   * Explicitly remove fields from a user document (uses MongoDB $unset).
+   * Use when you need to actually delete fields, not just skip them.
+   */
+  async unsetFields(id: string, fields: string[]): Promise<User> {
+    const $unset = Object.fromEntries(fields.map((f) => [f, 1]));
+    return this.userModel.findByIdAndUpdate(id, { $unset }, { new: true }).exec();
   }
 
   async validatePassword(password: string, hashedPassword: string): Promise<boolean> {

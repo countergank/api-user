@@ -119,6 +119,12 @@ export class UserService {
     return updated;
   }
 
+  async unsetFields(id: string, fields: string[]): Promise<User> {
+    const updated = await this.userRepository.unsetFields(id, fields);
+    this.invalidateUserCache(id);
+    return updated;
+  }
+
   async validatePassword(password: string, hashedPassword: string): Promise<boolean> {
     return this.encodeService.compare(password, hashedPassword);
   }
