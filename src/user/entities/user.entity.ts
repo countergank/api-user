@@ -73,12 +73,3 @@ export class User extends Base {
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
-
-// Sparse indexes for token lookups
-UserSchema.index({ resetPasswordToken: 1 }, { sparse: true });
-UserSchema.index({ emailVerificationToken: 1 }, { sparse: true });
-UserSchema.index({ pendingEmailToken: 1 }, { sparse: true });
-
-// Compound indexes for common query patterns
-UserSchema.index({ deletedAt: 1, createdAt: -1 });
-UserSchema.index({ role: 1, isActive: 1 });

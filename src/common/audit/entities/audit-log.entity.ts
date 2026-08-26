@@ -51,7 +51,3 @@ export class AuditLog extends Base {
 }
 
 export const AuditLogSchema = SchemaFactory.createForClass(AuditLog);
-
-// Compound indexes for audit-log pagination filters
-AuditLogSchema.index({ userId: 1, createdAt: -1 });
-AuditLogSchema.index({ action: 1, createdAt: -1 });
