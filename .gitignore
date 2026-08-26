@@ -40,6 +40,10 @@ lerna-debug.log*
 .env.local
 .env.*
 !.env.example
-!.env.production.example.atl/
+!.env.production.example
+
+# Agent runtime directories (symlinks created by npx skills)
+.claude/
+
 # Local AI runtime state
 .atl/
