@@ -56,7 +56,8 @@ COPY --chown=node:node package*.json ./
 
 # Fresh production-only install (no devDependencies)
 # --ignore-scripts skips lifecycle scripts (prepare runs husky which is a devDependency)
-RUN npm ci --omit=dev --ignore-scripts
+# typescript added explicitly: nestjs-i18n requires it at runtime (peerDependency)
+RUN npm ci --omit=dev --ignore-scripts && npm install typescript --save-exact --no-save
 
 # Copy only compiled output from build stage
 COPY --from=build --chown=node:node /usr/src/app/dist ./dist
