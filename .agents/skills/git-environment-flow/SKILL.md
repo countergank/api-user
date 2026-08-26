@@ -18,6 +18,7 @@ Activate when deciding which branch to target, cutting a release, applying a hot
 | P0 | Environment | 1 | Permanent branches: develop, staging, main |
 | P0 | Promotion | 1 | Left-to-right merge flow, backmerge |
 | P1 | Hotfix | 1 | Main-first fix, backmerge to develop only |
+| P0 | Release | 1 | Automate version bump from commit history, generate changelog, create annotated tag |
 | P1 | Release | 1 | release/x.y.z lifecycle, annotated tags, cleanup |
 | P2 | Tracking | 1 | GitHub Environments mapping, tag-based rollback |
 
@@ -43,5 +44,5 @@ Load `github-conventions` first for naming conventions; load this skill when you
 
 1. **Agent loads this SKILL.md first** — the priority table tells the agent which rules matter most.
 2. **Navigate `rules/<category>/` by priority** — start with `p0-*.md` files (always load), then `p1-*.md` (context-dependent), then `p2-*.md` (deploy scenarios).
-3. **Each rule file is self-contained** — read it, apply the pattern, move on. No need to load all 5 files.
+3. **Each rule file is self-contained** — read it, apply the pattern, move on. No need to load all 6 files.
 4. **Use `assets/` for future templates** — directory reserved for environment-specific CI/CD templates.

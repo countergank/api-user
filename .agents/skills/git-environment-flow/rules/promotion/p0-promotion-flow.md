@@ -12,9 +12,11 @@ category: promotion
 ## Promotion Flow Diagram
 
 ```
-feature ──PR(squash)──▶ develop ──cut──▶ release/x.y.z ──merge──▶ staging ──merge──▶ main ──backmerge──▶ develop
-                             ↑                                                                      │
-                             └──────────────────────────────────────────────────────────────────────┘
+feature ──PR(squash)──▶ develop ──cut──▶ release/x.y.z ──merge──▶ staging (vX.Y.Z-rcN)
+                             ↑                    │
+                             │                    └──merge──▶ main (vX.Y.Z)
+                             │                                  │
+                             └──────────────────────────────────┘ (backmerge)
 ```
 
 ## Flow Stages
@@ -22,7 +24,7 @@ feature ──PR(squash)──▶ develop ──cut──▶ release/x.y.z ─�
 1. **Feature → develop**: Squash merge via PR. All feature work integrates here first.
 2. **develop → release/x.y.z**: Branch cut from `develop` at scope freeze. Only bugfixes allowed on the release branch.
 3. **release/x.y.z → staging**: Merge for curation testing. Tag with `vX.Y.Z-rcN` on staging.
-4. **staging → main**: After staging approval, merge release to production. Tag with `vX.Y.Z` (annotated) on main.
+4. **release/x.y.z → main**: After staging approval, merge release to production. Tag with `vX.Y.Z` (annotated) on main.
 5. **main → develop**: Backmerge after production release to keep develop in sync. Delete the release branch.
 
 ## Merge Direction Rules
@@ -37,9 +39,11 @@ feature ──PR(squash)──▶ develop ──cut──▶ release/x.y.z ─�
 ```
 ✅ Good: feat/login PR squash-merged to develop
 ✅ Good: release/1.2.0 cut from develop, merged to staging, tagged v1.2.0-rc1
-✅ Good: release/1.2.0 approved, merged to main, tagged v1.2.0, backmerged to develop, branch deleted
+✅ Good: release/1.2.0 merged to main (after staging approval), tagged v1.2.0, backmerged to develop, branch deleted
+✅ Good: Both staging and main receive the same release branch content
 ❌ Bad:  feat/login PR targets staging directly
 ❌ Bad:  develop merged to main without a release branch
 ❌ Bad:  release/1.2.0 merged to main but not backmerged to develop
 ❌ Bad:  Feature branch merged to main directly
+❌ Bad:  Staging merged into main (staging is for testing, not the source for production)
 ```

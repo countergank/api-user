@@ -27,7 +27,8 @@
     "seed:roles": "docker compose exec api-user npx ts-node src/database/seeds/seed-roles.ts",
     "seed:users": "docker compose exec api-user npx ts-node src/database/seeds/seed-users.ts",
     "seed:email-templates": "docker compose exec api-user npx ts-node src/database/seeds/seed-email-templates.ts",
-    "seed:all": "npm run seed:permissions && npm run seed:roles && npm run seed:users && npm run seed:email-templates"
+    "seed:all": "npm run seed:permissions && npm run seed:roles && npm run seed:users && npm run seed:email-templates",
+    "skills:update": "npx skills update"
   },
   "dependencies": {
     "@faker-js/faker": "^8.4.1",
