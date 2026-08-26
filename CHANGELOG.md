@@ -2,53 +2,42 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.1.0] - 2026-08-26
 
 ### Added
 
-- **Rate Limiting** — All public auth endpoints are now protected by configurable rate limiting using `@nestjs/throttler`:
-  - `POST /auth/login` — 5 requests per 60s (configurable via `LOGIN_THROTTLE_LIMIT` / `LOGIN_THROTTLE_TTL`)
-  - `POST /auth/forgot-password` — 3 requests per 60s (configurable via `FORGOT_PASSWORD_THROTTLE_LIMIT` / `FORGOT_PASSWORD_THROTTLE_TTL`)
-  - `POST /auth/register` — 10 requests per 60s (configurable via `THROTTLE_LIMIT` / `THROTTLE_TTL`)
-  - `POST /auth/reset-password`, `/auth/verify-email`, `/auth/confirm-email-change`, `/auth/resend-verification`, `/auth/refresh` — 10 requests per 60s
-  - Rate-limited responses return **429 Too Many Requests** with a `Retry-After` header
-- **Account Lockout** — Accounts are temporarily locked after consecutive failed login attempts:
-  - Default threshold: 5 failed attempts (configurable via `MAX_LOGIN_ATTEMPTS`)
-  - Default lockout duration: 15 minutes (configurable via `LOCKOUT_DURATION_MINUTES`)
-  - Locked accounts receive **423 Locked** with `errors.ACCOUNT_LOCKED` message
-  - Accounts auto-unlock after the lockout duration expires
-  - Successful login resets the failed attempt counter
-  - Admin unlock endpoint: `PATCH /admin/users/:id/unlock` (requires admin role)
-- **New Environment Variables**:
-  - `THROTTLE_TTL`, `THROTTLE_LIMIT` — default rate limiting
-  - `LOGIN_THROTTLE_TTL`, `LOGIN_THROTTLE_LIMIT` — login-specific rate limiting
-  - `FORGOT_PASSWORD_THROTTLE_TTL`, `FORGOT_PASSWORD_THROTTLE_LIMIT` — forgot-password-specific rate limiting
-  - `MAX_LOGIN_ATTEMPTS` — failed attempts before lockout
-  - `LOCKOUT_DURATION_MINUTES` — lockout duration in minutes
-- **i18n Translations** for rate limiting (`errors.RATE_LIMITED`) and account lockout (`errors.ACCOUNT_LOCKED`) in English, Spanish, and Portuguese
+- **User Management API** — CRUD de usuarios con paginación, búsqueda y filtros
+- **Authentication** — JWT login, register, forgot/reset password, email verification
+- **RBAC** — Roles y permisos con guards, cache-aside en RoleService y PermissionService
+- **Parameter Store** — Runtime configuration management con Redis backend, @Parameter() decorator, migración de 23 process.env
+- **Cache Layer** — CacheService con Redis, user cache para JWT validation (COU-145/146)
+- **Redis** — Integración completa: health checks, cache, parameter store (COU-156)
+- **Error Handling** — Sistema unificado de errores con DomainError, AllExceptionsFilter global (COU-203)
+- **Structured Logging** — nestjs-pino con contexto de request (COU-116)
+- **MongoDB** — Transactions y data integrity (COU-115)
+- **Rate Limiting** — Configurable por endpoint (login: 5/60s, register: 10/60s, forgot-password: 3/60s)
+- **Account Lockout** — Bloqueo tras 5 intentos fallidos, duración configurable, admin unlock
+- **Audit Logging** — Interceptor con event emitter para trazabilidad
+- **i18n** — Soporte multi-idioma (EN/ES/PT)
+- **Scalar API Reference** — Documentación visual interactiva reemplazando Swagger UI
+- **Health Check** — Endpoint `/health` con status de DB y Redis
+- **E2E Tests** — 149 tests cubriendo todos los endpoints
+- **CI** — GitHub Actions con unit + e2e tests en cada PR
+
+### Fixed
+
+- Seguridad P0: endpoints sin autenticación y health check (COU-113)
+- change-password valida password actual y hashea el nuevo
+- Docker: HUSKY=0 en producción para skip de prepare script
+- CI: mongosh in-container para replica set init
 
 ### Changed
 
-- `AuthService.login()` now checks account lockout state before password validation (security optimization)
-- User entity includes new fields: `failedLoginAttempts` (number, default 0) and `lockedUntil` (Date, optional)
+- Performance: MongoDB indexes para queries de paginación y audit logs (COU-149)
+- Dockerfile migrado a Node 22 para compatibilidad ESM (Scalar)
 
-### Security
+## [Unreleased]
 
-- Brute-force protection on all public auth endpoints via configurable rate limiting
-- Account lockout mechanism prevents credential stuffing attacks
-- Admin unlock endpoint requires both authentication and admin role (403 for non-admin)
-
-### API Response Changes
-
-| Status Code | Condition |
-|-------------|-----------|
-| 429 | Rate limit exceeded — includes `Retry-After` header |
-| 423 | Account locked — message: `errors.ACCOUNT_LOCKED` (i18n translatable) |
-
-### Backward Compatibility
-
-- No database migration required — new User fields are optional with safe defaults
-- Existing users automatically get `failedLoginAttempts: 0` and no `lockedUntil`
-- All existing API contracts remain unchanged
