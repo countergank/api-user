@@ -28,9 +28,10 @@ export class AppService {
   }
 
   async getVersion(): Promise<Version> {
-    const packageName = this.configService.getOrThrow('npm_package_name');
+    const packageName = this.configService.get<string>('npm_package_name', 'api-user');
     const env = this.configService.getOrThrow('NODE_ENV');
-    const version = this.configService.getOrThrow('npm_package_version');
+    const version = this.configService.get<string>('npm_package_version')
+      || this.configService.get<string>('VERSION', 'unknown');
 
     if (!packageName || !env || !version) {
       throw DomainError.fromKind('APP_VERSION_NOT_FOUND');

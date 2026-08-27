@@ -29,6 +29,9 @@ describe(AppService.name, () => {
               }
               return mockConfig[key];
             },
+            get: (key: string, defaultValue?: string) => {
+              return mockConfig[key] ?? defaultValue;
+            },
           },
         },
         {
@@ -58,6 +61,7 @@ describe(AppService.name, () => {
             provide: ConfigService,
             useValue: {
               getOrThrow: () => '',
+              get: () => '',
             },
           },
           { provide: MicroservicesNames.EXAMPLE, useValue: {} as ClientProxy },
