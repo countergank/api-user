@@ -62,6 +62,9 @@ RUN npm ci --omit=dev --ignore-scripts && npm install typescript --save-exact --
 # Copy only compiled output from build stage
 COPY --from=build --chown=node:node /usr/src/app/dist ./dist
 
+# Copy email templates (HTML files not included by tsc)
+COPY --from=build --chown=node:node /usr/src/app/src/email/templates ./dist/email/templates
+
 ENV NODE_ENV=production
 
 # Use non-root user
