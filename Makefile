@@ -95,6 +95,26 @@ logs:
 		NODE_ENV=$(ENV) docker compose --env-file .env.$(ENV) logs -f; \
 	fi
 
+## ghcr:up — Start stack with GHCR image (VERSION=<version>)
+ghcr\:up:
+	VERSION=$(VERSION) docker compose -f docker-compose.yml -f docker-compose.ghcr.yml up -d
+	@echo "GHCR image ghcr.io/countergank/api-user:v$(VERSION) started"
+
+## ghcr:down — Stop GHCR stack
+ghcr\:down:
+	VERSION=$(VERSION) docker compose -f docker-compose.yml -f docker-compose.ghcr.yml down
+
+## ghcr:test — Test GHCR image with full stack (VERSION=<version>)
+ghcr\:test:
+	@$(MAKE) ghcr\:up VERSION=$(VERSION)
+	@sleep 10
+	@echo "--- Health Check ---"
+	@curl -s http://localhost:3000/health | python3 -m json.tool
+	@echo ""
+	@echo "--- Endpoints ---"
+	@curl -s http://localhost:3000/ | head -1
+	@echo ""
+
 ## docker:rebuild — Rebuild Docker images without cache (ENV=<env>, auto-detects Doppler)
 docker\:rebuild:
 	@if command -v doppler >/dev/null 2>&1; then \
