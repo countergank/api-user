@@ -97,7 +97,7 @@ logs:
 
 ## ghcr:up — Start stack with GHCR image (VERSION=<version>)
 ghcr\:up:
-	VERSION=$(VERSION) docker compose -f docker-compose.yml -f docker-compose.ghcr.yml up -d
+	VERSION=$(VERSION) docker compose -f docker-compose.yml -f docker-compose.ghcr.yml up -d --no-build
 	@echo "GHCR image ghcr.io/countergank/api-user:v$(VERSION) started"
 
 ## ghcr:down — Stop GHCR stack
@@ -110,6 +110,9 @@ ghcr\:test:
 	@sleep 10
 	@echo "--- Health Check ---"
 	@curl -s http://localhost:3000/health | python3 -m json.tool
+	@echo ""
+	@echo "--- Root ---"
+	@curl -s http://localhost:3000/ | python3 -m json.tool
 	@echo ""
 	@echo "--- Endpoints ---"
 	@curl -s http://localhost:3000/ | head -1
