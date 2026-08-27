@@ -3,9 +3,9 @@ import { MongooseModule, getModelToken } from '@nestjs/mongoose';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ClsModule } from 'nestjs-cls';
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { Connection, Model } from 'mongoose';
-import { clearMongoConnection, createConnection } from '../../../test/helpers';
+import { clearMongoConnection, createConnection } from '../../test-utils';
 import { AuditModule } from './audit.module';
 import { AuditLog, AuditLogSchema } from './entities/audit-log.entity';
 import { AuditLogRepository } from './audit-log.repository';
@@ -14,7 +14,7 @@ import { AuditListener } from './audit.listener';
 import { I18nModule } from '../../common/i18n/i18n.module';
 
 describe(AuditModule.name, () => {
-  let newMongod: MongoMemoryServer;
+  let newMongod: MongoMemoryReplSet;
   let newMongoConnection: Connection;
 
   beforeEach(async () => {

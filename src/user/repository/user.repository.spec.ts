@@ -1,8 +1,9 @@
 import { getModelToken } from '@nestjs/mongoose';
 import { Test, TestingModule } from '@nestjs/testing';
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { Connection, Model } from 'mongoose';
-import { clearMongoCollection, clearMongoConnection, createConnection } from '../../../test/helpers';
+import { clearMongoCollection, clearMongoConnection, createConnection } from '../../test-utils';
+import { DomainError } from '../../common/errors/domain.error';
 import { EncodeService } from '../../encode/encode.service';
 import { HashMock } from '../../encode/mocks/hash.mock';
 import { User, UserSchema } from '../entities/user.entity';
@@ -10,7 +11,7 @@ import { UserMock } from '../mocks/user.mock';
 import { UserRepository } from './user.repository';
 
 describe(UserRepository.name, () => {
-  let newMongod: MongoMemoryServer;
+  let newMongod: MongoMemoryReplSet;
   let newMongoConnection: Connection;
   let userModel: Model<User>;
   let repository: UserRepository;
@@ -53,6 +54,27 @@ describe(UserRepository.name, () => {
     expect(repository).toBeDefined();
   });
 
+  describe(`${UserRepository.name}.populateUsers`, () => {
+    it('should throw DomainError with kind INTERNAL when population fails', async () => {
+      // Make the injected EncodeService throw so createWithRole fails inside
+      // populateUsers, which must wrap and re-throw as an INTERNAL DomainError.
+      const hashSpy = jest.spyOn((repository as any).encodeService, 'hash').mockImplementation(() => {
+        throw new Error('hash failure');
+      });
+
+      try {
+        const populatePromise = (repository as any).populateUsers();
+        await expect(populatePromise).rejects.toBeInstanceOf(DomainError);
+        await expect(populatePromise).rejects.toMatchObject({
+          message: 'Failed to populate root user',
+          kind: expect.objectContaining({ kind: 'INTERNAL' }),
+        });
+      } finally {
+        hashSpy.mockRestore();
+      }
+    });
+  });
+
   describe(`${UserRepository.name}.${UserRepository.prototype.create.name}`, () => {
     const user = new UserMock();
     it(`should be create a ${User.name}`, async () => {
@@ -69,9 +91,9 @@ describe(UserRepository.name, () => {
   });
 
   describe(`${UserRepository.name}.${UserRepository.prototype.existsByName.name}`, () => {
-    it(`should be return if ${User.name} exists by name`, async () => {
+    it(`should be return if ${User.name} exists by userName`, async () => {
       const user = await repository.create(new UserMock());
-      await expect(repository.existsByName(user.name)).resolves.toBe(true);
+      await expect(repository.existsByName(user.userName)).resolves.toBe(true);
     });
   });
 
@@ -80,12 +102,54 @@ describe(UserRepository.name, () => {
       const user = await repository.create(new UserMock());
       await expect(repository.findById(user.id)).resolves.toBeInstanceOf(Model<User>);
     });
+
+    it('should exclude password by default', async () => {
+      const user = await repository.create(new UserMock());
+      const found = await repository.findById(user.id);
+      expect(found).toBeDefined();
+      expect(found!.password).toBeUndefined();
+    });
+
+    it('should include password when includePassword is true', async () => {
+      const user = await repository.create(new UserMock());
+      const found = await repository.findById(user.id, { includePassword: true });
+      expect(found).toBeDefined();
+      expect(found!.password).toBeDefined();
+      expect(found!.password).toBeTruthy();
+    });
   });
 
   describe(`${UserRepository.name}.${UserRepository.prototype.findAll.name}`, () => {
     it(`should be return array of ${User.name}`, async () => {
       await repository.create(new UserMock());
       await expect(repository.findAll()).resolves.toBeInstanceOf(Array<User[]>);
+    });
+
+    it('should exclude password from all results', async () => {
+      await repository.create(new UserMock());
+      await repository.create(new UserMock().randomize());
+      const users = await repository.findAll();
+      expect(users.length).toBeGreaterThan(0);
+      for (const user of users) {
+        expect(user.password).toBeUndefined();
+      }
+    });
+  });
+
+  describe(`${UserRepository.name}.${UserRepository.prototype.findByEmail.name}`, () => {
+    it('should exclude password by default', async () => {
+      const user = await repository.create(new UserMock());
+      const found = await repository.findByEmail(user.email);
+      expect(found).toBeDefined();
+      expect(found!.password).toBeUndefined();
+    });
+
+    it('should include password when includePassword is true', async () => {
+      const user = await repository.create(new UserMock());
+      const found = await repository.findByEmail(user.email, { includePassword: true });
+      expect(found).toBeDefined();
+      expect(found!.password).toBeDefined();
+      expect(found!.password).toBeTruthy();
     });
   });
 
@@ -103,15 +167,15 @@ describe(UserRepository.name, () => {
   });
 
   describe(`${UserRepository.name}.${UserRepository.prototype.existsByNameExcludingSelf.name}`, () => {
-    it(`should return false when name belongs to the same user`, async () => {
+    it(`should return false when userName belongs to the same user`, async () => {
       const user = await repository.create(new UserMock());
-      await expect(repository.existsByNameExcludingSelf(user.name, user.id as string)).resolves.toBe(false);
+      await expect(repository.existsByNameExcludingSelf(user.userName, user.id as string)).resolves.toBe(false);
     });
 
-    it(`should return true when name belongs to a different user`, async () => {
+    it(`should return true when userName belongs to a different user`, async () => {
       const user1 = await repository.create(new UserMock());
       const user2 = await repository.create(new UserMock().randomize());
-      await expect(repository.existsByNameExcludingSelf(user1.name, user2.id as string)).resolves.toBe(true);
+      await expect(repository.existsByNameExcludingSelf(user1.userName, user2.id as string)).resolves.toBe(true);
     });
   });
 
@@ -316,6 +380,57 @@ describe(UserRepository.name, () => {
       expect(result.users).toHaveLength(1);
       expect(result.total).toBe(1);
       expect(result.users[0].name).toBe('Juan');
+    });
+
+    it('should escape regex special chars in search (treat as literal)', async () => {
+      const userWithDot = new UserMock();
+      userWithDot.email = 'test.user@example.com';
+      await repository.create(userWithDot);
+
+      const userWithBrackets = new UserMock().randomize();
+      userWithBrackets.email = 'admin@site.io';
+      await repository.create(userWithBrackets);
+
+      // Searching for literal dot should NOT match "testXuser"
+      const result = await repository.findPaginated({
+        page: 1,
+        limit: 20,
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+        search: 'test.user',
+      });
+
+      expect(result.users).toHaveLength(1);
+      expect(result.users[0].email).toBe('test.user@example.com');
+    });
+
+    it('should not match-all on empty search string', async () => {
+      await repository.create(new UserMock());
+      await repository.create(new UserMock().randomize());
+
+      const result = await repository.findPaginated({
+        page: 1,
+        limit: 20,
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+        search: '',
+      });
+
+      // Empty search should be skipped (no regex filter applied)
+      expect(result.total).toBe(2);
+    });
+  });
+
+  describe(`${UserRepository.name}.${UserRepository.prototype.update.name}`, () => {
+    it('should throw DomainError when updating password for non-existent user', async () => {
+      await expect(
+        (repository as any).update('507f1f77bcf86cd799439011', { password: 'NewPass123@' }),
+      ).rejects.toBeInstanceOf(DomainError);
+      await expect(
+        (repository as any).update('507f1f77bcf86cd799439011', { password: 'NewPass123@' }),
+      ).rejects.toMatchObject({
+        kind: expect.objectContaining({ kind: 'USER_NOT_FOUND' }),
+      });
     });
   });
 });

@@ -1,4 +1,6 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { InjectConnection } from '@nestjs/mongoose';
+import { Connection } from 'mongoose';
 import { randomUUID } from 'node:crypto';
 import { plainToInstance } from 'class-transformer';
 import { CreateUserDTO } from '../dto/create-user.dto';
@@ -8,21 +10,24 @@ import { PaginatedUserResponseDTO } from '../dto/paginated-user-response.dto';
 import { UserDTO } from '../dto/user.dto';
 import { EncodeService } from '../../encode/encode.service';
 import { User, UserRole } from '../entities/user.entity';
-import {
-  UserAlreadyDeletedError,
-  UserEmailAlreadyExistsError,
-  UserNameAlreadyExistsError,
-  UserNotFoundError,
-} from '../errors/error-instances.error';
+import { DomainError } from '../../common/errors/domain.error';
 import { UserRepository } from '../repository/user.repository';
 import { AuditAction } from '../../common/audit/audit.decorator';
+import { runInTransaction } from '../../common/utils/transaction';
+import { CacheService } from '../../config/cache';
 
 @Injectable()
 export class UserService {
   constructor(
     private readonly userRepository: UserRepository,
     private readonly encodeService: EncodeService,
+    @InjectConnection() private readonly connection: Connection,
+    private readonly cacheService: CacheService,
   ) {}
+
+  private async invalidateUserCache(userId: string): Promise<void> {
+    await this.cacheService.del(`user:${userId}`);
+  }
 
   @AuditAction({
     action: 'user.create',
@@ -40,14 +45,15 @@ export class UserService {
     ]);
 
     if (usernameAlreadyExists) {
-      throw new UserNameAlreadyExistsError();
+      throw DomainError.fromKind('ENTITY_NAME_ALREADY_EXISTS');
     }
     if (emailAlreadyExists) {
-      throw new UserEmailAlreadyExistsError();
+      throw DomainError.fromKind('ENTITY_EMAIL_ALREADY_EXISTS');
     }
     createUserDTO = plainToInstance(CreateUserDTO, createUserDTO);
     const newUser = createUserDTO.toEntity();
     const createdUser: User = await this.userRepository.create(newUser);
+    this.invalidateUserCache(createdUser._id.toString());
     return createdUser;
   }
 
@@ -67,13 +73,15 @@ export class UserService {
     ]);
 
     if (usernameAlreadyExists) {
-      throw new UserNameAlreadyExistsError();
+      throw DomainError.fromKind('ENTITY_NAME_ALREADY_EXISTS');
     }
     if (emailAlreadyExists) {
-      throw new UserEmailAlreadyExistsError();
+      throw DomainError.fromKind('ENTITY_EMAIL_ALREADY_EXISTS');
     }
 
-    return this.userRepository.createWithRole(data);
+    const created = await this.userRepository.createWithRole(data);
+    this.invalidateUserCache(created._id.toString());
+    return created;
   }
 
   async findAll(): Promise<User[]> {
@@ -81,16 +89,16 @@ export class UserService {
     return users;
   }
 
-  async findById(id: string): Promise<User> {
-    const user: User = await this.userRepository.findById(id);
+  async findById(id: string, opts?: { includePassword?: boolean }): Promise<User> {
+    const user: User = await this.userRepository.findById(id, opts);
     if (!user) {
-      throw new UserNotFoundError();
+      throw DomainError.fromKind('USER_NOT_FOUND');
     }
     return user;
   }
 
-  async findByEmail(email: string): Promise<User | null> {
-    return this.userRepository.findByEmail(email);
+  async findByEmail(email: string, opts?: { includePassword?: boolean }): Promise<User | null> {
+    return this.userRepository.findByEmail(email, opts);
   }
 
   async findByResetToken(token: string): Promise<User | null> {
@@ -106,7 +114,15 @@ export class UserService {
   }
 
   async update(id: string, data: Partial<User>): Promise<User> {
-    return this.userRepository.update(id, data);
+    const updated = await this.userRepository.update(id, data);
+    this.invalidateUserCache(id);
+    return updated;
+  }
+
+  async unsetFields(id: string, fields: string[]): Promise<User> {
+    const updated = await this.userRepository.unsetFields(id, fields);
+    this.invalidateUserCache(id);
+    return updated;
   }
 
   async validatePassword(password: string, hashedPassword: string): Promise<boolean> {
@@ -115,6 +131,15 @@ export class UserService {
 
   async hashPassword(password: string): Promise<string> {
     return this.encodeService.hash(password);
+  }
+
+  async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void> {
+    const user = await this.findById(userId, { includePassword: true });
+    if (!(await this.validatePassword(currentPassword, user.password))) {
+      throw DomainError.fromKind('CURRENT_PASSWORD_INCORRECT');
+    }
+    const hashed = await this.hashPassword(newPassword);
+    await this.update(userId, { password: hashed });
   }
 
   async existsByEmailOrUsername(email: string, userName: string): Promise<boolean> {
@@ -134,7 +159,7 @@ export class UserService {
   async requestEmailChange(userId: string, newEmail: string): Promise<{ token: string; expires: Date; user: User }> {
     const existing = await this.findByEmail(newEmail);
     if (existing) {
-      throw new ConflictException('EMAIL_ALREADY_EXISTS');
+      throw DomainError.fromKind('EMAIL_ALREADY_EXISTS');
     }
 
     const user = await this.findById(userId);
@@ -147,6 +172,7 @@ export class UserService {
       pendingEmailExpires: expires,
     });
 
+    this.invalidateUserCache(userId);
     return { token, expires, user };
   }
 
@@ -157,10 +183,12 @@ export class UserService {
   })
   async unlockUser(userId: string): Promise<User> {
     const _user = await this.findById(userId);
-    return this.update(userId, {
+    const updated = await this.update(userId, {
       failedLoginAttempts: 0,
       lockedUntil: null as any,
     });
+    this.invalidateUserCache(userId);
+    return updated;
   }
 
   @AuditAction({
@@ -177,31 +205,34 @@ export class UserService {
     },
   })
   async updateUser(id: string, dto: UpdateUserDTO): Promise<User> {
-    const user = await this.userRepository.findById(id);
-    if (!user) {
-      throw new UserNotFoundError();
-    }
-
-    if (dto.email) {
-      const emailConflict = await this.userRepository.existsByEmailExcludingSelf(dto.email, id);
-      if (emailConflict) {
-        throw new UserEmailAlreadyExistsError();
+    const result = await runInTransaction(this.connection, async () => {
+      const user = await this.userRepository.findById(id);
+      if (!user) {
+        throw DomainError.fromKind('USER_NOT_FOUND');
       }
-    }
 
-    if (dto.userName) {
-      const nameConflict = await this.userRepository.existsByNameExcludingSelf(dto.userName, id);
-      if (nameConflict) {
-        throw new UserNameAlreadyExistsError();
+      if (dto.email) {
+        const emailConflict = await this.userRepository.existsByEmailExcludingSelf(dto.email, id);
+        if (emailConflict) {
+          throw DomainError.fromKind('ENTITY_EMAIL_ALREADY_EXISTS');
+        }
       }
-    }
 
-    // Strip undefined values to avoid unintentionally unsetting fields
-    const updateData = Object.fromEntries(
-      Object.entries(dto).filter(([_, v]) => v !== undefined),
-    );
+      if (dto.userName) {
+        const nameConflict = await this.userRepository.existsByNameExcludingSelf(dto.userName, id);
+        if (nameConflict) {
+          throw DomainError.fromKind('ENTITY_NAME_ALREADY_EXISTS');
+        }
+      }
 
-    return this.userRepository.update(id, updateData);
+      // Strip undefined values to avoid unintentionally unsetting fields
+      const updateData = Object.fromEntries(Object.entries(dto).filter(([_, v]) => v !== undefined));
+
+      return this.userRepository.update(id, updateData);
+    });
+
+    this.invalidateUserCache(id);
+    return result;
   }
 
   @AuditAction({
@@ -213,7 +244,7 @@ export class UserService {
   async deleteUser(id: string): Promise<{ userId: string }> {
     const user = await this.userRepository.findById(id);
     if (!user) {
-      throw new UserNotFoundError();
+      throw DomainError.fromKind('USER_NOT_FOUND');
     }
 
     // Idempotent: if already soft-deleted, return success without modifying
@@ -221,6 +252,7 @@ export class UserService {
       await this.userRepository.softDelete(id);
     }
 
+    this.invalidateUserCache(id);
     return { userId: id };
   }
 
@@ -237,15 +269,17 @@ export class UserService {
   async toggleActiveUser(id: string): Promise<User> {
     const user = await this.userRepository.findById(id);
     if (!user) {
-      throw new UserNotFoundError();
+      throw DomainError.fromKind('USER_NOT_FOUND');
     }
 
     if (user.deletedAt) {
-      throw new UserAlreadyDeletedError();
+      throw DomainError.fromKind('USER_ALREADY_DELETED');
     }
 
     const newIsActive = !user.isActive;
-    return this.userRepository.update(id, { isActive: newIsActive });
+    const updated = await this.userRepository.update(id, { isActive: newIsActive });
+    this.invalidateUserCache(id);
+    return updated;
   }
 
   async findPaginated(filters: PaginationQueryDTO): Promise<PaginatedUserResponseDTO<UserDTO>> {

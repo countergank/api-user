@@ -1,21 +1,33 @@
+import { Injectable } from '@nestjs/common';
+import { ParameterService } from '../config/parameters/parameter.service';
 import { EmailProvider } from './interfaces/email-provider.interface';
 import { ResendProvider } from './providers/resend.provider';
 import { SmtpProvider } from './providers/smtp.provider';
 
-const PROVIDER_MAP: Record<string, new () => EmailProvider> = {
-  resend: ResendProvider,
-  smtp: SmtpProvider,
-};
+@Injectable()
+export class EmailProviderFactory {
+  constructor(private readonly parameterService: ParameterService) {}
 
-export function createEmailProvider(): EmailProvider {
-  const provider = process.env.EMAIL_PROVIDER || getDefaultProvider();
+  async createProvider(): Promise<EmailProvider> {
+    const provider = ((await this.parameterService.get('EMAIL_PROVIDER')) as string) || getDefaultProvider();
 
-  const ProviderClass = PROVIDER_MAP[provider];
-  if (!ProviderClass) {
-    throw new Error(`Unsupported email provider: "${provider}". Supported: ${Object.keys(PROVIDER_MAP).join(', ')}`);
+    const host = (await this.parameterService.get('EMAIL_HOST')) as string;
+    const port = Number(await this.parameterService.get('EMAIL_PORT'));
+    const secure = (await this.parameterService.get('EMAIL_SECURE')) as boolean;
+    const fromEmail = (await this.parameterService.get('EMAIL_FROM')) as string;
+
+    if (provider === 'smtp') {
+      return new SmtpProvider({ host, port, secure, fromEmail });
+    }
+
+    if (provider === 'resend') {
+      const resendFromEmail =
+        ((await this.parameterService.get('RESEND_FROM_EMAIL')) as string) || fromEmail;
+      return new ResendProvider({ fromEmail: resendFromEmail });
+    }
+
+    throw new Error(`Unsupported email provider: "${provider}". Supported: smtp, resend`);
   }
-
-  return new ProviderClass();
 }
 
 function getDefaultProvider(): string {

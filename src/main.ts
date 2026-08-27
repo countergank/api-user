@@ -2,49 +2,43 @@ import fastifyCompress from '@fastify/compress';
 import fastifyHelmet from '@fastify/helmet';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe } from './common/pipes/validation.pipe';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { apiReference } from '@scalar/nestjs-api-reference';
+import { Logger } from 'nestjs-pino';
 import hyperid from 'hyperid';
 import { HttpAdapterHost } from '@nestjs/core';
 import { AppModule } from './app/app.module';
-import { ErrorFilter } from './common/errors/error-filter';
-import { I18nService } from './common/i18n/i18n.service';
+
 import { isProd } from './common/utils';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter({
-      logger: {
-        redact: ['headers.authorization'],
-        timestamp: () => new Date().toISOString(),
-        level: isProd() ? 'info' : 'debug',
-      },
       genReqId: () => {
         return hyperid().uuid;
       },
     }),
   );
 
-  app.enableCors();
-  const i18nService = app.get(I18nService);
-  app.useGlobalFilters(new ErrorFilter(i18nService));
+  // Use nestjs-pino as the global logger (replaces Fastify's built-in logger)
+  app.useLogger(app.get(Logger));
+
+  const configService = app.get(ConfigService);
+
+  const corsOrigins = configService.getOrThrow('CORS_ORIGINS');
+  const originsArray = corsOrigins.split(',').map((origin) => origin.trim()).filter(Boolean);
+  app.enableCors({ origin: originsArray, credentials: false });
+
   app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-      transformOptions: {
-        enableImplicitConversion: true,
-      },
-    }),
+    new ValidationPipe(),
   );
 
   await app.register(fastifyHelmet);
   await app.register(fastifyCompress, { encodings: ['gzip', 'deflate'] });
 
-  const configService = app.get(ConfigService);
   const port = configService.get('PORT') ?? 3000;
   const host = configService.get('HOST') ?? '0.0.0.0';
   const name = configService.get('npm_package_name') || 'REST API Name';
@@ -65,7 +59,22 @@ async function bootstrap() {
     })
     .build();
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('/docs', app, swaggerDocument, { customSiteTitle: `${String(name).toUpperCase()} Docs` });
+
+  // Serve OpenAPI JSON spec (required by Scalar and compatible with Swagger UI clients)
+  const httpAdapter = app.getHttpAdapter();
+  httpAdapter.get('/docs-json', (_req: any, res: any) => {
+    res.header('Content-Type', 'application/json');
+    res.send(swaggerDocument);
+  });
+
+  // Scalar API Reference UI at /docs (drop-in replacement for Swagger UI)
+  app.use(
+    '/docs',
+    apiReference({
+      url: '/docs-json',
+      withFastify: true,
+    }),
+  );
 
   await app.listen(port, host);
 }

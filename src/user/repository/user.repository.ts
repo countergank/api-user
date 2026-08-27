@@ -1,16 +1,15 @@
-import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { CustomLogger } from '../../common/logger';
-import { isLocal } from '../../common/utils';
+import { escapeRegExp, isLocal } from '../../common/utils';
 import { EncodeService } from '../../encode/encode.service';
 import { User, UserRole } from '../entities/user.entity';
-import { UserPopulateError } from '../errors/error-instances.error';
+import { DomainError } from '../../common/errors/domain.error';
 import { SORTABLE_FIELDS } from '../dto/pagination-query.dto';
 
 @Injectable()
 export class UserRepository implements OnApplicationBootstrap {
-  private readonly logger = new CustomLogger(UserRepository.name);
+  private readonly logger = new Logger(UserRepository.name);
   constructor(
     @InjectModel(User.name) private userModel: Model<User>,
     private readonly encodeService: EncodeService,
@@ -24,7 +23,7 @@ export class UserRepository implements OnApplicationBootstrap {
 
   private async populateUsers(): Promise<User> {
     try {
-      return this.createWithRole({
+      return await this.createWithRole({
         name: 'User',
         lastName: 'Root',
         email: 'countergank.ti@gmail.com',
@@ -36,12 +35,12 @@ export class UserRepository implements OnApplicationBootstrap {
       });
     } catch (error) {
       this.logger.error(error);
-      throw new UserPopulateError(error);
+      throw DomainError.fromKind('INTERNAL', { message: 'Failed to populate root user' });
     }
   }
 
   async existsByName(name: string): Promise<boolean> {
-    const exists = await this.userModel.exists({ name }).exec();
+    const exists = await this.userModel.exists({ userName: name }).exec();
     return Boolean(exists);
   }
 
@@ -56,7 +55,7 @@ export class UserRepository implements OnApplicationBootstrap {
   }
 
   async existsByNameExcludingSelf(name: string, excludeId: string): Promise<boolean> {
-    const exists = await this.userModel.exists({ name, _id: { $ne: excludeId } }).exec();
+    const exists = await this.userModel.exists({ userName: name, _id: { $ne: excludeId } }).exec();
     return Boolean(exists);
   }
 
@@ -83,12 +82,20 @@ export class UserRepository implements OnApplicationBootstrap {
     return user.save();
   }
 
-  async findById(id: string): Promise<User | null> {
-    return this.userModel.findById(id).exec();
+  async findById(id: string, opts?: { includePassword?: boolean }): Promise<User | null> {
+    const query = this.userModel.findById(id);
+    if (opts?.includePassword) {
+      query.select('+password');
+    }
+    return query.exec();
   }
 
-  async findByEmail(email: string): Promise<User | null> {
-    return this.userModel.findOne({ email }).exec();
+  async findByEmail(email: string, opts?: { includePassword?: boolean }): Promise<User | null> {
+    const query = this.userModel.findOne({ email });
+    if (opts?.includePassword) {
+      query.select('+password');
+    }
+    return query.exec();
   }
 
   async findByResetToken(token: string): Promise<User | null> {
@@ -127,12 +134,29 @@ export class UserRepository implements OnApplicationBootstrap {
     if (data.password) {
       const user = await this.userModel.findById(id).exec();
       if (!user) {
-        throw new Error(`User ${id} not found`);
+        throw DomainError.fromKind('USER_NOT_FOUND', { message: `User ${id} not found` });
       }
       user.set(data);
       return user.save();
     }
-    return this.userModel.findByIdAndUpdate(id, data, { new: true }).exec();
+
+    // Filter out undefined values — Mongoose findByIdAndUpdate ignores them,
+    // which is the correct behavior: undefined means "don't touch this field."
+    // Callers that need to explicitly remove fields should use unsetFields().
+    const defined = Object.fromEntries(
+      Object.entries(data).filter(([, v]) => v !== undefined),
+    );
+
+    return this.userModel.findByIdAndUpdate(id, defined, { new: true }).exec();
+  }
+
+  /**
+   * Explicitly remove fields from a user document (uses MongoDB $unset).
+   * Use when you need to actually delete fields, not just skip them.
+   */
+  async unsetFields(id: string, fields: string[]): Promise<User> {
+    const $unset = Object.fromEntries(fields.map((f) => [f, 1]));
+    return this.userModel.findByIdAndUpdate(id, { $unset }, { new: true }).exec();
   }
 
   async validatePassword(password: string, hashedPassword: string): Promise<boolean> {
@@ -161,14 +185,9 @@ export class UserRepository implements OnApplicationBootstrap {
       mongoFilter.deletedAt = { $exists: false };
     }
     if (filters.search) {
-      const searchRegex = new RegExp(filters.search, 'i');
+      const searchRegex = new RegExp(escapeRegExp(filters.search), 'i');
       andConditions.push({
-        $or: [
-          { name: searchRegex },
-          { lastName: searchRegex },
-          { email: searchRegex },
-          { userName: searchRegex },
-        ],
+        $or: [{ name: searchRegex }, { lastName: searchRegex }, { email: searchRegex }, { userName: searchRegex }],
       });
     }
 
@@ -195,8 +214,6 @@ export class UserRepository implements OnApplicationBootstrap {
   }
 
   async softDelete(id: string): Promise<User> {
-    return this.userModel
-      .findByIdAndUpdate(id, { isActive: false, deletedAt: new Date() }, { new: true })
-      .exec();
+    return this.userModel.findByIdAndUpdate(id, { isActive: false, deletedAt: new Date() }, { new: true }).exec();
   }
 }

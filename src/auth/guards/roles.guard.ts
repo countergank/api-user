@@ -1,7 +1,8 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { UserRole } from '../../user/entities/user.entity';
+import { DomainError } from '../../common/errors/domain.error';
 
 /**
  * Guard que evalúa si el usuario tiene el rol requerido.
@@ -29,21 +30,19 @@ export class RolesGuard implements CanActivate {
     const user = request.user;
 
     if (!user) {
-      throw new ForbiddenException('User not authenticated');
+      throw DomainError.fromKind('FORBIDDEN');
     }
 
     const userRole = user.role;
 
     if (!userRole) {
-      throw new ForbiddenException('User has no role assigned');
+      throw DomainError.fromKind('FORBIDDEN');
     }
 
     const hasRole = requiredRoles.includes(userRole);
 
     if (!hasRole) {
-      throw new ForbiddenException(
-        `Access denied. Required roles: ${requiredRoles.join(', ')}. Your role: ${userRole}`,
-      );
+      throw DomainError.fromKind('FORBIDDEN');
     }
 
     return true;

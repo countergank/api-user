@@ -1,9 +1,7 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Get,
-  InternalServerErrorException,
   Param,
   Post,
   VERSION_NEUTRAL,
@@ -11,11 +9,9 @@ import {
 import { ApiTags, ApiHideProperty, ApiParam, ApiOperation } from '@nestjs/swagger';
 import { HealthCheck, HealthCheckService, MongooseHealthIndicator } from '@nestjs/terminus';
 import { Message } from '../../common/class/message.class';
-import { CustomLogger } from '../../common/logger';
 import { RedisHealthIndicator } from '../../config/redis/redis-health.indicator';
 import { GetVersionDoc, PostMessageMicroserviceDoc } from '../api-docs/app.decorator';
 import { Version } from '../class/version.class';
-import { AppVersionNotFoundError } from '../errors/error-instances.error';
 import { AppService } from '../service/app.service';
 
 /**
@@ -26,7 +22,6 @@ import { AppService } from '../service/app.service';
 @ApiTags('Root')
 @Controller({ version: [VERSION_NEUTRAL] })
 export class AppController {
-  private readonly logger = new CustomLogger(AppController.name);
   constructor(
     private readonly appService: AppService,
     private readonly healthCheckService: HealthCheckService,
@@ -47,16 +42,7 @@ export class AppController {
   @GetVersionDoc()
   @Get()
   async getVersion(): Promise<Version> {
-    try {
-      return await this.appService.getVersion();
-    } catch (error) {
-      if (error instanceof AppVersionNotFoundError) {
-        throw new BadRequestException(error.getErrorPublic());
-      }
-      const err = error as Error;
-      this.logger.error(err.message, err.stack);
-      throw new InternalServerErrorException();
-    }
+    return await this.appService.getVersion();
   }
 
   @PostMessageMicroserviceDoc()
@@ -71,12 +57,6 @@ export class AppController {
     @Param('message-pattern') messagePattern: string,
     @Body() body: Message<any>,
   ): Promise<Message<any>> {
-    try {
-      return await this.appService.messageMicroservice(messagePattern, body);
-    } catch (error) {
-      const err = error as Error;
-      this.logger.error(err.message, err.stack);
-      throw new InternalServerErrorException();
-    }
+    return await this.appService.messageMicroservice(messagePattern, body);
   }
 }

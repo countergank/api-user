@@ -18,14 +18,16 @@ import {
   ValidationArguments,
   ValidationError,
 } from 'class-validator';
-import { Logger } from '@nestjs/common';
+import { createStandaloneLogger } from '../logger';
 import { PASSWORD_ERROR_CODES, PASSWORD_RULES, PASSWORD_MESSAGES } from '../interfaces/password-validation.interface';
+
+const logger = createStandaloneLogger('PasswordStrengthValidator');
 
 @ValidatorConstraint({ name: 'passwordStrength', async: false })
 export class PasswordStrengthValidator implements ValidatorConstraintInterface {
-  private readonly logger = new Logger(PasswordStrengthValidator.name);
 
   validate(password: string): boolean {
+    if (!password) return false;
     const errors = this.validatePassword(password);
 
     // Store errors in a way that can be accessed by defaultMessage
@@ -92,7 +94,7 @@ export class PasswordStrengthValidator implements ValidatorConstraintInterface {
 
     // Log failed validation attempts for security monitoring
     if (errors.length > 0) {
-      this.logger.warn({
+      logger.warn({
         context: 'PasswordValidationFailed',
         errors: errors,
       });

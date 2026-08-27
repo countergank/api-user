@@ -1,14 +1,13 @@
 import { ConfigService } from '@nestjs/config';
 import { ClientProxy } from '@nestjs/microservices';
 import { Test, TestingModule } from '@nestjs/testing';
+import { DomainError } from '../../common/errors/domain.error';
 import { MicroservicesNames } from '../../config/custom-providers/microservices-names.enum';
-import { AppVersionNotFoundError } from '../errors/error-instances.error';
 import { VersionMock } from '../mocks/version.mock';
 import { AppService } from './app.service';
 
 describe(AppService.name, () => {
   let service: AppService;
-  let configService: ConfigService;
 
   const mockConfig = {
     npm_package_name: 'User Manager',
@@ -26,9 +25,12 @@ describe(AppService.name, () => {
           useValue: {
             getOrThrow: (key: string) => {
               if (!(key in mockConfig)) {
-                throw new AppVersionNotFoundError();
+                throw new Error(`Missing config key: ${key}`);
               }
               return mockConfig[key];
+            },
+            get: (key: string, defaultValue?: string) => {
+              return mockConfig[key] ?? defaultValue;
             },
           },
         },
@@ -40,7 +42,6 @@ describe(AppService.name, () => {
     }).compile();
 
     service = module.get<AppService>(AppService);
-    configService = module.get<ConfigService>(ConfigService);
   });
 
   afterEach(() => {
@@ -52,33 +53,54 @@ describe(AppService.name, () => {
       await expect(service.getVersion()).resolves.toEqual(new VersionMock());
     });
 
-    it('should throw AppVersionNotFoundError if required config is missing', async () => {
-      jest.spyOn(configService, 'getOrThrow').mockImplementation((key: string) => {
-        if (['npm_package_version', 'NODE_ENV', 'npm_package_name'].includes(key)) {
-          throw new AppVersionNotFoundError();
-        }
-        return mockConfig[key];
-      });
-      const badConfigService = {
-        getOrThrow: (key: string) => {
-          if (key === 'npm_package_name' || key === 'NODE_ENV' || key === 'npm_package_version') {
-            throw new AppVersionNotFoundError();
-          }
-          return mockConfig[key];
-        },
-      };
-
+    it('should throw DomainError if config returns empty values', async () => {
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           AppService,
-          { provide: ConfigService, useValue: badConfigService },
+          {
+            provide: ConfigService,
+            useValue: {
+              getOrThrow: () => '',
+              get: () => '',
+            },
+          },
           { provide: MicroservicesNames.EXAMPLE, useValue: {} as ClientProxy },
         ],
       }).compile();
 
       const serviceWithMissingConfig = module.get<AppService>(AppService);
 
-      await expect(serviceWithMissingConfig.getVersion()).rejects.toBeInstanceOf(AppVersionNotFoundError);
+      await expect(serviceWithMissingConfig.getVersion()).rejects.toBeInstanceOf(DomainError);
+      await expect(serviceWithMissingConfig.getVersion()).rejects.toMatchObject({
+        kind: expect.objectContaining({ kind: 'APP_VERSION_NOT_FOUND' }),
+      });
+    });
+  });
+
+  describe(`${AppService.prototype.messageMicroservice.name}`, () => {
+    it('should throw DomainError when microservice is disabled', async () => {
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          AppService,
+          {
+            provide: ConfigService,
+            useValue: {
+              getOrThrow: (key: string) => {
+                if (key.includes('_MICROSERVICE_ENABLED')) return 'false';
+                throw new Error(`Missing config key: ${key}`);
+              },
+            },
+          },
+          { provide: MicroservicesNames.EXAMPLE, useValue: {} as ClientProxy },
+        ],
+      }).compile();
+
+      const disabledService = module.get<AppService>(AppService);
+
+      await expect(disabledService.messageMicroservice('pattern', {} as any)).rejects.toBeInstanceOf(DomainError);
+      await expect(disabledService.messageMicroservice('pattern', {} as any)).rejects.toMatchObject({
+        kind: expect.objectContaining({ kind: 'MICROSERVICE_UNAVAILABLE' }),
+      });
     });
   });
 });

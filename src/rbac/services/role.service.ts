@@ -1,9 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Role } from '../entities/role.entity';
 import { UserRole } from '../../user/entities/user.entity';
 import { AuditAction } from '../../common/audit/audit.decorator';
+import { CacheService } from '../../config/cache';
+
+const ROLE_ALL_KEY = 'rbac:roles:all';
+const ROLE_NAME_PREFIX = 'rbac:roles:name:';
+const ROLE_TTL_MS = 600_000; // 10 minutes
 
 // ── Default permissions per role ──────────────────────
 export const ADMIN_PERMISSIONS = ['*'];
@@ -39,18 +44,91 @@ export const DEFAULT_ROLES = [
 
 @Injectable()
 export class RoleService {
-  constructor(@InjectModel(Role.name) private roleModel: Model<Role>) {}
+  private readonly logger = new Logger(RoleService.name);
+
+  constructor(
+    @InjectModel(Role.name) private roleModel: Model<Role>,
+    private readonly cacheService: CacheService,
+  ) {}
 
   async findAll(): Promise<Role[]> {
-    return this.roleModel.find().exec();
+    try {
+      const cached = await this.cacheService.get<Role[]>(ROLE_ALL_KEY);
+      if (cached !== undefined) return cached;
+    } catch {
+      this.logger.debug('Cache get failed for roles:all, falling back to DB');
+    }
+
+    const roles = await this.roleModel.find().exec();
+
+    try {
+      await this.cacheService.set(ROLE_ALL_KEY, roles, ROLE_TTL_MS);
+    } catch {
+      this.logger.debug('Cache set failed for roles:all');
+    }
+
+    return roles;
   }
 
   async findByName(name: string): Promise<Role | null> {
-    return this.roleModel.findOne({ name }).exec();
+    const cacheKey = `${ROLE_NAME_PREFIX}${name}`;
+
+    try {
+      const cached = await this.cacheService.get<Role | null>(cacheKey);
+      if (cached !== undefined) return cached;
+    } catch {
+      this.logger.debug(`Cache get failed for ${cacheKey}, falling back to DB`);
+    }
+
+    const role = await this.roleModel.findOne({ name }).exec();
+
+    try {
+      await this.cacheService.set(cacheKey, role, ROLE_TTL_MS);
+    } catch {
+      this.logger.debug(`Cache set failed for ${cacheKey}`);
+    }
+
+    return role;
   }
 
   async findByNames(names: string[]): Promise<Role[]> {
-    return this.roleModel.find({ name: { $in: names } }).exec();
+    if (names.length === 0) return [];
+
+    const results: Role[] = [];
+    const missingNames: string[] = [];
+
+    // Check cache for each name individually
+    for (const name of names) {
+      const cacheKey = `${ROLE_NAME_PREFIX}${name}`;
+      try {
+        const cached = await this.cacheService.get<Role>(cacheKey);
+        if (cached !== undefined) {
+          results.push(cached);
+          continue;
+        }
+      } catch {
+        this.logger.debug(`Cache get failed for ${cacheKey}, treating as miss`);
+      }
+      missingNames.push(name);
+    }
+
+    // Query DB only for missing names
+    if (missingNames.length > 0) {
+      const dbRoles = await this.roleModel.find({ name: { $in: missingNames } }).exec();
+      const dbRoleMap = new Map(dbRoles.map((r) => [r.name, r]));
+
+      for (const name of missingNames) {
+        const role = dbRoleMap.get(name) ?? null;
+        results.push(role as Role);
+        try {
+          await this.cacheService.set(`${ROLE_NAME_PREFIX}${name}`, role, ROLE_TTL_MS);
+        } catch {
+          this.logger.debug(`Cache set failed for ${ROLE_NAME_PREFIX}${name}`);
+        }
+      }
+    }
+
+    return results;
   }
 
   async findById(id: string): Promise<Role | null> {
@@ -68,7 +146,16 @@ export class RoleService {
   })
   async create(roleData: Partial<Role>): Promise<Role> {
     const role = new this.roleModel(roleData);
-    return role.save();
+    const saved = await role.save();
+
+    try {
+      await this.cacheService.delByPattern(`${ROLE_NAME_PREFIX}*`);
+      await this.cacheService.del(ROLE_ALL_KEY);
+    } catch {
+      this.logger.debug('Cache invalidation failed after role create');
+    }
+
+    return saved;
   }
 
   @AuditAction({
@@ -83,7 +170,17 @@ export class RoleService {
     },
   })
   async updatePermissions(roleId: string, permissionIds: string[]): Promise<Role | null> {
-    return this.roleModel.findByIdAndUpdate(roleId, { permissionIds }, { new: true }).exec();
+    const updated = await this.roleModel.findByIdAndUpdate(roleId, { permissionIds }, { new: true }).exec();
+
+    if (updated) {
+      try {
+        await this.cacheService.delByPattern('rbac:roles:*');
+      } catch {
+        this.logger.debug('Cache invalidation failed after updatePermissions');
+      }
+    }
+
+    return updated;
   }
 
   async seedDefaultRoles(): Promise<void> {

@@ -1,0 +1,115 @@
+import { ParameterDefinition } from './parameter.types';
+
+const IS_INT_MIN_1 = (v: string | number | boolean): boolean =>
+  Number.isInteger(v) && (v as number) >= 1;
+
+export const PARAMETER_DEFINITIONS: ParameterDefinition[] = [
+  {
+    key: 'EMAIL_PROVIDER',
+    type: 'string',
+    default: 'smtp',
+    group: 'email',
+    ttl: 300, // 5 minutes
+    validate: (v) => ['smtp', 'resend'].includes(v as string),
+  },
+  {
+    key: 'EMAIL_HOST',
+    type: 'string',
+    default: 'smtp',
+    group: 'email',
+    ttl: 300,
+  },
+  {
+    key: 'EMAIL_PORT',
+    type: 'number',
+    default: 587,
+    group: 'email',
+    ttl: 300,
+    validate: IS_INT_MIN_1,
+  },
+  {
+    key: 'EMAIL_SECURE',
+    type: 'boolean',
+    default: false,
+    group: 'email',
+    ttl: 300,
+  },
+  {
+    key: 'EMAIL_FROM',
+    type: 'string',
+    default: 'noreply@countergank.com',
+    group: 'email',
+    ttl: 300,
+  },
+  {
+    key: 'RESEND_FROM_EMAIL',
+    type: 'string',
+    default: 'noreply@countergank.com',
+    group: 'email',
+    ttl: 300,
+  },
+  {
+    key: 'THROTTLE_LIMIT',
+    type: 'number',
+    default: 10,
+    group: 'throttle',
+    ttl: 300,
+    validate: IS_INT_MIN_1,
+  },
+  {
+    key: 'THROTTLE_TTL',
+    type: 'number',
+    default: 60,
+    group: 'throttle',
+    ttl: 300,
+    validate: IS_INT_MIN_1,
+  },
+  {
+    key: 'LOGIN_THROTTLE_LIMIT',
+    type: 'number',
+    default: 5,
+    group: 'throttle',
+    ttl: 300,
+    validate: IS_INT_MIN_1,
+  },
+  {
+    key: 'LOGIN_THROTTLE_TTL',
+    type: 'number',
+    default: 60,
+    group: 'throttle',
+    ttl: 300,
+    validate: IS_INT_MIN_1,
+  },
+  {
+    key: 'REGISTER_THROTTLE_LIMIT',
+    type: 'number',
+    default: 3,
+    group: 'throttle',
+    ttl: 300,
+    validate: IS_INT_MIN_1,
+  },
+  {
+    key: 'REGISTER_THROTTLE_TTL',
+    type: 'number',
+    default: 60,
+    group: 'throttle',
+    ttl: 300,
+    validate: IS_INT_MIN_1,
+  },
+  {
+    key: 'FORGOT_PASSWORD_THROTTLE_LIMIT',
+    type: 'number',
+    default: 3,
+    group: 'throttle',
+    ttl: 300,
+    validate: IS_INT_MIN_1,
+  },
+  {
+    key: 'FORGOT_PASSWORD_THROTTLE_TTL',
+    type: 'number',
+    default: 300,
+    group: 'throttle',
+    ttl: 300,
+    validate: IS_INT_MIN_1,
+  },
+];
