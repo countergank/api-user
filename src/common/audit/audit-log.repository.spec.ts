@@ -1,13 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { Connection, Model } from 'mongoose';
-import { clearMongoCollection, clearMongoConnection, createConnection } from '../../../test/helpers';
+import { clearMongoCollection, clearMongoConnection, createConnection } from '../../test-utils';
 import { AuditLog, AuditLogSchema } from './entities/audit-log.entity';
 import { AuditLogRepository } from './audit-log.repository';
 
 describe(AuditLogRepository.name, () => {
-  let newMongod: MongoMemoryServer;
+  let newMongod: MongoMemoryReplSet;
   let newMongoConnection: Connection;
   let auditLogModel: Model<AuditLog>;
   let repository: AuditLogRepository;

@@ -1,12 +1,13 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { Injectable, Logger, NotFoundException, ConflictException, BadRequestException, Inject } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { CreateTemplateDto } from '../dto/create-template.dto';
 import { UpdateTemplateDto } from '../dto/update-template.dto';
 import { EmailTemplate } from '../entities/email-template.entity';
 import { EmailTemplateRepository } from '../repository/email-template.repository';
 import { I18nService } from '../../common/i18n/i18n.service';
 import { SupportedLanguage, DEFAULT_LANGUAGE } from '../../common/i18n/interfaces/i18n.interface';
+import { DomainError } from '../../common/errors/domain.error';
 
 interface DefaultTemplate {
   slug: string;
@@ -58,7 +59,7 @@ export class EmailTemplateService {
   async create(dto: CreateTemplateDto): Promise<EmailTemplate> {
     const exists = await this.repository.existsBySlug(dto.slug);
     if (exists) {
-      throw new ConflictException(`Template with slug "${dto.slug}" already exists`);
+      throw DomainError.fromKind('TEMPLATE_SLUG_ALREADY_EXISTS');
     }
 
     return this.repository.create({
@@ -84,7 +85,7 @@ export class EmailTemplateService {
   async findBySlug(slug: string): Promise<EmailTemplate> {
     const template = await this.repository.findBySlug(slug);
     if (!template) {
-      throw new NotFoundException(`Template "${slug}" not found`);
+      throw DomainError.fromKind('TEMPLATE_NOT_FOUND');
     }
     return template;
   }
@@ -92,7 +93,7 @@ export class EmailTemplateService {
   async update(slug: string, dto: UpdateTemplateDto): Promise<EmailTemplate> {
     const updated = await this.repository.updateBySlug(slug, dto);
     if (!updated) {
-      throw new NotFoundException(`Template "${slug}" not found`);
+      throw DomainError.fromKind('TEMPLATE_NOT_FOUND');
     }
     return updated;
   }
@@ -100,7 +101,7 @@ export class EmailTemplateService {
   async delete(slug: string): Promise<void> {
     const deleted = await this.repository.deleteBySlug(slug);
     if (!deleted) {
-      throw new NotFoundException(`Template "${slug}" not found`);
+      throw DomainError.fromKind('TEMPLATE_NOT_FOUND');
     }
   }
 
@@ -115,7 +116,7 @@ export class EmailTemplateService {
     // Fall back to default definition
     const defaultDef = DEFAULT_TEMPLATES.find((t) => t.slug === slug);
     if (!defaultDef) {
-      throw new NotFoundException(`Template "${slug}" not found in database and no default exists`);
+      throw DomainError.fromKind('TEMPLATE_NOT_FOUND');
     }
 
     // Load language-specific HTML template (e.g., templates/en/welcome.html)
@@ -192,6 +193,6 @@ export class EmailTemplateService {
       return fs.readFileSync(srcPath, 'utf-8');
     }
 
-    throw new BadRequestException(`Default template file "${filename}" not found`);
+    throw DomainError.fromKind('TEMPLATE_FILE_NOT_FOUND');
   }
 }

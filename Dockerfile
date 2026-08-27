@@ -1,7 +1,7 @@
 ###################################
 # BASE IMAGE FOR ALL STAGES
 ###################################
-FROM node:18-alpine AS base
+FROM node:22-alpine AS base
 
 # Set working directory
 WORKDIR /usr/src/app
@@ -47,12 +47,24 @@ RUN rm -rf src test *.ts *.md .env* node_modules/.cache
 ###################################
 # PRODUCTION STAGE
 ###################################
-FROM node:18-alpine AS production
+FROM node:22-alpine AS production
 
 WORKDIR /usr/src/app
 
-COPY --from=build /usr/src/app/node_modules ./node_modules
-COPY --from=build /usr/src/app/dist ./dist
+# Copy only package files for production-only install
+COPY --chown=node:node package*.json ./
+
+# Fresh production-only install (no devDependencies)
+# --ignore-scripts skips lifecycle scripts (prepare runs husky which is a devDependency)
+# typescript added explicitly: nestjs-i18n requires it at runtime (peerDependency)
+RUN npm ci --omit=dev --ignore-scripts && npm install typescript --save-exact --no-save
+
+# Copy only compiled output from build stage
+COPY --from=build --chown=node:node /usr/src/app/dist ./dist
+
+# Copy email templates (HTML files not included by tsc)
+# Source from development stage (build stage cleans src/ after build)
+COPY --from=development --chown=node:node /usr/src/app/src/email/templates ./dist/email/templates
 
 ENV NODE_ENV=production
 

@@ -1,12 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { Mock } from '../../../test/helpers';
+import { getConnectionToken } from '@nestjs/mongoose';
+import { Mock } from '../../test-utils';
 import { User } from '../entities/user.entity';
-import {
-  UserAlreadyDeletedError,
-  UserEmailAlreadyExistsError,
-  UserNameAlreadyExistsError,
-  UserNotFoundError,
-} from '../errors/error-instances.error';
+import { DomainError } from '../../common/errors/domain.error';
 import { CreateUserDTOMock } from '../mocks/create-user-dto.mock';
 import { UpdateUserDTOMock } from '../mocks/update-user-dto.mock';
 import { UserMock } from '../mocks/user.mock';
@@ -14,9 +10,19 @@ import { UserRepository } from '../repository/user.repository';
 import { UserService } from './user.service';
 import { PaginationQueryDTO } from '../dto/pagination-query.dto';
 import { PaginatedUserResponseDTO } from '../dto/paginated-user-response.dto';
+import { CacheService } from '../../config/cache';
+import { EncodeService } from '../../encode/encode.service';
 
 describe(UserService.name, () => {
   let service: UserService;
+  let encodeService: { compare: jest.Mock; hash: jest.Mock };
+
+  const mockCacheService = {
+    get: jest.fn(),
+    set: jest.fn().mockResolvedValue(undefined),
+    del: jest.fn().mockResolvedValue(undefined),
+  };
+
   const userRepository = {
     existsByName: jest.fn(),
     existsByEmail: jest.fn(),
@@ -24,10 +30,18 @@ describe(UserService.name, () => {
     existsByNameExcludingSelf: jest.fn(),
     create: jest.fn(),
     findById: jest.fn(),
+    findByEmail: jest.fn(),
     findAll: jest.fn(),
     update: jest.fn(),
     softDelete: jest.fn(),
     findPaginated: jest.fn(),
+  };
+
+  const mockConnection = {
+    startSession: jest.fn().mockResolvedValue({
+      withTransaction: jest.fn((cb) => cb()),
+      endSession: jest.fn(),
+    }),
   };
 
   beforeEach(async () => {
@@ -37,11 +51,17 @@ describe(UserService.name, () => {
       .overrideProvider(UserRepository)
       .useValue(userRepository)
       .useMocker((token) => {
+        if (token === getConnectionToken()) return mockConnection;
+        if (token === CacheService) return mockCacheService;
         if (typeof token === 'function') return Mock(token);
       })
       .compile();
 
     service = module.get<UserService>(UserService);
+    encodeService = module.get<EncodeService>(EncodeService) as unknown as {
+      compare: jest.Mock;
+      hash: jest.Mock;
+    };
   });
 
   it(`${UserService.name} should be defined`, () => {
@@ -50,22 +70,28 @@ describe(UserService.name, () => {
 
   describe(`${UserService.name}.${UserService.prototype.create.name}`, () => {
     const createDto = new CreateUserDTOMock();
-    const user = new UserMock();
+    const user = Object.assign(new UserMock(), { _id: { toString: () => '507f1f77bcf86cd799439011' } });
     it(`should be create a ${User.name}`, async () => {
       jest.spyOn(userRepository, 'existsByName').mockResolvedValue(false);
       jest.spyOn(userRepository, 'existsByEmail').mockResolvedValue(false);
       jest.spyOn(userRepository, 'create').mockResolvedValue(user);
       await expect(service.create(createDto)).resolves.toBeInstanceOf(User);
     });
-    it(`should return a ${UserEmailAlreadyExistsError.name}`, async () => {
+    it(`should throw DomainError when email already exists`, async () => {
       jest.spyOn(userRepository, 'existsByName').mockResolvedValue(false);
       jest.spyOn(userRepository, 'existsByEmail').mockResolvedValue(true);
-      await expect(service.create(createDto)).rejects.toBeInstanceOf(UserEmailAlreadyExistsError);
+      await expect(service.create(createDto)).rejects.toBeInstanceOf(DomainError);
+      await expect(service.create(createDto)).rejects.toMatchObject({
+        kind: expect.objectContaining({ kind: 'ENTITY_EMAIL_ALREADY_EXISTS' }),
+      });
     });
-    it(`should return a ${UserNameAlreadyExistsError.name}`, async () => {
+    it(`should throw DomainError when username already exists`, async () => {
       jest.spyOn(userRepository, 'existsByName').mockResolvedValue(true);
       jest.spyOn(userRepository, 'existsByEmail').mockResolvedValue(false);
-      await expect(service.create(createDto)).rejects.toBeInstanceOf(UserNameAlreadyExistsError);
+      await expect(service.create(createDto)).rejects.toBeInstanceOf(DomainError);
+      await expect(service.create(createDto)).rejects.toMatchObject({
+        kind: expect.objectContaining({ kind: 'ENTITY_NAME_ALREADY_EXISTS' }),
+      });
     });
   });
 
@@ -83,9 +109,12 @@ describe(UserService.name, () => {
       jest.spyOn(userRepository, 'findById').mockResolvedValue(user);
       await expect(service.findById(user.id)).resolves.toBeInstanceOf(User);
     });
-    it(`should return a ${UserNotFoundError.name}`, async () => {
+    it(`should throw DomainError when user not found`, async () => {
       jest.spyOn(userRepository, 'findById').mockResolvedValue(undefined);
-      await expect(service.findById(user.id)).rejects.toBeInstanceOf(UserNotFoundError);
+      await expect(service.findById(user.id)).rejects.toBeInstanceOf(DomainError);
+      await expect(service.findById(user.id)).rejects.toMatchObject({
+        kind: expect.objectContaining({ kind: 'USER_NOT_FOUND' }),
+      });
     });
   });
 
@@ -99,25 +128,30 @@ describe(UserService.name, () => {
       await expect(service.updateUser(user.id, updateDto)).resolves.toBeInstanceOf(User);
     });
 
-    it(`should return a ${UserNotFoundError.name} when user not found`, async () => {
+    it(`should throw DomainError when user not found`, async () => {
       jest.spyOn(userRepository, 'findById').mockResolvedValue(null);
-      await expect(service.updateUser('nonexistent-id', updateDto)).rejects.toBeInstanceOf(UserNotFoundError);
+      await expect(service.updateUser('nonexistent-id', updateDto)).rejects.toBeInstanceOf(DomainError);
+      await expect(service.updateUser('nonexistent-id', updateDto)).rejects.toMatchObject({
+        kind: expect.objectContaining({ kind: 'USER_NOT_FOUND' }),
+      });
     });
 
-    it(`should return ${UserEmailAlreadyExistsError.name} when email conflicts with another user`, async () => {
+    it(`should throw DomainError when email conflicts with another user`, async () => {
       jest.spyOn(userRepository, 'findById').mockResolvedValue(user);
       jest.spyOn(userRepository, 'existsByEmailExcludingSelf').mockResolvedValue(true);
-      await expect(service.updateUser(user.id, { email: 'other@example.com' })).rejects.toBeInstanceOf(
-        UserEmailAlreadyExistsError,
-      );
+      await expect(service.updateUser(user.id, { email: 'other@example.com' })).rejects.toBeInstanceOf(DomainError);
+      await expect(service.updateUser(user.id, { email: 'other@example.com' })).rejects.toMatchObject({
+        kind: expect.objectContaining({ kind: 'ENTITY_EMAIL_ALREADY_EXISTS' }),
+      });
     });
 
-    it(`should return ${UserNameAlreadyExistsError.name} when userName conflicts with another user`, async () => {
+    it(`should throw DomainError when userName conflicts with another user`, async () => {
       jest.spyOn(userRepository, 'findById').mockResolvedValue(user);
       jest.spyOn(userRepository, 'existsByNameExcludingSelf').mockResolvedValue(true);
-      await expect(service.updateUser(user.id, { userName: 'otheruser' })).rejects.toBeInstanceOf(
-        UserNameAlreadyExistsError,
-      );
+      await expect(service.updateUser(user.id, { userName: 'otheruser' })).rejects.toBeInstanceOf(DomainError);
+      await expect(service.updateUser(user.id, { userName: 'otheruser' })).rejects.toMatchObject({
+        kind: expect.objectContaining({ kind: 'ENTITY_NAME_ALREADY_EXISTS' }),
+      });
     });
 
     it(`should allow updating email to same value (self-exclusion)`, async () => {
@@ -155,9 +189,9 @@ describe(UserService.name, () => {
       expect(userRepository.softDelete).not.toHaveBeenCalled();
     });
 
-    it(`should return ${UserNotFoundError.name} when user not found`, async () => {
+    it(`should throw DomainError when user not found`, async () => {
       jest.spyOn(userRepository, 'findById').mockResolvedValue(null);
-      await expect(service.deleteUser('nonexistent-id')).rejects.toBeInstanceOf(UserNotFoundError);
+      await expect(service.deleteUser('nonexistent-id')).rejects.toBeInstanceOf(DomainError);
     });
   });
 
@@ -182,15 +216,15 @@ describe(UserService.name, () => {
       expect(result.isActive).toBe(true);
     });
 
-    it(`should return ${UserAlreadyDeletedError.name} when user is soft-deleted`, async () => {
+    it(`should throw DomainError when user is soft-deleted`, async () => {
       const deletedUser = { ...user, deletedAt: new Date(), isActive: false };
       jest.spyOn(userRepository, 'findById').mockResolvedValue(deletedUser);
-      await expect(service.toggleActiveUser(user.id)).rejects.toBeInstanceOf(UserAlreadyDeletedError);
+      await expect(service.toggleActiveUser(user.id)).rejects.toBeInstanceOf(DomainError);
     });
 
-    it(`should return ${UserNotFoundError.name} when user not found`, async () => {
+    it(`should throw DomainError when user not found`, async () => {
       jest.spyOn(userRepository, 'findById').mockResolvedValue(null);
-      await expect(service.toggleActiveUser('nonexistent-id')).rejects.toBeInstanceOf(UserNotFoundError);
+      await expect(service.toggleActiveUser('nonexistent-id')).rejects.toBeInstanceOf(DomainError);
     });
   });
 
@@ -234,6 +268,132 @@ describe(UserService.name, () => {
       expect(result.data).toEqual([]);
       expect(result.total).toBe(0);
       expect(result.totalPages).toBe(0);
+    });
+  });
+
+  describe(`${UserService.name}.${UserService.prototype.requestEmailChange.name}`, () => {
+    const user = new UserMock();
+
+    it('should throw DomainError when target email already exists', async () => {
+      jest.spyOn(userRepository, 'findByEmail').mockResolvedValue(user);
+      await expect(service.requestEmailChange('some-id', user.email)).rejects.toBeInstanceOf(DomainError);
+      await expect(service.requestEmailChange('some-id', user.email)).rejects.toMatchObject({
+        kind: expect.objectContaining({ kind: 'EMAIL_ALREADY_EXISTS' }),
+      });
+    });
+
+    it('should request an email change when target email is free', async () => {
+      jest.spyOn(userRepository, 'findByEmail').mockResolvedValue(null);
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(user);
+      jest.spyOn(userRepository, 'update').mockResolvedValue(user);
+
+      const result = await service.requestEmailChange(user.id, 'new@example.com');
+      expect(result.user).toBe(user);
+      expect(result.token).toBeDefined();
+    });
+  });
+
+  describe(`${UserService.name}.${UserService.prototype.changePassword.name}`, () => {
+    const user = new UserMock();
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('should fetch user with includePassword option for transient password validation', async () => {
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(user);
+      jest.spyOn(userRepository, 'update').mockResolvedValue(user);
+      encodeService.compare.mockResolvedValue(true);
+      encodeService.hash.mockResolvedValue('hashed-value');
+
+      await service.changePassword(user.id, 'current-pass', 'new-pass');
+
+      expect(userRepository.findById).toHaveBeenCalledWith(user.id, { includePassword: true });
+      expect(userRepository.update).toHaveBeenCalledWith(user.id, { password: 'hashed-value' });
+    });
+
+    it('should throw CURRENT_PASSWORD_INCORRECT and not update when current password is invalid', async () => {
+      const userWithPassword = Object.assign(new UserMock(), { password: 'stored-hash' });
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(userWithPassword);
+      encodeService.compare.mockResolvedValue(false);
+
+      await expect(service.changePassword(user.id, 'wrong-pass', 'new-pass')).rejects.toMatchObject({
+        kind: expect.objectContaining({ kind: 'CURRENT_PASSWORD_INCORRECT' }),
+      });
+      expect(userRepository.update).not.toHaveBeenCalled();
+      expect(encodeService.hash).not.toHaveBeenCalled();
+    });
+
+    it('should update with hashed new password (never plaintext)', async () => {
+      const userWithPassword = Object.assign(new UserMock(), { password: 'stored-hash' });
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(userWithPassword);
+      encodeService.compare.mockResolvedValue(true);
+      encodeService.hash.mockResolvedValue('hashed-new-password');
+
+      await service.changePassword(user.id, 'current-pass', 'plain-new-password');
+
+      expect(encodeService.hash).toHaveBeenCalledWith('plain-new-password');
+      expect(userRepository.update).toHaveBeenCalledWith(user.id, { password: 'hashed-new-password' });
+    });
+  });
+
+  describe('Cache invalidation', () => {
+    beforeEach(() => {
+      mockCacheService.del.mockResolvedValue(undefined);
+    });
+
+    it('should invalidate cache after create', async () => {
+      const createDto = new CreateUserDTOMock();
+      const user = Object.assign(new UserMock(), { _id: { toString: () => '507f1f77bcf86cd799439011' } });
+      jest.spyOn(userRepository, 'existsByName').mockResolvedValue(false);
+      jest.spyOn(userRepository, 'existsByEmail').mockResolvedValue(false);
+      jest.spyOn(userRepository, 'create').mockResolvedValue(user);
+
+      await service.create(createDto);
+
+      expect(mockCacheService.del).toHaveBeenCalledWith('user:507f1f77bcf86cd799439011');
+    });
+
+    it('should invalidate cache after updateUser', async () => {
+      const user = new UserMock();
+      const updateDto = new UpdateUserDTOMock();
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(user);
+      jest.spyOn(userRepository, 'update').mockResolvedValue(user);
+
+      await service.updateUser(user.id, updateDto);
+
+      expect(mockCacheService.del).toHaveBeenCalledWith(`user:${user.id}`);
+    });
+
+    it('should invalidate cache after deleteUser', async () => {
+      const user = new UserMock();
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(user);
+      jest.spyOn(userRepository, 'softDelete').mockResolvedValue({ ...user, isActive: false, deletedAt: new Date() });
+
+      await service.deleteUser(user.id);
+
+      expect(mockCacheService.del).toHaveBeenCalledWith(`user:${user.id}`);
+    });
+
+    it('should invalidate cache after toggleActiveUser', async () => {
+      const user = new UserMock();
+      const activeUser = { ...user, isActive: true };
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(activeUser);
+      jest.spyOn(userRepository, 'update').mockResolvedValue({ ...activeUser, isActive: false });
+
+      await service.toggleActiveUser(user.id);
+
+      expect(mockCacheService.del).toHaveBeenCalledWith(`user:${user.id}`);
+    });
+
+    it('should invalidate cache after unlockUser', async () => {
+      const user = new UserMock();
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(user);
+      jest.spyOn(userRepository, 'update').mockResolvedValue(user);
+
+      await service.unlockUser(user.id);
+
+      expect(mockCacheService.del).toHaveBeenCalledWith(`user:${user.id}`);
     });
   });
 });

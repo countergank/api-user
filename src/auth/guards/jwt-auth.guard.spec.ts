@@ -1,7 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import { ExecutionContext } from '@nestjs/common';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { ClsService } from 'nestjs-cls';
+import { DomainError } from '../../common/errors/domain.error';
 
 describe(JwtAuthGuard.name, () => {
   let guard: JwtAuthGuard;
@@ -61,7 +62,7 @@ describe(JwtAuthGuard.name, () => {
       expect(clsService.set).toHaveBeenCalledWith('userId', 'user-456');
     });
 
-    it('should throw UnauthorizedException when user is null', () => {
+    it('should throw DomainError INVALID_TOKEN when user is null', () => {
       const request = { ip: '127.0.0.1' };
       const context = {
         switchToHttp: () => ({
@@ -69,7 +70,16 @@ describe(JwtAuthGuard.name, () => {
         }),
       } as unknown as ExecutionContext;
 
-      expect(() => guard.handleRequest(null, null, null, context)).toThrow(UnauthorizedException);
+      let thrown: unknown;
+      try {
+        guard.handleRequest(null, null, null, context);
+      } catch (error) {
+        thrown = error;
+      }
+
+      expect(thrown).toBeInstanceOf(DomainError);
+      expect((thrown as DomainError).kind.kind).toBe('INVALID_TOKEN');
+      expect((thrown as DomainError).statusCode).toBe(401);
     });
 
     it('should throw error when err is provided', () => {

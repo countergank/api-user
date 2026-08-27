@@ -1,0 +1,99 @@
+# Standalone compose for testing GHCR image
+# Usage: docker compose -f docker-compose.ghcr.yml up -d
+#
+# Does NOT inherit from docker-compose.yml — runs GHCR image with local DB + Redis
+
+services:
+  db-user:
+    image: mongo:6.0.3
+    container_name: db-user
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "27017:27017"
+    volumes:
+      - api-user-data:/data/db
+    networks:
+      - default
+
+  mongo-init:
+    image: mongo:6.0.3
+    depends_on:
+      db-user:
+        condition: service_started
+    entrypoint: >
+      bash -c "
+      sleep 5 &&
+      mongosh --host db-user:27017 --eval 'rs.initiate({_id: \"rs0\", members: [{_id: 0, host: \"db-user:27017\"}]})' &&
+      for i in $$(seq 1 30); do
+        state=$$(mongosh --host db-user:27017 --quiet --eval 'try { rs.status().myState } catch(e) { 0 }');
+        [ \"$$state\" = \"1\" ] && break;
+        sleep 1;
+      done &&
+      mongosh --host db-user:27017 --eval 'db.getSiblingDB(\"admin\").createUser({user: \"dev_user\", pwd: \"dev_password\", roles: [{role: \"root\", db: \"admin\"}]})' 2>/dev/null || true &&
+      echo 'mongo-init: done'
+      "
+    restart: "no"
+    networks:
+      - default
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis-user
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-user-data:/data
+    networks:
+      - default
+
+  api-user:
+    image: ghcr.io/countergank/api-user:v${VERSION:-1.1.0}
+    container_name: api-user
+    restart: always
+    depends_on:
+      db-user:
+        condition: service_started
+      mongo-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+    command: ["node", "dist/main.js"]
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_HOST=db-user
+      - DATABASE_PORT=27017
+      - DATABASE_USER=${DATABASE_USER:-dev_user}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD:-dev_password}
+      - DATABASE_NAME=${DATABASE_NAME:-api_user}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - NODE_ENV=${NODE_ENV:-production}
+      - VERSION=${VERSION:-1.1.0}
+      - JWT_SECRET=${JWT_SECRET:-dev-jwt-secret-key-for-local-testing}
+      - ENCRYPTION_PASSWORD=${ENCRYPTION_PASSWORD:-dev_encryption_password_32_chars_min}
+      - CORS_ORIGINS=${CORS_ORIGINS:-*}
+      - EXAMPLE_MICROSERVICE_ENABLED=${EXAMPLE_MICROSERVICE_ENABLED:-false}
+      - EXAMPLE_MICROSERVICE_HOST=localhost
+      - EXAMPLE_MICROSERVICE_PORT=3001
+      - EMAIL_PROVIDER=${EMAIL_PROVIDER:-smtp}
+      - EMAIL_HOST=${EMAIL_HOST:-smtp.test.com}
+      - EMAIL_PORT=${EMAIL_PORT:-587}
+      - EMAIL_USER=${EMAIL_USER:-test@test.com}
+      - EMAIL_PASS=${EMAIL_PASS:-testpass}
+      - EMAIL_SECURE=${EMAIL_SECURE:-false}
+      - EMAIL_FROM=${EMAIL_FROM:-test@test.com}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    networks:
+      - default
+
+volumes:
+  api-user-data:
+    driver: local
+  redis-user-data:
+    driver: local
+
+networks:
+  default:
+    name: api-user-ghcr-net
+    driver: bridge

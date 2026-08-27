@@ -1,14 +1,15 @@
-import { BadRequestException, Body, Controller, Get, HttpCode, Inject, Patch, Post, Request, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Inject, Patch, Post, UseGuards } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { EmailEvents } from '../../email/constants/email.events';
-import { EncodeService } from '../../encode/encode.service';
-import { getRequestLang } from '../../common/i18n/request-lang.helper';
 import { I18nService } from '../../common/i18n/i18n.service';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { RequestLang } from '../../common/decorators/request-lang.decorator';
 import { ApplyChangeEmailDoc, ApplyChangePasswordDoc, ApplyGetProfileDoc, ApplyUpdateProfileDoc } from '../api-docs';
 import { ChangePasswordDTO } from '../dto/change-password.dto';
 import { UserService } from '../service/user.service';
+import { User } from '../entities/user.entity';
 
 /**
  * Controller para gestión del perfil del usuario autenticado.
@@ -21,19 +22,17 @@ import { UserService } from '../service/user.service';
 export class UserProfileController {
   constructor(
     private userService: UserService,
-    private encodeService: EncodeService,
     private eventEmitter: EventEmitter2,
     @Inject(I18nService) private i18n: I18nService,
   ) {}
 
-  private async t(key: string, req: any): Promise<string> {
-    return this.i18n.translate(key, getRequestLang(req));
+  private async t(key: string, lang: string | undefined): Promise<string> {
+    return this.i18n.translate(key, lang);
   }
 
   @Get('profile')
   @ApplyGetProfileDoc()
-  async getProfile(@Request() req) {
-    const user = req.user;
+  async getProfile(@CurrentUser() user: User) {
     return {
       name: user.name,
       lastName: user.lastName,
@@ -43,47 +42,46 @@ export class UserProfileController {
 
   @Patch('profile')
   @ApplyUpdateProfileDoc()
-  async updateProfile(@Request() req, @Body() body: { name?: string; lastName?: string }) {
-    const user = await this.userService.update(req.user.id, {
+  async updateProfile(@CurrentUser() user: User, @Body() body: { name?: string; lastName?: string }) {
+    const updated = await this.userService.update(user.id, {
       name: body.name,
       lastName: body.lastName,
     });
     return {
-      name: user.name,
-      lastName: user.lastName,
-      email: user.email,
+      name: updated.name,
+      lastName: updated.lastName,
+      email: updated.email,
     };
   }
 
   @Post('change-password')
   @HttpCode(200)
   @ApplyChangePasswordDoc()
-  async changePassword(@Request() req, @Body() dto: ChangePasswordDTO) {
-    const user = req.user;
-    const isValid = await this.encodeService.compare(dto.currentPassword, user.password);
-    if (!isValid) {
-      throw new BadRequestException('CURRENT_PASSWORD_INCORRECT');
-    }
-
-    await this.userService.update(user.id, {
-      password: dto.newPassword,
-    });
+  async changePassword(
+    @CurrentUser() user: User,
+    @Body() dto: ChangePasswordDTO,
+    @RequestLang() lang: string | undefined,
+  ) {
+    await this.userService.changePassword(user.id, dto.currentPassword, dto.newPassword);
 
     this.eventEmitter.emit(EmailEvents.PASSWORD_CHANGED, {
       userId: user.id,
       email: user.email,
       name: user.name,
-      lang: getRequestLang(req),
+      lang,
     });
 
-    return { message: await this.t('messages.password_changed', req) };
+    return { message: await this.t('messages.password_changed', lang) };
   }
 
   @Post('change-email')
   @HttpCode(200)
   @ApplyChangeEmailDoc()
-  async changeEmail(@Request() req, @Body() body: { email: string }) {
-    const user = req.user;
+  async changeEmail(
+    @CurrentUser() user: User,
+    @Body() body: { email: string },
+    @RequestLang() lang: string | undefined,
+  ) {
     const { token } = await this.userService.requestEmailChange(user.id, body.email);
 
     this.eventEmitter.emit(EmailEvents.EMAIL_CHANGE_REQUESTED, {
@@ -91,9 +89,9 @@ export class UserProfileController {
       newEmail: body.email,
       name: user.name,
       pendingEmailToken: token,
-      lang: getRequestLang(req),
+      lang,
     });
 
-    return { message: await this.t('messages.email_change_sent', req) };
+    return { message: await this.t('messages.email_change_sent', lang) };
   }
 }

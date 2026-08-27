@@ -1,4 +1,4 @@
-import { Controller, Get, Inject, Query, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Inject, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -8,7 +8,6 @@ import { AuditLogFilterDTO } from './dto/audit-log-filter.dto';
 import { PaginatedAuditLogResponseDTO } from './dto/paginated-audit-log-response.dto';
 import { AuditLogResponseDTO } from './dto/audit-log-response.dto';
 import { I18nService } from '../../common/i18n/i18n.service';
-import { getRequestLang } from '../../common/i18n/request-lang.helper';
 import { ApplyAuditLogsDoc } from './api-docs/audit.decorator';
 
 /**
@@ -25,15 +24,10 @@ export class AuditController {
     @Inject(I18nService) private i18n: I18nService,
   ) {}
 
-  private async t(key: string, req: any): Promise<string> {
-    return this.i18n.translate(key, getRequestLang(req));
-  }
-
   @ApplyAuditLogsDoc()
   @Get()
   async findAuditLogs(
     @Query() filters: AuditLogFilterDTO,
-    @Req() _req: any,
   ): Promise<PaginatedAuditLogResponseDTO> {
     const result = await this.auditService.findPaginated({
       userId: filters.userId,

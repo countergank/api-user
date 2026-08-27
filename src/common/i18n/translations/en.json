@@ -20,7 +20,21 @@
     "EXPIRED_RESET_TOKEN": "Invalid or expired reset token",
     "EXPIRED_VERIFICATION_TOKEN": "Invalid or expired verification token",
     "EXPIRED_CONFIRMATION_TOKEN": "Invalid or expired confirmation token",
-    "INVALID_USER_ID": "Invalid user ID"
+    "INVALID_USER_ID": "Invalid user ID",
+    "INTERNAL": "Internal server error",
+    "APP_ERROR": "Application error",
+    "APP_VERSION_NOT_FOUND": "App version not found",
+    "ENTITY_NOT_FOUND": "Entity not found",
+    "ENTITY_NAME_ALREADY_EXISTS": "Name already exists",
+    "ENTITY_EMAIL_ALREADY_EXISTS": "Email already exists",
+    "USER_ALREADY_DELETED": "User already deleted",
+    "TEMPLATE_SLUG_ALREADY_EXISTS": "Template with this slug already exists",
+    "TEMPLATE_NOT_FOUND": "Template not found",
+    "TEMPLATE_FILE_NOT_FOUND": "Default template file not found",
+    "PARAMETER_NOT_FOUND": "Parameter not found",
+    "PARAMETER_OVERRIDDEN": "Parameter is overridden by environment",
+    "PARAMETER_VALUE_INVALID": "Invalid value for parameter",
+    "MICROSERVICE_UNAVAILABLE": "Microservice unavailable"
   },
   "validation": {
     "IS_EMAIL": "must be a valid email",

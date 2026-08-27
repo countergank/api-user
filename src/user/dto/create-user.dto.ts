@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsString, IsEnum, IsOptional } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, IsEnum, IsOptional, IsDefined } from 'class-validator';
 import { User, UserRole } from '../entities/user.entity';
 import { PasswordStrength } from '../../common/decorators/password-strength.decorator';
 
@@ -21,6 +21,7 @@ export class CreateUserDTO {
     description: 'Nombre del usuario',
     type: String,
   })
+  @IsDefined()
   @IsNotEmpty()
   @IsString()
   name: string;
@@ -30,6 +31,7 @@ export class CreateUserDTO {
     description: 'Apellido del usuario',
     type: String,
   })
+  @IsDefined()
   @IsNotEmpty()
   @IsString()
   lastName: string;
@@ -39,6 +41,7 @@ export class CreateUserDTO {
     description: 'Email único del usuario',
     type: String,
   })
+  @IsDefined()
   @IsNotEmpty()
   @IsEmail()
   email: string;
@@ -48,6 +51,7 @@ export class CreateUserDTO {
     description: 'Nombre de usuario único',
     type: String,
   })
+  @IsDefined()
   @IsNotEmpty()
   @IsString()
   userName: string;
@@ -57,6 +61,7 @@ export class CreateUserDTO {
     description: 'Contraseña del usuario (mín. 8 caracteres, máx. 64)',
     type: String,
   })
+  @IsDefined()
   @IsNotEmpty()
   @IsString()
   @PasswordStrength()
