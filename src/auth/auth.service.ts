@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { EmailEvents } from '../email/constants/email.events';
 import { User, UserRole } from '../user/entities/user.entity';
 import { UserService } from '../user/service/user.service';
+import { RoleService, mergeEffectivePermissions } from '../rbac/services/role.service';
 import { DomainError } from '../common/errors/domain.error';
 import { AuditAction } from '../common/audit/audit.decorator';
 import { runInTransaction } from '../common/utils/transaction';
@@ -41,6 +42,7 @@ export class AuthService {
     private configService: ConfigService,
     @InjectConnection() private readonly connection: Connection,
     private readonly cacheService: CacheService,
+    private readonly roleService: RoleService,
   ) {}
 
   @AuditAction({
@@ -145,12 +147,35 @@ export class AuthService {
 
     const cached = await this.cacheService.get<User>(cacheKey);
     if (cached) {
-      return cached;
+      return this.withEffectivePermissions(cached);
     }
 
     const user = await this.userService.findById(userId);
     await this.cacheService.set(cacheKey, user);
-    return user;
+    return this.withEffectivePermissions(user);
+  }
+
+  /**
+   * Returns a plain merged object whose `permissions` are the effective set
+   * resolved from the user's role (role as base, explicit permissions additive,
+   * deduplicated). The source/cached document is never mutated and the effective
+   * set is never cached.
+   */
+  private async withEffectivePermissions(user: User): Promise<User> {
+    const rolePermissions = (await this.roleService.getPermissionsForRole(user.role)) ?? [];
+    const permissions = mergeEffectivePermissions(rolePermissions, user.permissions ?? []);
+    return { ...this.toPlainUser(user), permissions };
+  }
+
+  /**
+   * Returns a plain object with the document's fields (including virtuals such as
+   * `id`) without sharing the Mongoose document's internal `_doc`, so the
+   * effective permissions can be overridden without mutating the source document.
+   * The schema already enables `toObject: { virtuals: true }`, so `id` is present.
+   */
+  private toPlainUser(user: User): User {
+    const source = user as unknown as { toObject?: () => Record<string, unknown> };
+    return (typeof source.toObject === 'function' ? source.toObject() : { ...user }) as User;
   }
 
   @AuditAction({

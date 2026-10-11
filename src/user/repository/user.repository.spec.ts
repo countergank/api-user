@@ -6,7 +6,7 @@ import { clearMongoCollection, clearMongoConnection, createConnection } from '..
 import { DomainError } from '../../common/errors/domain.error';
 import { EncodeService } from '../../encode/encode.service';
 import { HashMock } from '../../encode/mocks/hash.mock';
-import { User, UserSchema } from '../entities/user.entity';
+import { User, UserRole, UserSchema } from '../entities/user.entity';
 import { UserMock } from '../mocks/user.mock';
 import { UserRepository } from './user.repository';
 
@@ -418,6 +418,37 @@ describe(UserRepository.name, () => {
 
       // Empty search should be skipped (no regex filter applied)
       expect(result.total).toBe(2);
+    });
+  });
+
+  describe(`${UserRepository.name}.${UserRepository.prototype.findIdsByRole.name}`, () => {
+    it('should return the id strings of every user with the given role', async () => {
+      const adminA = new UserMock();
+      adminA.role = UserRole.ADMIN;
+      const adminB = new UserMock().randomize();
+      adminB.role = UserRole.ADMIN;
+      const regular = new UserMock().randomize();
+      regular.role = UserRole.USER;
+
+      const createdA = await repository.create(adminA);
+      const createdB = await repository.create(adminB);
+      await repository.create(regular);
+
+      const ids = await repository.findIdsByRole(UserRole.ADMIN);
+
+      expect(ids).toHaveLength(2);
+      expect(ids).toEqual(expect.arrayContaining([createdA.id, createdB.id]));
+      for (const id of ids) {
+        expect(typeof id).toBe('string');
+      }
+    });
+
+    it('should return an empty array when no user holds the role', async () => {
+      await repository.create(new UserMock());
+
+      const ids = await repository.findIdsByRole(UserRole.VIEWER);
+
+      expect(ids).toEqual([]);
     });
   });
 

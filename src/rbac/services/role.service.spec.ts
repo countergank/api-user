@@ -1,7 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
-import { RoleService } from './role.service';
+import { RoleService, mergeEffectivePermissions } from './role.service';
 import { Role } from '../entities/role.entity';
+import { UserService } from '../../user/service/user.service';
 import { CacheService } from '../../config/cache';
 
 describe(RoleService.name, () => {
@@ -20,6 +21,10 @@ describe(RoleService.name, () => {
     set: jest.fn().mockResolvedValue(undefined),
     del: jest.fn().mockResolvedValue(undefined),
     delByPattern: jest.fn().mockResolvedValue(0),
+  };
+
+  const mockUserService = {
+    invalidateUsersByRole: jest.fn().mockResolvedValue(undefined),
   };
 
   const mockExec = (data: unknown) => ({ exec: jest.fn().mockResolvedValue(data) });
@@ -43,6 +48,7 @@ describe(RoleService.name, () => {
         RoleService,
         { provide: getModelToken(Role.name), useValue: mockRoleModel },
         { provide: CacheService, useValue: mockCacheService },
+        { provide: UserService, useValue: mockUserService },
       ],
     }).compile();
 
@@ -266,13 +272,14 @@ describe(RoleService.name, () => {
             ),
           },
           { provide: CacheService, useValue: mockCacheService },
+          { provide: UserService, useValue: mockUserService },
         ],
       }).compile();
 
       const createService = ModuleWithMock.get<RoleService>(RoleService);
       await createService.create({ name: 'moderator', description: 'Moderator' });
 
-      expect(mockCacheService.delByPattern).toHaveBeenCalledWith('rbac:roles:name:*');
+      expect(mockCacheService.delByPattern).toHaveBeenCalledWith('cache:rbac:roles:name:*');
       expect(mockCacheService.del).toHaveBeenCalledWith('rbac:roles:all');
     });
   });
@@ -284,16 +291,34 @@ describe(RoleService.name, () => {
 
       await service.updatePermissions('role-id-1', ['user:read']);
 
-      expect(mockCacheService.delByPattern).toHaveBeenCalledWith('rbac:roles:*');
+      expect(mockCacheService.delByPattern).toHaveBeenCalledWith('cache:rbac:roles:*');
     });
 
-    it('should use delByPattern for role name keys on updatePermissions', async () => {
+    it('should use the prefixed pattern for role keys on updatePermissions', async () => {
       const updatedRole = mockRoleDoc({ name: 'admin', permissionIds: ['user:read'] });
       mockRoleModel.findByIdAndUpdate.mockReturnValue(mockExec(updatedRole));
 
       await service.updatePermissions('role-id-1', ['user:read']);
 
-      expect(mockCacheService.delByPattern).toHaveBeenCalledWith('rbac:roles:*');
+      expect(mockCacheService.delByPattern).toHaveBeenCalledWith('cache:rbac:roles:*');
+    });
+
+    it('should invalidate the user cache of every user with the updated role', async () => {
+      const updatedRole = mockRoleDoc({ name: 'user', permissionIds: ['user:read'] });
+      mockRoleModel.findByIdAndUpdate.mockReturnValue(mockExec(updatedRole));
+
+      await service.updatePermissions('role-id-1', ['user:read']);
+
+      expect(mockUserService.invalidateUsersByRole).toHaveBeenCalledWith('user');
+    });
+
+    it('should not invalidate users when the role does not exist', async () => {
+      mockRoleModel.findByIdAndUpdate.mockReturnValue(mockExec(null));
+
+      const result = await service.updatePermissions('missing-role', ['user:read']);
+
+      expect(result).toBeNull();
+      expect(mockUserService.invalidateUsersByRole).not.toHaveBeenCalled();
     });
 
     it('should still update DB even if cache invalidation fails', async () => {
@@ -305,6 +330,38 @@ describe(RoleService.name, () => {
 
       expect(result).toEqual(updatedRole);
       expect(mockRoleModel.findByIdAndUpdate).toHaveBeenCalled();
+    });
+  });
+
+  describe(`${RoleService.name}.mergeEffectivePermissions`, () => {
+    it('should return the role permissions when the user has no explicit grants', () => {
+      expect(mergeEffectivePermissions(['user:read', 'user:update'], [])).toEqual([
+        'user:read',
+        'user:update',
+      ]);
+    });
+
+    it('should union role and explicit permissions keeping the role first', () => {
+      expect(mergeEffectivePermissions(['user:read'], ['audit:read'])).toEqual([
+        'user:read',
+        'audit:read',
+      ]);
+    });
+
+    it('should deduplicate permissions present in both sources', () => {
+      expect(mergeEffectivePermissions(['user:read', 'user:update'], ['user:read', 'audit:read'])).toEqual([
+        'user:read',
+        'user:update',
+        'audit:read',
+      ]);
+    });
+
+    it('should pass a wildcard permission through unchanged', () => {
+      expect(mergeEffectivePermissions(['*'], [])).toEqual(['*']);
+    });
+
+    it('should return an empty array when both sources are empty', () => {
+      expect(mergeEffectivePermissions([], [])).toEqual([]);
     });
   });
 });

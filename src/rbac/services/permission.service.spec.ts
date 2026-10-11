@@ -268,7 +268,7 @@ describe(PermissionService.name, () => {
       const createService = module2.get<PermissionService>(PermissionService);
       await createService.create({ name: 'new:perm', description: 'New perm', category: PermissionCategory.USER });
 
-      expect(mockCacheService.delByPattern).toHaveBeenCalledWith('rbac:permissions:name:*');
+      expect(mockCacheService.delByPattern).toHaveBeenCalledWith('cache:rbac:permissions:name:*');
       expect(mockCacheService.del).toHaveBeenCalledWith('rbac:permissions:all');
     });
   });
@@ -281,7 +281,7 @@ describe(PermissionService.name, () => {
         { name: 'perm:1', description: 'Perm 1', category: PermissionCategory.USER },
       ]);
 
-      expect(mockCacheService.delByPattern).toHaveBeenCalledWith('rbac:permissions:name:*');
+      expect(mockCacheService.delByPattern).toHaveBeenCalledWith('cache:rbac:permissions:name:*');
       expect(mockCacheService.del).toHaveBeenCalledWith('rbac:permissions:all');
     });
   });

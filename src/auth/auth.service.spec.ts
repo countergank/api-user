@@ -2,10 +2,12 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { getConnectionToken } from '@nestjs/mongoose';
+import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
 import { DomainError } from '../common/errors/domain.error';
-import { UserRole } from '../user/entities/user.entity';
+import { User, UserRole } from '../user/entities/user.entity';
 import { UserService } from '../user/service/user.service';
+import { Role } from '../rbac/entities/role.entity';
+import { RoleService } from '../rbac/services/role.service';
 import { AuthService } from './auth.service';
 import { UserMock } from '../user/mocks/user.mock';
 import { Mock } from '../test-utils';
@@ -30,6 +32,7 @@ async function expectDomainError(promise: Promise<unknown>, kind: string): Promi
 describe(AuthService.name, () => {
   let service: AuthService;
   let userService: UserService;
+  let roleService: RoleService;
   let jwtService: JwtService;
   let configService: ConfigService;
 
@@ -50,10 +53,11 @@ describe(AuthService.name, () => {
     jest.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AuthService, UserService, JwtService, EventEmitter2, ConfigService],
+      providers: [AuthService, UserService, RoleService, JwtService, EventEmitter2, ConfigService],
     })
       .useMocker((token) => {
         if (token === getConnectionToken()) return mockConnection;
+        if (token === getModelToken(Role.name)) return {};
         if (token === CacheService) return mockCacheService;
         if (typeof token === 'function') return Mock(token);
       })
@@ -61,6 +65,7 @@ describe(AuthService.name, () => {
 
     service = module.get<AuthService>(AuthService);
     userService = module.get<UserService>(UserService);
+    roleService = module.get<RoleService>(RoleService);
     jwtService = module.get<JwtService>(JwtService);
     configService = module.get<ConfigService>(ConfigService);
   });
@@ -278,40 +283,116 @@ describe(AuthService.name, () => {
   });
 
   describe(`${AuthService.name}.${AuthService.prototype.validateUser.name}`, () => {
-    it('should return cached user on cache hit', async () => {
+    it('should return cached user with permissions resolved from the role on a cache hit', async () => {
       const user = new UserMock();
+      user.permissions = [];
       const findByIdSpy = jest.spyOn(userService, 'findById');
-      mockCacheService.get.mockResolvedValue(user as any);
+      const rolePermissionsSpy = jest
+        .spyOn(roleService, 'getPermissionsForRole')
+        .mockResolvedValue(['user:read', 'user:update']);
+      mockCacheService.get.mockResolvedValue(user as unknown as User);
 
       const result = await service.validateUser(user.id);
 
-      expect(result).toEqual(user);
+      expect(result.permissions).toEqual(['user:read', 'user:update']);
       expect(mockCacheService.get).toHaveBeenCalledWith(`user:${user.id}`);
       expect(findByIdSpy).not.toHaveBeenCalled();
       expect(mockCacheService.set).not.toHaveBeenCalled();
+      expect(rolePermissionsSpy).toHaveBeenCalledWith(user.role);
+      // Clone must not be the same object (nor mutate the cached document)
+      expect(result).not.toBe(user);
+      expect(user.permissions).toEqual([]);
     });
 
-    it('should query DB on cache miss and populate cache', async () => {
-      const user = new UserMock();
+    it('should query DB on cache miss, cache the RAW document and never mutate it', async () => {
+      const userId = 'u-1';
+      const rawPermissions = ['audit:read'];
+      const plainFields = {
+        id: userId,
+        email: 'a@b.com',
+        userName: 'a',
+        name: 'A',
+        lastName: 'B',
+        role: UserRole.USER,
+        permissions: rawPermissions,
+        isActive: true,
+      };
+      // Simulates a hydrated Mongoose document exposing `toObject()`.
+      const docLike = { ...plainFields, toObject: () => ({ ...plainFields }) } as unknown as User;
       mockCacheService.get.mockResolvedValue(undefined);
-      jest.spyOn(userService, 'findById').mockResolvedValue(user);
+      jest.spyOn(roleService, 'getPermissionsForRole').mockResolvedValue(['user:read', 'user:update']);
+      jest.spyOn(userService, 'findById').mockResolvedValue(docLike);
 
-      const result = await service.validateUser(user.id);
+      const result = await service.validateUser(userId);
 
-      expect(result).toEqual(user);
-      expect(userService.findById).toHaveBeenCalledWith(user.id);
-      expect(mockCacheService.set).toHaveBeenCalledWith(`user:${user.id}`, user);
+      expect(result.permissions).toEqual(['user:read', 'user:update', 'audit:read']);
+      expect(userService.findById).toHaveBeenCalledWith(userId);
+      // The source document (and its permissions array) must NOT be mutated
+      expect(docLike.permissions).toEqual(['audit:read']);
+      expect(rawPermissions).toEqual(['audit:read']);
+      // Cache stores the RAW source, never the effective copy
+      expect(mockCacheService.set).toHaveBeenCalledWith(`user:${userId}`, docLike);
+      expect(result).not.toBe(docLike);
     });
 
     it('should fall through to DB when cache.get returns undefined', async () => {
       const user = new UserMock();
+      user.permissions = [];
       mockCacheService.get.mockResolvedValue(undefined);
+      jest.spyOn(roleService, 'getPermissionsForRole').mockResolvedValue([]);
       jest.spyOn(userService, 'findById').mockResolvedValue(user);
 
       const result = await service.validateUser(user.id);
 
       expect(userService.findById).toHaveBeenCalled();
-      expect(result).toEqual(user);
+      expect(result.permissions).toEqual([]);
+    });
+
+    it('should union explicit permissions (deduplicated, role first)', async () => {
+      const user = new UserMock();
+      user.permissions = ['user:read', 'audit:read'];
+      mockCacheService.get.mockResolvedValue(user as unknown as User);
+      jest.spyOn(roleService, 'getPermissionsForRole').mockResolvedValue(['user:read', 'user:update']);
+
+      const result = await service.validateUser(user.id);
+
+      expect(result.permissions).toEqual(['user:read', 'user:update', 'audit:read']);
+    });
+
+    it('should pass a wildcard role permission through unchanged', async () => {
+      const user = new UserMock();
+      user.permissions = [];
+      mockCacheService.get.mockResolvedValue(user as unknown as User);
+      jest.spyOn(roleService, 'getPermissionsForRole').mockResolvedValue(['*']);
+
+      const result = await service.validateUser(user.id);
+
+      expect(result.permissions).toContain('*');
+      expect(result.permissions).toEqual(['*']);
+    });
+
+    it('should return only explicit permissions when the role yields none (no throw)', async () => {
+      const user = new UserMock();
+      user.permissions = ['audit:read'];
+      mockCacheService.get.mockResolvedValue(user as unknown as User);
+      jest.spyOn(roleService, 'getPermissionsForRole').mockResolvedValue([]);
+
+      const result = await service.validateUser(user.id);
+
+      expect(result.permissions).toEqual(['audit:read']);
+    });
+
+    it('should tolerate an unresolved role (undefined) without throwing', async () => {
+      const user = new UserMock();
+      user.permissions = [];
+      mockCacheService.get.mockResolvedValue(user as unknown as User);
+      jest
+        .spyOn(roleService, 'getPermissionsForRole')
+        .mockResolvedValue(undefined as unknown as string[]);
+
+      const result = await service.validateUser(user.id);
+
+      expect(result.permissions).toEqual([]);
     });
   });
 });

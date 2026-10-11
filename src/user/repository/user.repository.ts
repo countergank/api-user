@@ -129,6 +129,11 @@ export class UserRepository implements OnApplicationBootstrap {
     return this.userModel.find().exec();
   }
 
+  async findIdsByRole(role: UserRole): Promise<string[]> {
+    const users = await this.userModel.find({ role }).select('_id').exec();
+    return users.map((user) => user._id.toString());
+  }
+
   async update(id: string, data: Partial<User>): Promise<User> {
     // If password is being updated, use save() to trigger pre-save hooks for hashing
     if (data.password) {
