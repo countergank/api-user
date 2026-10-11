@@ -131,7 +131,7 @@ export class PermissionService {
     const saved = await permission.save();
 
     try {
-      await this.cacheService.delByPattern(`${PERM_NAME_PREFIX}*`);
+      await this.cacheService.delByPattern(`cache:${PERM_NAME_PREFIX}*`);
       await this.cacheService.del(PERM_ALL_KEY);
     } catch {
       this.logger.debug('Cache invalidation failed after permission create');
@@ -146,7 +146,7 @@ export class PermissionService {
     const result = await this.permissionModel.insertMany(permissionsData);
 
     try {
-      await this.cacheService.delByPattern(`${PERM_NAME_PREFIX}*`);
+      await this.cacheService.delByPattern(`cache:${PERM_NAME_PREFIX}*`);
       await this.cacheService.del(PERM_ALL_KEY);
     } catch {
       this.logger.debug('Cache invalidation failed after permission createMany');
