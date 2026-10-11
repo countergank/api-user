@@ -84,10 +84,11 @@ Rompe el AC #3. Se corrige a `cache:rbac:roles:*` y `cache:rbac:roles:name:*`.
       `createMany` → `cache:${PERM_NAME_PREFIX}*`), por decisión del usuario.
       RED: spec con expectativa prefijada falla (2 tests). GREEN: código corregido →
       16/16. Unit FULL sigue 67/732. Lint 0 errores en los 2 archivos.
-- [ ] T9 — Cierre: work-unit commits (autorizado por el usuario) → **2 work-units**:
-      1) `feat(rbac): …` COU-265 completo (código + tests + e2e + feature doc);
-      2) `fix(rbac): …` patrón de invalidación de `permission.service` (+ spec).
-      Push rama → PR a `develop` → comentario en Linear (en ejecución).
+- [x] T9 — Cierre: 2 work-unit commits (autorizado por el usuario):
+      1) `c3050d8` `feat(rbac): resolve effective user permissions…`;
+      2) `65a49ef` `fix(rbac): prefix cache invalidation patterns…`.
+      Push OK → **PR #417** → develop (https://github.com/countergank/api-user/pull/417).
+      Comentario de cierre publicado en Linear COU-265 (comment `637b3e4a-…`).
 
 ## Verificación observada
 
