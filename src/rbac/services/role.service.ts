@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Role } from '../entities/role.entity';
 import { UserRole } from '../../user/entities/user.entity';
+import { UserService } from '../../user/service/user.service';
 import { AuditAction } from '../../common/audit/audit.decorator';
 import { CacheService } from '../../config/cache';
 
@@ -42,6 +43,18 @@ export const DEFAULT_ROLES = [
   },
 ];
 
+/**
+ * Resolves the effective permissions for a user.
+ *
+ * The role's permissions are the base (a user with no explicit permissions
+ * inherits them); the user's own permissions are additive grants. The result
+ * is deduplicated while preserving order — role permissions first, then any
+ * additional explicit grants. A wildcard (`*`) is passed through unchanged.
+ */
+export function mergeEffectivePermissions(rolePermissions: string[], userPermissions: string[]): string[] {
+  return [...new Set([...rolePermissions, ...userPermissions])];
+}
+
 @Injectable()
 export class RoleService {
   private readonly logger = new Logger(RoleService.name);
@@ -49,6 +62,7 @@ export class RoleService {
   constructor(
     @InjectModel(Role.name) private roleModel: Model<Role>,
     private readonly cacheService: CacheService,
+    private readonly userService: UserService,
   ) {}
 
   async findAll(): Promise<Role[]> {
@@ -149,7 +163,7 @@ export class RoleService {
     const saved = await role.save();
 
     try {
-      await this.cacheService.delByPattern(`${ROLE_NAME_PREFIX}*`);
+      await this.cacheService.delByPattern('cache:rbac:roles:name:*');
       await this.cacheService.del(ROLE_ALL_KEY);
     } catch {
       this.logger.debug('Cache invalidation failed after role create');
@@ -174,7 +188,8 @@ export class RoleService {
 
     if (updated) {
       try {
-        await this.cacheService.delByPattern('rbac:roles:*');
+        await this.cacheService.delByPattern('cache:rbac:roles:*');
+        await this.userService.invalidateUsersByRole(updated.name as UserRole);
       } catch {
         this.logger.debug('Cache invalidation failed after updatePermissions');
       }

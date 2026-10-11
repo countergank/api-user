@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getConnectionToken } from '@nestjs/mongoose';
 import { Mock } from '../../test-utils';
-import { User } from '../entities/user.entity';
+import { User, UserRole } from '../entities/user.entity';
 import { DomainError } from '../../common/errors/domain.error';
 import { CreateUserDTOMock } from '../mocks/create-user-dto.mock';
 import { UpdateUserDTOMock } from '../mocks/update-user-dto.mock';
@@ -35,6 +35,7 @@ describe(UserService.name, () => {
     update: jest.fn(),
     softDelete: jest.fn(),
     findPaginated: jest.fn(),
+    findIdsByRole: jest.fn(),
   };
 
   const mockConnection = {
@@ -394,6 +395,33 @@ describe(UserService.name, () => {
       await service.unlockUser(user.id);
 
       expect(mockCacheService.del).toHaveBeenCalledWith(`user:${user.id}`);
+    });
+  });
+
+  describe(`${UserService.name}.${UserService.prototype.invalidateUsersByRole.name}`, () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('should invalidate the cache of every user holding the role', async () => {
+      jest.spyOn(userRepository, 'findIdsByRole').mockResolvedValue(['id-1', 'id-2']);
+      mockCacheService.del.mockResolvedValue(undefined);
+
+      await service.invalidateUsersByRole(UserRole.USER);
+
+      expect(userRepository.findIdsByRole).toHaveBeenCalledWith(UserRole.USER);
+      expect(mockCacheService.del).toHaveBeenCalledWith('user:id-1');
+      expect(mockCacheService.del).toHaveBeenCalledWith('user:id-2');
+      expect(mockCacheService.del).toHaveBeenCalledTimes(2);
+    });
+
+    it('should not invalidate anything when no user holds the role', async () => {
+      jest.spyOn(userRepository, 'findIdsByRole').mockResolvedValue([]);
+
+      await service.invalidateUsersByRole(UserRole.VIEWER);
+
+      expect(userRepository.findIdsByRole).toHaveBeenCalledWith(UserRole.VIEWER);
+      expect(mockCacheService.del).not.toHaveBeenCalled();
     });
   });
 });

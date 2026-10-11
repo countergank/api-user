@@ -29,6 +29,16 @@ export class UserService {
     await this.cacheService.del(`user:${userId}`);
   }
 
+  /**
+   * Purges the cached user document of every user holding the given role.
+   * Used when a role's permissions change so the effective permissions are
+   * re-resolved on the next authenticated request.
+   */
+  async invalidateUsersByRole(role: UserRole): Promise<void> {
+    const ids = await this.userRepository.findIdsByRole(role);
+    await Promise.all(ids.map((id) => this.invalidateUserCache(id)));
+  }
+
   @AuditAction({
     action: 'user.create',
     resource: 'user',
