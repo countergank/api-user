@@ -14,6 +14,7 @@ export const DEFAULT_PERMISSIONS = [
   { name: 'user:read', description: 'Read users', category: PermissionCategory.USER },
   { name: 'user:update', description: 'Update users', category: PermissionCategory.USER },
   { name: 'user:delete', description: 'Delete users', category: PermissionCategory.USER },
+  { name: 'user:unlock', description: 'Unlock user accounts', category: PermissionCategory.USER },
   { name: 'role:create', description: 'Create roles', category: PermissionCategory.SYSTEM },
   { name: 'role:read', description: 'Read roles', category: PermissionCategory.SYSTEM },
   { name: 'role:update', description: 'Update roles', category: PermissionCategory.SYSTEM },
@@ -22,6 +23,15 @@ export const DEFAULT_PERMISSIONS = [
   { name: 'permission:read', description: 'Read permissions', category: PermissionCategory.SYSTEM },
   { name: 'permission:update', description: 'Update permissions', category: PermissionCategory.SYSTEM },
   { name: 'permission:delete', description: 'Delete permissions', category: PermissionCategory.SYSTEM },
+  { name: 'parameter:read', description: 'Read system parameters', category: PermissionCategory.SYSTEM },
+  { name: 'parameter:update', description: 'Update system parameters', category: PermissionCategory.SYSTEM },
+  { name: 'audit:read', description: 'Read audit logs', category: PermissionCategory.SYSTEM },
+  { name: 'email:read', description: 'Read email templates', category: PermissionCategory.SYSTEM },
+  { name: 'email:create', description: 'Create email templates', category: PermissionCategory.SYSTEM },
+  { name: 'email:update', description: 'Update email templates', category: PermissionCategory.SYSTEM },
+  { name: 'email:delete', description: 'Delete email templates', category: PermissionCategory.SYSTEM },
+  { name: 'email:send', description: 'Send emails', category: PermissionCategory.SYSTEM },
+  { name: 'i18n:reload', description: 'Reload i18n translations', category: PermissionCategory.SYSTEM },
 ];
 
 @Injectable()
@@ -156,10 +166,15 @@ export class PermissionService {
   }
 
   async seedDefaultPermissions(): Promise<void> {
-    const existing = await this.permissionModel.countDocuments();
-    if (existing > 0) {
+    const defaultNames = DEFAULT_PERMISSIONS.map((permission) => permission.name);
+    const existing = await this.permissionModel.find({ name: { $in: defaultNames } }, { name: 1 }).exec();
+    const existingNames = new Set(existing.map((permission) => permission.name));
+    const missing = DEFAULT_PERMISSIONS.filter((permission) => !existingNames.has(permission.name));
+
+    if (missing.length === 0) {
       return;
     }
-    await this.createMany(DEFAULT_PERMISSIONS);
+
+    await this.createMany(missing);
   }
 }

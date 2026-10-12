@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
-import { PermissionService } from './permission.service';
+import { DEFAULT_PERMISSIONS, PermissionService } from './permission.service';
 import { Permission, PermissionCategory } from '../entities/permission.entity';
 import { CacheService } from '../../config/cache';
 
@@ -283,6 +283,60 @@ describe(PermissionService.name, () => {
 
       expect(mockCacheService.delByPattern).toHaveBeenCalledWith('cache:rbac:permissions:name:*');
       expect(mockCacheService.del).toHaveBeenCalledWith('rbac:permissions:all');
+    });
+  });
+
+  describe('DEFAULT_PERMISSIONS', () => {
+    it('should contain every permission required by the endpoint matrix', () => {
+      const names = DEFAULT_PERMISSIONS.map((p) => p.name);
+
+      expect(names).toEqual(
+        expect.arrayContaining([
+          'user:unlock',
+          'parameter:read',
+          'parameter:update',
+          'audit:read',
+          'email:read',
+          'email:create',
+          'email:update',
+          'email:delete',
+          'email:send',
+          'i18n:reload',
+        ]),
+      );
+    });
+
+    it('should not duplicate permissions and should keep unique names', () => {
+      const names = DEFAULT_PERMISSIONS.map((p) => p.name);
+
+      expect(new Set(names).size).toBe(names.length);
+    });
+  });
+
+  describe(`${PermissionService.name}.seedDefaultPermissions`, () => {
+    it('should insert only the default permissions missing from the database', async () => {
+      const existing = [{ name: 'user:create' }, { name: 'user:read' }];
+      mockPermissionModel.find.mockReturnValue(mockExec(existing));
+      mockPermissionModel.insertMany.mockResolvedValue([]);
+
+      await service.seedDefaultPermissions();
+
+      expect(mockPermissionModel.insertMany).toHaveBeenCalledTimes(1);
+      const inserted = mockPermissionModel.insertMany.mock.calls[0][0] as { name: string }[];
+      const insertedNames = inserted.map((p) => p.name);
+
+      expect(insertedNames).not.toContain('user:create');
+      expect(insertedNames).not.toContain('user:read');
+      expect(insertedNames).toContain('user:unlock');
+      expect(insertedNames).toContain('i18n:reload');
+    });
+
+    it('should insert nothing when every default permission already exists', async () => {
+      mockPermissionModel.find.mockReturnValue(mockExec(DEFAULT_PERMISSIONS.map((p) => ({ name: p.name }))));
+
+      await service.seedDefaultPermissions();
+
+      expect(mockPermissionModel.insertMany).not.toHaveBeenCalled();
     });
   });
 });
