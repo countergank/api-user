@@ -1,6 +1,8 @@
 import { Controller, Get, UseGuards, Inject } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { PermissionGuard } from '../../auth/guards/permissions.guard';
+import { RequirePermissions } from '../../auth/decorators/permissions.decorator';
 import { PermissionService } from '../../rbac/services/permission.service';
 import { I18nService } from '../../common/i18n/i18n.service';
 import { translateRbacItems } from '../../common/i18n/rbac-translate.helper';
@@ -15,7 +17,7 @@ import { ApplyFindAllPermissionsDoc } from '../api-docs';
 @ApiTags('permissions')
 @ApiBearerAuth()
 @Controller('permissions')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard)
 export class PermissionController {
   constructor(
     private permissionService: PermissionService,
@@ -23,6 +25,7 @@ export class PermissionController {
   ) {}
 
   @Get()
+  @RequirePermissions('permission:read')
   @ApplyFindAllPermissionsDoc()
   async findAll(@RequestLang() lang: string | undefined) {
     const permissions = await this.permissionService.findAll();

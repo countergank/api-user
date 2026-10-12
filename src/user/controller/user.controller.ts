@@ -11,8 +11,10 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { PermissionGuard } from '../../auth/guards/permissions.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
+import { RequirePermissions } from '../../auth/decorators/permissions.decorator';
 import { UserRole } from '../entities/user.entity';
 import {
   CreateUserDoc,
@@ -42,7 +44,7 @@ import { RequestLang } from '../../common/decorators/request-lang.decorator';
  * @public
  */
 @Controller('admin/users')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard, RolesGuard)
 @Roles(UserRole.ADMIN)
 export class UserController {
   constructor(
@@ -55,6 +57,7 @@ export class UserController {
   }
 
   @CreateUserDoc()
+  @RequirePermissions('user:create')
   @Post()
   async create(@Body() createUserDTO: CreateUserDTO): Promise<CreateUserResponseDTO> {
     const user: User = await this.userService.createWithRole({
@@ -71,6 +74,7 @@ export class UserController {
   }
 
   @FindAllUserDoc()
+  @RequirePermissions('user:read')
   @Get()
   async findAll(@Query() query?: PaginationQueryDTO): Promise<UserDTO[] | PaginatedUserResponseDTO<UserDTO>> {
     // Backward compat: if no page param, return plain array
@@ -84,6 +88,7 @@ export class UserController {
   }
 
   @FindByIdUserDoc()
+  @RequirePermissions('user:read')
   @Get(':id')
   async findById(@Param('id') id: string): Promise<UserDTO> {
     const user: User = await this.userService.findById(id);
@@ -91,6 +96,7 @@ export class UserController {
   }
 
   @UnlockUserDoc()
+  @RequirePermissions('user:unlock')
   @Patch(':id/unlock')
   async unlock(@Param('id') id: string, @RequestLang() lang: string | undefined): Promise<{ message: string; userId: string }> {
     await this.userService.unlockUser(id);
@@ -98,6 +104,7 @@ export class UserController {
   }
 
   @UpdateUserDoc()
+  @RequirePermissions('user:update')
   @AuditAction({
     action: 'USER_UPDATE',
     resource: 'user',
@@ -110,6 +117,7 @@ export class UserController {
   }
 
   @DeleteUserDoc()
+  @RequirePermissions('user:delete')
   @AuditAction({
     action: 'USER_DELETE',
     resource: 'user',
@@ -122,6 +130,7 @@ export class UserController {
   }
 
   @ToggleActiveDoc()
+  @RequirePermissions('user:update')
   @AuditAction({
     action: 'USER_TOGGLE_ACTIVE',
     resource: 'user',

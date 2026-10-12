@@ -82,5 +82,25 @@ describe(PermissionGuard.name, () => {
 
       expect(guard.canActivate(createContext({ permissions: ['timer:*'] }))).toBe(true);
     });
+
+    it('should allow access when the metadata declares an empty permission list', () => {
+      reflector.getAllAndOverride.mockReturnValue([]);
+
+      expect(guard.canActivate(createContext({ permissions: [] }))).toBe(true);
+    });
+
+    it('should throw DomainError FORBIDDEN when the resource wildcard targets a different resource', () => {
+      reflector.getAllAndOverride.mockReturnValue(['timer:start']);
+
+      let thrown: unknown;
+      try {
+        guard.canActivate(createContext({ permissions: ['user:*'] }));
+      } catch (error) {
+        thrown = error;
+      }
+
+      expect(thrown).toBeInstanceOf(DomainError);
+      expect((thrown as DomainError).kind.kind).toBe('FORBIDDEN');
+    });
   });
 });
