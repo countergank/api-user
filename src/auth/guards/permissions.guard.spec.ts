@@ -36,7 +36,7 @@ describe(PermissionGuard.name, () => {
       expect(reflector.getAllAndOverride).toHaveBeenCalledWith(PERMISSIONS_KEY, [expect.anything(), expect.anything()]);
     });
 
-    it('should throw DomainError FORBIDDEN when user is not authenticated', () => {
+    it('should throw DomainError INVALID_TOKEN when user is not authenticated', () => {
       reflector.getAllAndOverride.mockReturnValue(['user:read']);
 
       let thrown: unknown;
@@ -47,8 +47,8 @@ describe(PermissionGuard.name, () => {
       }
 
       expect(thrown).toBeInstanceOf(DomainError);
-      expect((thrown as DomainError).kind.kind).toBe('FORBIDDEN');
-      expect((thrown as DomainError).statusCode).toBe(403);
+      expect((thrown as DomainError).kind.kind).toBe('INVALID_TOKEN');
+      expect((thrown as DomainError).statusCode).toBe(401);
     });
 
     it('should throw DomainError FORBIDDEN when user lacks required permissions', () => {

@@ -21,7 +21,7 @@ export class PermissionGuard {
     const user = request.user;
 
     if (!user) {
-      throw DomainError.fromKind('FORBIDDEN');
+      throw DomainError.fromKind('INVALID_TOKEN');
     }
 
     const userPermissions = user.permissions || [];
