@@ -34,6 +34,33 @@ export const DEFAULT_PERMISSIONS = [
   { name: 'i18n:reload', description: 'Reload i18n translations', category: PermissionCategory.SYSTEM },
 ];
 
+/**
+ * Detects a MongoDB duplicate-key error (code `11000`).
+ *
+ * `insertMany(..., { ordered: false })` keeps inserting the remaining documents
+ * when one collides, but still rejects with a bulk write error carrying the
+ * duplicate. Seeding tolerates it: an already-existing permission is not a
+ * failure, so a concurrent seeder (bootstrap vs. test global setup) cannot abort
+ * the whole seed.
+ */
+function isDuplicateKeyError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const candidate = error as { code?: number; writeErrors?: Array<{ err?: { code?: number } }> };
+
+  if (candidate.code === 11000) {
+    return true;
+  }
+
+  return (
+    Array.isArray(candidate.writeErrors) &&
+    candidate.writeErrors.length > 0 &&
+    candidate.writeErrors.every((writeError) => writeError?.err?.code === 11000)
+  );
+}
+
 @Injectable()
 export class PermissionService {
   private readonly logger = new Logger(PermissionService.name);
@@ -48,7 +75,7 @@ export class PermissionService {
       const cached = await this.cacheService.get<Permission[]>(PERM_ALL_KEY);
       if (cached !== undefined) return cached;
     } catch {
-      this.logger.debug('Cache get failed for permissions:all, falling back to DB');
+      this.logger.warn('Cache get failed for permissions:all, falling back to DB');
     }
 
     const perms = await this.permissionModel.find().exec();
@@ -56,7 +83,7 @@ export class PermissionService {
     try {
       await this.cacheService.set(PERM_ALL_KEY, perms, PERM_TTL_MS);
     } catch {
-      this.logger.debug('Cache set failed for permissions:all');
+      this.logger.warn('Cache set failed for permissions:all');
     }
 
     return perms;
@@ -82,7 +109,7 @@ export class PermissionService {
           continue;
         }
       } catch {
-        this.logger.debug(`Cache get failed for ${cacheKey}, treating as miss`);
+        this.logger.warn(`Cache get failed for ${cacheKey}, treating as miss`);
       }
       missingNames.push(name);
     }
@@ -98,7 +125,7 @@ export class PermissionService {
         try {
           await this.cacheService.set(`${PERM_NAME_PREFIX}${name}`, perm, PERM_TTL_MS);
         } catch {
-          this.logger.debug(`Cache set failed for ${PERM_NAME_PREFIX}${name}`);
+          this.logger.warn(`Cache set failed for ${PERM_NAME_PREFIX}${name}`);
         }
       }
     }
@@ -113,7 +140,7 @@ export class PermissionService {
       const cached = await this.cacheService.get<Permission | null>(cacheKey);
       if (cached !== undefined) return cached;
     } catch {
-      this.logger.debug(`Cache get failed for ${cacheKey}, falling back to DB`);
+      this.logger.warn(`Cache get failed for ${cacheKey}, falling back to DB`);
     }
 
     const perm = await this.permissionModel.findOne({ name }).exec();
@@ -121,7 +148,7 @@ export class PermissionService {
     try {
       await this.cacheService.set(cacheKey, perm, PERM_TTL_MS);
     } catch {
-      this.logger.debug(`Cache set failed for ${cacheKey}`);
+      this.logger.warn(`Cache set failed for ${cacheKey}`);
     }
 
     return perm;
@@ -153,7 +180,23 @@ export class PermissionService {
   async createMany(
     permissionsData: { name: string; description: string; category: PermissionCategory }[],
   ): Promise<Permission[]> {
-    const result = await this.permissionModel.insertMany(permissionsData);
+    let result: Permission[] = [];
+
+    try {
+      // `ordered: false` keeps one duplicate from aborting the rest of the batch.
+      result = (await this.permissionModel.insertMany(permissionsData, {
+        ordered: false,
+      })) as unknown as Permission[];
+    } catch (error) {
+      if (!isDuplicateKeyError(error)) {
+        throw error;
+      }
+      // A concurrent seeder may have inserted the same permission between the
+      // read and the insert. Already-existing permissions are benign.
+      this.logger.warn(
+        'Tolerated duplicate-key permission inserts during seeding; already-existing permissions are not a failure',
+      );
+    }
 
     try {
       await this.cacheService.delByPattern(`cache:${PERM_NAME_PREFIX}*`);
@@ -162,7 +205,7 @@ export class PermissionService {
       this.logger.debug('Cache invalidation failed after permission createMany');
     }
 
-    return result as unknown as Permission[];
+    return result;
   }
 
   async seedDefaultPermissions(): Promise<void> {

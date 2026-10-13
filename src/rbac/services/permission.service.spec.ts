@@ -331,6 +331,29 @@ describe(PermissionService.name, () => {
       expect(insertedNames).toContain('i18n:reload');
     });
 
+    it('should insert every default permission with ordered:false when none exist yet', async () => {
+      mockPermissionModel.find.mockReturnValue(mockExec([]));
+      mockPermissionModel.insertMany.mockResolvedValue([]);
+
+      await service.seedDefaultPermissions();
+
+      expect(mockPermissionModel.insertMany).toHaveBeenCalledTimes(1);
+      const [inserted, options] = mockPermissionModel.insertMany.mock.calls[0] as [
+        { name: string }[],
+        { ordered?: boolean },
+      ];
+      expect(inserted.map((p) => p.name)).toEqual(DEFAULT_PERMISSIONS.map((p) => p.name));
+      expect(options).toEqual({ ordered: false });
+    });
+
+    it('should tolerate a duplicate-key error from insertMany without throwing', async () => {
+      mockPermissionModel.find.mockReturnValue(mockExec([{ name: 'user:create' }]));
+      const duplicateKeyError = Object.assign(new Error('E11000 duplicate key error'), { code: 11000 });
+      mockPermissionModel.insertMany.mockRejectedValue(duplicateKeyError);
+
+      await expect(service.seedDefaultPermissions()).resolves.toBeUndefined();
+    });
+
     it('should insert nothing when every default permission already exists', async () => {
       mockPermissionModel.find.mockReturnValue(mockExec(DEFAULT_PERMISSIONS.map((p) => ({ name: p.name }))));
 
