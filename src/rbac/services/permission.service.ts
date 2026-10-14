@@ -171,7 +171,9 @@ export class PermissionService {
       await this.cacheService.delByPattern(`cache:${PERM_NAME_PREFIX}*`);
       await this.cacheService.del(PERM_ALL_KEY);
     } catch {
-      this.logger.debug('Cache invalidation failed after permission create');
+      this.logger.warn(
+        'Cache invalidation failed after permission create; stale permission cache entries survive until TTL expiry',
+      );
     }
 
     return saved;
@@ -202,7 +204,9 @@ export class PermissionService {
       await this.cacheService.delByPattern(`cache:${PERM_NAME_PREFIX}*`);
       await this.cacheService.del(PERM_ALL_KEY);
     } catch {
-      this.logger.debug('Cache invalidation failed after permission createMany');
+      this.logger.warn(
+        'Cache invalidation failed after permission createMany; stale permission cache entries survive until TTL expiry',
+      );
     }
 
     return result;

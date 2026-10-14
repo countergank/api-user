@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import { DEFAULT_PERMISSIONS, PermissionService } from './permission.service';
@@ -48,6 +49,10 @@ describe(PermissionService.name, () => {
     service = module.get<PermissionService>(PermissionService);
   });
 
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it('should be defined', () => {
     expect(service).toBeDefined();
   });
@@ -62,11 +67,7 @@ describe(PermissionService.name, () => {
 
       expect(result).toEqual(perms);
       expect(mockPermissionModel.find).toHaveBeenCalled();
-      expect(mockCacheService.set).toHaveBeenCalledWith(
-        'rbac:permissions:all',
-        perms,
-        900_000,
-      );
+      expect(mockCacheService.set).toHaveBeenCalledWith('rbac:permissions:all', perms, 900_000);
     });
 
     it('should return permissions from cache on cache hit', async () => {
@@ -97,9 +98,7 @@ describe(PermissionService.name, () => {
       const readPerm = mockPermDoc({ name: 'user:read' });
       const writePerm = mockPermDoc({ name: 'user:write' });
 
-      mockCacheService.get
-        .mockResolvedValueOnce(readPerm)
-        .mockResolvedValueOnce(writePerm);
+      mockCacheService.get.mockResolvedValueOnce(readPerm).mockResolvedValueOnce(writePerm);
 
       const result = await service.findByNames(names);
 
@@ -133,9 +132,7 @@ describe(PermissionService.name, () => {
       const readPerm = mockPermDoc({ name: 'user:read' });
       const writePerm = mockPermDoc({ name: 'user:write' });
 
-      mockCacheService.get
-        .mockResolvedValueOnce(undefined)
-        .mockResolvedValueOnce(undefined);
+      mockCacheService.get.mockResolvedValueOnce(undefined).mockResolvedValueOnce(undefined);
 
       mockPermissionModel.find.mockReturnValue(mockExec([readPerm, writePerm]));
 
@@ -158,9 +155,7 @@ describe(PermissionService.name, () => {
       const readPerm = mockPermDoc({ name: 'user:read' });
       const writePerm = mockPermDoc({ name: 'user:write' });
 
-      mockCacheService.get
-        .mockRejectedValueOnce(new Error('Redis timeout'))
-        .mockResolvedValueOnce(writePerm);
+      mockCacheService.get.mockRejectedValueOnce(new Error('Redis timeout')).mockResolvedValueOnce(writePerm);
 
       // user:read fell through to DB due to cache error
       mockPermissionModel.find.mockReturnValue(mockExec([readPerm]));
@@ -169,7 +164,7 @@ describe(PermissionService.name, () => {
 
       expect(result).toHaveLength(2);
       expect(result).toContainEqual(writePerm); // from cache
-      expect(result).toContainEqual(readPerm);  // fell through to DB
+      expect(result).toContainEqual(readPerm); // fell through to DB
       expect(mockPermissionModel.find).toHaveBeenCalledWith({ name: { $in: ['user:read'] } });
     });
 
@@ -178,7 +173,7 @@ describe(PermissionService.name, () => {
       const readPerm = mockPermDoc({ name: 'user:read' });
 
       mockCacheService.get
-        .mockResolvedValueOnce(undefined)  // user:read: miss
+        .mockResolvedValueOnce(undefined) // user:read: miss
         .mockResolvedValueOnce(undefined); // nonexistent: miss
 
       mockPermissionModel.find.mockReturnValue(mockExec([readPerm]));
@@ -202,11 +197,7 @@ describe(PermissionService.name, () => {
       const result = await service.findByName('user:read');
 
       expect(result).toEqual(perm);
-      expect(mockCacheService.set).toHaveBeenCalledWith(
-        'rbac:permissions:name:user:read',
-        perm,
-        900_000,
-      );
+      expect(mockCacheService.set).toHaveBeenCalledWith('rbac:permissions:name:user:read', perm, 900_000);
     });
 
     it('should return permission from cache on cache hit', async () => {
@@ -226,11 +217,7 @@ describe(PermissionService.name, () => {
       const result = await service.findByName('nonexistent');
 
       expect(result).toBeNull();
-      expect(mockCacheService.set).toHaveBeenCalledWith(
-        'rbac:permissions:name:nonexistent',
-        null,
-        900_000,
-      );
+      expect(mockCacheService.set).toHaveBeenCalledWith('rbac:permissions:name:nonexistent', null, 900_000);
     });
 
     it('should fall back to database when cache get throws', async () => {
@@ -271,18 +258,72 @@ describe(PermissionService.name, () => {
       expect(mockCacheService.delByPattern).toHaveBeenCalledWith('cache:rbac:permissions:name:*');
       expect(mockCacheService.del).toHaveBeenCalledWith('rbac:permissions:all');
     });
+
+    it('should resolve with the saved permission and log a warning when cache invalidation throws', async () => {
+      const saved = mockPermDoc({ name: 'new:perm' });
+      const mockInstance = {
+        save: jest.fn().mockResolvedValue(saved),
+      };
+
+      const module2: TestingModule = await Test.createTestingModule({
+        providers: [
+          PermissionService,
+          {
+            provide: getModelToken(Permission.name),
+            useValue: Object.assign(
+              jest.fn().mockImplementation(() => mockInstance),
+              { find: mockPermissionModel.find, findOne: mockPermissionModel.findOne },
+            ),
+          },
+          { provide: CacheService, useValue: mockCacheService },
+        ],
+      }).compile();
+
+      const createService = module2.get<PermissionService>(PermissionService);
+      const warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      const debugSpy = jest.spyOn(Logger.prototype, 'debug').mockImplementation(() => undefined);
+      mockCacheService.delByPattern.mockRejectedValue(new Error('Redis down'));
+
+      const result = await createService.create({
+        name: 'new:perm',
+        description: 'New perm',
+        category: PermissionCategory.USER,
+      });
+
+      expect(result).toEqual(saved);
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('stale permission cache entries survive until TTL expiry'),
+      );
+      expect(debugSpy).not.toHaveBeenCalled();
+    });
   });
 
   describe(`${PermissionService.name}.createMany`, () => {
     it('should invalidate all permission cache entries after createMany', async () => {
       mockPermissionModel.insertMany.mockResolvedValue([mockPermDoc({ name: 'perm:1' })]);
 
-      await service.createMany([
-        { name: 'perm:1', description: 'Perm 1', category: PermissionCategory.USER },
-      ]);
+      await service.createMany([{ name: 'perm:1', description: 'Perm 1', category: PermissionCategory.USER }]);
 
       expect(mockCacheService.delByPattern).toHaveBeenCalledWith('cache:rbac:permissions:name:*');
       expect(mockCacheService.del).toHaveBeenCalledWith('rbac:permissions:all');
+    });
+
+    it('should resolve with the insert result and log a warning when cache invalidation throws', async () => {
+      const inserted = [mockPermDoc({ name: 'perm:1' })];
+      mockPermissionModel.insertMany.mockResolvedValue(inserted);
+      const warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      const debugSpy = jest.spyOn(Logger.prototype, 'debug').mockImplementation(() => undefined);
+      mockCacheService.delByPattern.mockRejectedValue(new Error('Redis down'));
+
+      const result = await service.createMany([
+        { name: 'perm:1', description: 'Perm 1', category: PermissionCategory.USER },
+      ]);
+
+      expect(result).toEqual(inserted);
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('stale permission cache entries survive until TTL expiry'),
+      );
+      expect(debugSpy).not.toHaveBeenCalled();
     });
   });
 
