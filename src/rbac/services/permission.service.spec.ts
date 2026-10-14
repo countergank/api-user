@@ -327,6 +327,58 @@ describe(PermissionService.name, () => {
     });
   });
 
+  describe(`${PermissionService.name}.createMany duplicate-key tolerance`, () => {
+    const permissions = [{ name: 'perm:1', description: 'Perm 1', category: PermissionCategory.USER }];
+
+    it('should re-throw a non-object rejection', async () => {
+      mockPermissionModel.insertMany.mockRejectedValue('boom');
+
+      await expect(service.createMany(permissions)).rejects.toBe('boom');
+    });
+
+    it('should re-throw a null rejection', async () => {
+      mockPermissionModel.insertMany.mockRejectedValue(null);
+
+      await expect(service.createMany(permissions)).rejects.toBeNull();
+    });
+
+    it('should tolerate a top-level duplicate-key error (code 11000)', async () => {
+      const duplicateKeyError = Object.assign(new Error('E11000 duplicate key error'), {
+        code: 11000,
+      });
+      mockPermissionModel.insertMany.mockRejectedValue(duplicateKeyError);
+
+      await expect(service.createMany(permissions)).resolves.toEqual([]);
+    });
+
+    it('should tolerate a bulk write error where every writeError is a duplicate key', async () => {
+      mockPermissionModel.insertMany.mockRejectedValue({ writeErrors: [{ err: { code: 11000 } }] });
+
+      await expect(service.createMany(permissions)).resolves.toEqual([]);
+    });
+
+    it('should re-throw a bulk write error when any writeError is not a duplicate key', async () => {
+      const error = { writeErrors: [{ err: { code: 11000 } }, { err: { code: 121 } }] };
+      mockPermissionModel.insertMany.mockRejectedValue(error);
+
+      await expect(service.createMany(permissions)).rejects.toBe(error);
+    });
+
+    it('should re-throw an empty writeErrors array', async () => {
+      const error = { writeErrors: [] };
+      mockPermissionModel.insertMany.mockRejectedValue(error);
+
+      await expect(service.createMany(permissions)).rejects.toBe(error);
+    });
+
+    it('should re-throw a non-duplicate numeric error code', async () => {
+      const error = { code: 121 };
+      mockPermissionModel.insertMany.mockRejectedValue(error);
+
+      await expect(service.createMany(permissions)).rejects.toBe(error);
+    });
+  });
+
   describe('DEFAULT_PERMISSIONS', () => {
     it('should contain every permission required by the endpoint matrix', () => {
       const names = DEFAULT_PERMISSIONS.map((p) => p.name);
