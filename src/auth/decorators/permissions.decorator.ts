@@ -13,17 +13,22 @@ export const PERMISSIONS_KEY = 'permissions';
  * @param permissions One or more permission names (for example `role:read`).
  *
  * @remarks
- * Footgun: calling this decorator with no arguments — `@RequirePermissions()` —
- * stores an empty permission list. The guard treats absent **or** empty metadata
- * as "no permission required" and lets the request through, so the endpoint
- * stays reachable by any authenticated user. Always pass at least one
- * permission; when an endpoint is intentionally unrestricted, omit the
- * decorator entirely instead.
+ * This decorator rejects an empty permission list at decoration time by throwing
+ * an error. A call such as `@RequirePermissions()` would otherwise store empty
+ * metadata that the guard reads as "no permission required". An endpoint that
+ * must stay unrestricted has to omit the decorator entirely instead.
  */
-export const RequirePermissions = (...permissions: string[]) =>
-  applyDecorators(
+export const RequirePermissions = (...permissions: string[]) => {
+  if (permissions.length === 0) {
+    throw new Error(
+      '@RequirePermissions requires at least one permission name; omit the decorator for endpoints that must stay unrestricted',
+    );
+  }
+
+  return applyDecorators(
     SetMetadata(PERMISSIONS_KEY, permissions),
     ApiForbiddenResponse({
       description: `Requires permissions: ${permissions.join(', ')}`,
     }),
   );
+};
