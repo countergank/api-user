@@ -248,6 +248,10 @@ Se amplió el JSDoc de `RequirePermissions` (`src/auth/decorators/permissions.de
 vacía como "sin permiso requerido" y deja pasar el request. Sin cambios de runtime. Excepción al
 test-first: cambio solo de comentario; se validó con `tsc --noEmit` y `lint`.
 
+> **Reemplazado en la ronda 2 (hallazgo R3-003).** Documentar el footgun no lo impedía: el decorador
+> ahora **lanza** con lista vacía, así que el caso ya no puede llegar al guard. Ver la sección de la
+> ronda 2 más abajo.
+
 ### T14 — Deduplicación del catálogo: decisión aceptada (no forzar)
 
 `test/global-setup.js` duplica el array de 22 entradas `DEFAULT_PERMISSIONS` de
@@ -283,6 +287,53 @@ Ejecutada en foreground, rama `feat/cou-266-permission-guard`:
    de entorno, **no** un error de tipos.
 6. `npm run lint` → pre-existente y ajeno: violaciones biome en archivos no tocados; **0** en archivos
    de esta ronda.
+
+## Ronda de review 2 — corrección de los 5 hallazgos severos
+
+La ronda 2 cerró en `escalated` / `unknown_causality` / `native_stop_required` (sin token de
+aprobación, sin acknowledgement; el boundary revisado **no** avanza). De los 29 hallazgos, los 5
+severos se corrigieron acá por decisión explícita del usuario.
+
+| ID | Severidad | Hallazgo | Corrección |
+| -- | -- | -- | -- |
+| R3-001 | BLOCKER | `isDuplicateKeyError` no tenía test directo | 8 ramas cubiertas vía `createMany` |
+| R3-002 | CRÍTICO | la ruta de fallo de invalidación en `createMany` no estaba cubierta | test que fija el contrato swallow-and-continue |
+| R3-003 | CRÍTICO | `@RequirePermissions()` → metadata vacía → el guard lo lee como "sin permiso" | el decorador **lanza** en decoración |
+| R4-001 | CRÍTICO | fallo de invalidación de caché logueado en `debug` (`permission.service.ts:173-175`) | sube a `warn` con la consecuencia explícita |
+| R4-002 | CRÍTICO | ídem en `createMany` (`:204-206`) | sube a `warn` |
+
+Decisiones de diseño:
+
+- **R3-003** — fail-fast en el decorador, **no** un cambio de semántica del guard. Verificado antes de
+  tocar nada: ninguno de los 23 call sites de `@RequirePermissions(` pasa lista vacía (solo lo mencionaba
+  el JSDoc), así que ningún camino de arranque cambia. El JSDoc pasa de documentar un footgun permitido
+  a documentar un contrato **forzado**.
+- **R3-001** — el helper queda privado. La cobertura se hace a través de `createMany` (su único
+  consumidor) en vez de exportar un helper interno solo para testear.
+
+Nota de normalización: `permission.service.spec.ts` ya arrastraba drift de formato de biome introducido
+en esta misma rama (56 líneas respecto de `biome format` en `9ad4f19`). Se normalizó en el archivo que
+esta ronda ya tocaba, de modo que el format queda convergente y el próximo `biome format --fix` es no-op.
+
+Commits de la ronda:
+
+| Commit | Work unit |
+| -- | -- |
+| `5caf40d` | `fix(rbac)`: visibilidad `warn` de los fallos de invalidación + sus tests |
+| `9c7a59c` | `test(rbac)`: cobertura de las ramas de tolerancia a duplicate-key |
+| `53ed209` | `fix(auth)`: fail-fast de `@RequirePermissions` vacío + spec nuevo |
+
+Evidencia: `npm run test` verde en los 3 commits (68 suites / 745 → 752 tests, el hook pre-commit lo
+corre en cada uno); `npx tsc --noEmit --incremental false` exit 0; biome lint y format limpios en los
+4 archivos tocados. TDD: RED observado en las unidades 1 y 3; en la unidad 2 no hay RED posible porque
+es cobertura de comportamiento ya implementado (excepción declarada, no inventada).
+
+### Ronda 2 — impacto en delivery
+
+Agrega **173 inserciones / 39 deleciones** en 4 archivos: `permissions.decorator.spec.ts` 32/0 (nuevo),
+`permissions.decorator.ts` 13/8, `permission.service.spec.ts` 122/29, `permission.service.ts` 6/2.
+El acumulado de la rama sigue por encima del presupuesto de 400, así que la decisión de estrategia de
+entrega (segundo PR encadenado) sigue pendiente del parent.
 
 ## Criterios de aceptación (del issue)
 
