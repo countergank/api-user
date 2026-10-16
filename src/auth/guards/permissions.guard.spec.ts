@@ -1,4 +1,4 @@
-import { ExecutionContext } from '@nestjs/common';
+import { ExecutionContext, Logger } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PermissionGuard } from './permissions.guard';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
@@ -22,6 +22,10 @@ describe(PermissionGuard.name, () => {
       getAllAndOverride: jest.fn(),
     };
     guard = new PermissionGuard(reflector as unknown as Reflector);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('should be defined', () => {
@@ -101,6 +105,27 @@ describe(PermissionGuard.name, () => {
 
       expect(thrown).toBeInstanceOf(DomainError);
       expect((thrown as DomainError).kind.kind).toBe('FORBIDDEN');
+    });
+
+    it('should fail closed with FORBIDDEN and log the original error when reading permission metadata throws', () => {
+      const metadataError = new Error('reflector exploded');
+      reflector.getAllAndOverride.mockImplementation(() => {
+        throw metadataError;
+      });
+      const errorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+
+      let thrown: unknown;
+      try {
+        guard.canActivate(createContext({ permissions: ['*'] }));
+      } catch (error) {
+        thrown = error;
+      }
+
+      expect(thrown).toBeInstanceOf(DomainError);
+      expect((thrown as DomainError).kind.kind).toBe('FORBIDDEN');
+      expect((thrown as DomainError).statusCode).toBe(403);
+      expect(thrown).not.toBe(metadataError);
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('reflector exploded'), metadataError.stack);
     });
   });
 });

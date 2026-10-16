@@ -259,7 +259,7 @@ describe(PermissionService.name, () => {
       expect(mockCacheService.del).toHaveBeenCalledWith('rbac:permissions:all');
     });
 
-    it('should resolve with the saved permission and log a warning when cache invalidation throws', async () => {
+    it('should resolve with the saved permission when the cache swallows its own invalidation failure', async () => {
       const saved = mockPermDoc({ name: 'new:perm' });
       const mockInstance = {
         save: jest.fn().mockResolvedValue(saved),
@@ -280,9 +280,7 @@ describe(PermissionService.name, () => {
       }).compile();
 
       const createService = module2.get<PermissionService>(PermissionService);
-      const warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
-      const debugSpy = jest.spyOn(Logger.prototype, 'debug').mockImplementation(() => undefined);
-      mockCacheService.delByPattern.mockRejectedValue(new Error('Redis down'));
+      const errorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
 
       const result = await createService.create({
         name: 'new:perm',
@@ -291,10 +289,8 @@ describe(PermissionService.name, () => {
       });
 
       expect(result).toEqual(saved);
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('stale permission cache entries survive until TTL expiry'),
-      );
-      expect(debugSpy).not.toHaveBeenCalled();
+      expect(mockCacheService.delByPattern).toHaveBeenCalledTimes(1);
+      expect(errorSpy).not.toHaveBeenCalled();
     });
   });
 
@@ -308,22 +304,29 @@ describe(PermissionService.name, () => {
       expect(mockCacheService.del).toHaveBeenCalledWith('rbac:permissions:all');
     });
 
-    it('should resolve with the insert result and log a warning when cache invalidation throws', async () => {
+    it('should resolve with the insert result when the cache swallows its own invalidation failure', async () => {
       const inserted = [mockPermDoc({ name: 'perm:1' })];
       mockPermissionModel.insertMany.mockResolvedValue(inserted);
-      const warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
-      const debugSpy = jest.spyOn(Logger.prototype, 'debug').mockImplementation(() => undefined);
-      mockCacheService.delByPattern.mockRejectedValue(new Error('Redis down'));
 
       const result = await service.createMany([
         { name: 'perm:1', description: 'Perm 1', category: PermissionCategory.USER },
       ]);
 
       expect(result).toEqual(inserted);
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('stale permission cache entries survive until TTL expiry'),
-      );
-      expect(debugSpy).not.toHaveBeenCalled();
+      expect(mockCacheService.delByPattern).toHaveBeenCalledTimes(1);
+    });
+
+    it('should resolve with the insert result when invalidation finds nothing to delete', async () => {
+      const inserted = [mockPermDoc({ name: 'perm:1' })];
+      mockPermissionModel.insertMany.mockResolvedValue(inserted);
+
+      const result = await service.createMany([
+        { name: 'perm:1', description: 'Perm 1', category: PermissionCategory.USER },
+      ]);
+
+      expect(result).toEqual(inserted);
+      expect(mockCacheService.delByPattern).toHaveBeenCalledTimes(1);
+      expect(mockCacheService.del).toHaveBeenCalledTimes(1);
     });
   });
 
