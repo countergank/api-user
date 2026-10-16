@@ -1,6 +1,7 @@
 import { applyDecorators } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
+  ApiBearerAuth,
   ApiBody,
   ApiConflictResponse,
   ApiExtraModels,
@@ -12,6 +13,7 @@ import {
 } from '@nestjs/swagger';
 import { BadRequestDTO } from '../../common/dto/bad-request.dto';
 import { InternalErrorDTO } from '../../common/dto/internal-error.dto';
+import { MeResponseDTO } from '../dto/me-response.dto';
 import { RegisterRequest, RegisterResponse } from './examples/register.examples';
 import { LoginRequest, LoginResponse } from './examples/login.examples';
 import { ForgotPasswordRequest, ResetPasswordRequest } from './examples/password.examples';
@@ -246,5 +248,26 @@ export function ApplyResendVerificationDoc() {
         $ref: getSchemaPath(ResendVerificationRequest),
       },
     }),
+  );
+}
+
+export function ApplyMeDoc() {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Obtener usuario autenticado',
+      description: 'Retorna el rol y los permisos efectivos del usuario autenticado.',
+    }),
+    ApiBearerAuth(),
+    ApiExtraModels(MeResponseDTO),
+    ApiResponse({
+      status: 200,
+      description: 'Datos del usuario autenticado con su rol y permisos efectivos',
+      schema: {
+        $ref: getSchemaPath(MeResponseDTO),
+      },
+    }),
+    ApiUnauthorizedResponse({ description: 'No autenticado o token inválido' }),
+    ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
+    ApiResponse(RateLimitResponse),
   );
 }

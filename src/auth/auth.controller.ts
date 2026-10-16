@@ -1,12 +1,15 @@
-import { Body, Controller, HttpCode, Inject, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Inject, Post, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { I18nService } from '../common/i18n/i18n.service';
 import { AuditAction } from '../common/audit/audit.decorator';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RequestLang } from '../common/decorators/request-lang.decorator';
+import { User } from '../user/entities/user.entity';
 import {
   ApplyConfirmEmailChangeDoc,
   ApplyForgotPasswordDoc,
   ApplyLoginDoc,
+  ApplyMeDoc,
   ApplyRefreshDoc,
   ApplyRegisterDoc,
   ApplyResendVerificationDoc,
@@ -14,7 +17,9 @@ import {
   ApplyVerifyEmailDoc,
 } from './api-docs';
 import { AuthService } from './auth.service';
+import { MeResponseDTO } from './dto/me-response.dto';
 import { RegisterUserDTO } from './dto/register-user.dto';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -105,5 +110,12 @@ export class AuthController {
     await this.authService.resendVerification(user.id, user.email, user.name, lang);
 
     return { message: await this.t('messages.verification_resent', lang) };
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApplyMeDoc()
+  me(@CurrentUser() user: User): MeResponseDTO {
+    return MeResponseDTO.of(user);
   }
 }
