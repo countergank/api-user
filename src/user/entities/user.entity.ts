@@ -41,6 +41,19 @@ export class User extends Base {
   @Prop({ default: false })
   isActive: boolean;
 
+  /**
+   * Durable, monotonic session epoch (S16). Every refresh token is stamped with
+   * the value current at issue time (`tv`), and rejecting `tv < sessionEpoch`
+   * invalidates every token issued before the last bump.
+   *
+   * It lives in the user document on purpose: a counter kept in a store with a
+   * TTL eventually expires and restarts, resurrecting tokens the user already
+   * revoked. The default of 0 keeps existing documents valid without a
+   * migration.
+   */
+  @Prop({ default: 0 })
+  sessionEpoch: number;
+
   @Prop()
   resetPasswordToken?: string;
 

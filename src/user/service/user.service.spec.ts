@@ -33,6 +33,7 @@ describe(UserService.name, () => {
     findByEmail: jest.fn(),
     findAll: jest.fn(),
     update: jest.fn(),
+    bumpSessionEpoch: jest.fn(),
     softDelete: jest.fn(),
     findPaginated: jest.fn(),
     findIdsByRole: jest.fn(),
@@ -304,13 +305,14 @@ describe(UserService.name, () => {
     it('should fetch user with includePassword option for transient password validation', async () => {
       jest.spyOn(userRepository, 'findById').mockResolvedValue(user);
       jest.spyOn(userRepository, 'update').mockResolvedValue(user);
+      jest.spyOn(userRepository, 'bumpSessionEpoch').mockResolvedValue(user);
       encodeService.compare.mockResolvedValue(true);
       encodeService.hash.mockResolvedValue('hashed-value');
 
       await service.changePassword(user.id, 'current-pass', 'new-pass');
 
       expect(userRepository.findById).toHaveBeenCalledWith(user.id, { includePassword: true });
-      expect(userRepository.update).toHaveBeenCalledWith(user.id, { password: 'hashed-value' });
+      expect(userRepository.update).toHaveBeenCalledWith(user.id, { password: 'hashed-value' }, expect.anything());
     });
 
     it('should throw CURRENT_PASSWORD_INCORRECT and not update when current password is invalid', async () => {
@@ -328,13 +330,18 @@ describe(UserService.name, () => {
     it('should update with hashed new password (never plaintext)', async () => {
       const userWithPassword = Object.assign(new UserMock(), { password: 'stored-hash' });
       jest.spyOn(userRepository, 'findById').mockResolvedValue(userWithPassword);
+      jest.spyOn(userRepository, 'bumpSessionEpoch').mockResolvedValue(userWithPassword);
       encodeService.compare.mockResolvedValue(true);
       encodeService.hash.mockResolvedValue('hashed-new-password');
 
       await service.changePassword(user.id, 'current-pass', 'plain-new-password');
 
       expect(encodeService.hash).toHaveBeenCalledWith('plain-new-password');
-      expect(userRepository.update).toHaveBeenCalledWith(user.id, { password: 'hashed-new-password' });
+      expect(userRepository.update).toHaveBeenCalledWith(
+        user.id,
+        { password: 'hashed-new-password' },
+        expect.anything(),
+      );
     });
   });
 

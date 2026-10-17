@@ -12,6 +12,7 @@ import { AuthService } from './auth.service';
 import { UserMock } from '../user/mocks/user.mock';
 import { Mock } from '../test-utils';
 import { CacheService } from '../config/cache';
+import { SessionRevocationService } from '../session/session-revocation.service';
 
 /**
  * Assert that a promise rejects with a DomainError carrying the expected
@@ -29,12 +30,65 @@ async function expectDomainError(promise: Promise<unknown>, kind: string): Promi
   expect((thrown as DomainError).kind.kind).toBe(kind);
 }
 
+/**
+ * Transaction harness for S17: a write is only visible once the enclosing
+ * transaction resolves, and a rejection discards everything staged inside it.
+ */
+class TransactionHarness {
+  /** What a reader sees after the last committed transaction. */
+  readonly committed: Record<string, Record<string, unknown>> = {};
+  commits = 0;
+  aborts = 0;
+
+  private staged: Array<() => void> = [];
+
+  readonly connection = {
+    startSession: jest.fn(async () => {
+      this.staged = [];
+      const session = {
+        withTransaction: jest.fn(async (callback: (session: unknown) => Promise<unknown>) => {
+          try {
+            const result = await callback(session);
+            for (const apply of this.staged) apply();
+            this.staged = [];
+            this.commits += 1;
+            return result;
+          } catch (error) {
+            this.aborts += 1;
+            throw error;
+          }
+        }),
+        endSession: jest.fn().mockResolvedValue(undefined),
+      };
+      return session;
+    }),
+  };
+
+  /** Stages a write when a transaction session exists, commits it otherwise. */
+  stage(session: unknown, apply: () => void): void {
+    if (session) {
+      this.staged.push(apply);
+      return;
+    }
+    apply();
+  }
+
+  write(id: string, data: Record<string, unknown>): void {
+    this.committed[id] = { ...(this.committed[id] ?? {}), ...data };
+  }
+
+  read(id: string, field: string): unknown {
+    return this.committed[id]?.[field];
+  }
+}
+
 describe(AuthService.name, () => {
   let service: AuthService;
   let userService: UserService;
   let roleService: RoleService;
   let jwtService: JwtService;
   let configService: ConfigService;
+  let harness: TransactionHarness;
 
   const mockCacheService = {
     get: jest.fn(),
@@ -42,23 +96,25 @@ describe(AuthService.name, () => {
     del: jest.fn().mockResolvedValue(undefined),
   };
 
-  const mockConnection = {
-    startSession: jest.fn().mockResolvedValue({
-      withTransaction: jest.fn((cb) => cb()),
-      endSession: jest.fn(),
-    }),
+  const mockSessionRevocation = {
+    revokeJti: jest.fn().mockResolvedValue(undefined),
+    isJtiRevoked: jest.fn().mockResolvedValue(false),
   };
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    mockSessionRevocation.revokeJti.mockResolvedValue(undefined);
+    mockSessionRevocation.isJtiRevoked.mockResolvedValue(false);
+    harness = new TransactionHarness();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [AuthService, UserService, RoleService, JwtService, EventEmitter2, ConfigService],
     })
       .useMocker((token) => {
-        if (token === getConnectionToken()) return mockConnection;
+        if (token === getConnectionToken()) return harness.connection;
         if (token === getModelToken(Role.name)) return {};
         if (token === CacheService) return mockCacheService;
+        if (token === SessionRevocationService) return mockSessionRevocation;
         if (typeof token === 'function') return Mock(token);
       })
       .compile();
@@ -200,6 +256,25 @@ describe(AuthService.name, () => {
   });
 
   describe(`${AuthService.name}.${AuthService.prototype.resetPassword.name}`, () => {
+    const validResetUser = () => {
+      const user = new UserMock();
+      user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000);
+      return user;
+    };
+
+    /** Writes through the harness so the test observes what actually commits. */
+    const stageUserUpdate = (user: UserMock) =>
+      jest.spyOn(userService, 'update').mockImplementation(async (id, data, session) => {
+        harness.stage(session, () => harness.write(id, data as Record<string, unknown>));
+        return user;
+      });
+
+    const stageEpochBump = () =>
+      jest.spyOn(userService, 'bumpSessionEpoch').mockImplementation(async (id, session) => {
+        harness.stage(session, () => harness.write(id, { sessionEpoch: 1 }));
+        return 1;
+      });
+
     it('should throw DomainError EXPIRED_RESET_TOKEN when user is not found by token', async () => {
       jest.spyOn(userService, 'findByResetToken').mockResolvedValue(null);
 
@@ -213,6 +288,36 @@ describe(AuthService.name, () => {
       jest.spyOn(userService, 'findByResetToken').mockResolvedValue(user);
 
       await expectDomainError(service.resetPassword('expired-token', 'new-password'), 'EXPIRED_RESET_TOKEN');
+    });
+
+    it('revokes every session by bumping the durable epoch inside the reset transaction (S14, S17)', async () => {
+      const user = validResetUser();
+      jest.spyOn(userService, 'findByResetToken').mockResolvedValue(user);
+      jest.spyOn(userService, 'hashPassword').mockResolvedValue('hashed');
+      const updateSpy = stageUserUpdate(user);
+      const bumpSpy = stageEpochBump();
+
+      await service.resetPassword('valid-token', 'new-password');
+
+      const transactionSession = updateSpy.mock.calls[0][2];
+      expect(transactionSession).toBeDefined();
+      expect(bumpSpy).toHaveBeenCalledWith(user.id, transactionSession);
+      expect(harness.read(user.id, 'password')).toBe('hashed');
+      expect(harness.read(user.id, 'sessionEpoch')).toBe(1);
+    });
+
+    it('does not persist the reset when the epoch bump fails (S17)', async () => {
+      const user = validResetUser();
+      jest.spyOn(userService, 'findByResetToken').mockResolvedValue(user);
+      jest.spyOn(userService, 'hashPassword').mockResolvedValue('hashed');
+      stageUserUpdate(user);
+      jest.spyOn(userService, 'bumpSessionEpoch').mockRejectedValue(new Error('mongo down'));
+
+      await expect(service.resetPassword('valid-token', 'new-password')).rejects.toThrow('mongo down');
+
+      // The transaction aborted before commit: the new password never landed.
+      expect(harness.committed[user.id]).toBeUndefined();
+      expect(harness.aborts).toBe(1);
     });
   });
 
@@ -259,9 +364,132 @@ describe(AuthService.name, () => {
 
       await expectDomainError(service.confirmEmailChange('valid-token'), 'NO_PENDING_EMAIL_CHANGE');
     });
+
+    it('should revoke every session by bumping the durable epoch inside the email-change transaction (S4, S17)', async () => {
+      const user = new UserMock();
+      user.pendingEmail = 'new@test.com';
+      user.pendingEmailExpires = new Date(Date.now() + 60 * 60 * 1000);
+
+      jest.spyOn(userService, 'findByPendingEmailToken').mockResolvedValue(user);
+      const updateSpy = jest.spyOn(userService, 'update').mockImplementation(async (id, data, session) => {
+        harness.stage(session, () => harness.write(id, data as Record<string, unknown>));
+        return user;
+      });
+      jest.spyOn(userService, 'unsetFields').mockResolvedValue(user);
+      const bumpSpy = jest.spyOn(userService, 'bumpSessionEpoch').mockImplementation(async (id, session) => {
+        harness.stage(session, () => harness.write(id, { sessionEpoch: 1 }));
+        return 1;
+      });
+
+      await service.confirmEmailChange('valid-token');
+
+      const transactionSession = updateSpy.mock.calls[0][2];
+      expect(transactionSession).toBeDefined();
+      expect(bumpSpy).toHaveBeenCalledWith(user.id, transactionSession);
+      expect(harness.read(user.id, 'email')).toBe('new@test.com');
+      expect(harness.read(user.id, 'sessionEpoch')).toBe(1);
+    });
+
+    it('does not persist the email change when the epoch bump fails (S17)', async () => {
+      const user = new UserMock();
+      user.pendingEmail = 'new@test.com';
+      user.pendingEmailExpires = new Date(Date.now() + 60 * 60 * 1000);
+
+      jest.spyOn(userService, 'findByPendingEmailToken').mockResolvedValue(user);
+      jest.spyOn(userService, 'update').mockImplementation(async (id, data, session) => {
+        harness.stage(session, () => harness.write(id, data as Record<string, unknown>));
+        return user;
+      });
+      jest.spyOn(userService, 'unsetFields').mockResolvedValue(user);
+      jest.spyOn(userService, 'bumpSessionEpoch').mockRejectedValue(new Error('mongo down'));
+
+      await expect(service.confirmEmailChange('valid-token')).rejects.toThrow('mongo down');
+
+      expect(harness.committed[user.id]).toBeUndefined();
+      expect(harness.aborts).toBe(1);
+    });
+
+    it('should not bump the epoch when the email change cannot be confirmed', async () => {
+      jest.spyOn(userService, 'findByPendingEmailToken').mockResolvedValue(null);
+      const bumpSpy = jest.spyOn(userService, 'bumpSessionEpoch');
+
+      await expectDomainError(service.confirmEmailChange('invalid-token'), 'EXPIRED_CONFIRMATION_TOKEN');
+      expect(bumpSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe(`${AuthService.name}.${AuthService.prototype.login.name} token claims`, () => {
+    it('should sign the refresh with a jti and the durable sessionEpoch and leave the access token unchanged', async () => {
+      const user = Object.assign(new UserMock(), { sessionEpoch: 3 });
+      user.isActive = true;
+
+      jest.spyOn(userService, 'findByEmail').mockResolvedValue(user);
+      jest.spyOn(userService, 'validatePassword').mockResolvedValue(true);
+      jest.spyOn(userService, 'update').mockResolvedValue(user);
+      const signSpy = jest.spyOn(jwtService, 'sign').mockReturnValue('signed');
+
+      await service.login(user.email, 'correct-password');
+
+      expect(signSpy).toHaveBeenCalledTimes(2);
+
+      const [accessPayload, accessOptions] = signSpy.mock.calls[0] as [Record<string, unknown>, unknown];
+      expect(accessPayload).toEqual({ sub: user.id, email: user.email, role: user.role });
+      expect(accessPayload).not.toHaveProperty('jti');
+      expect(accessPayload).not.toHaveProperty('tv');
+      expect(accessOptions).toBeUndefined();
+
+      const [refreshPayload, refreshOptions] = signSpy.mock.calls[1] as [
+        Record<string, unknown>,
+        { expiresIn?: string; jwtid?: string },
+      ];
+      expect(refreshPayload.tv).toBe(3);
+      expect(refreshPayload).not.toHaveProperty('jti'); // jti is set by the JWT `jwtid` option
+      expect(refreshOptions.expiresIn).toBe('7d');
+      expect(typeof refreshOptions.jwtid).toBe('string');
+      expect(refreshOptions.jwtid).not.toHaveLength(0);
+    });
+
+    it('should issue two different refresh token ids on consecutive logins', async () => {
+      const user = new UserMock();
+      user.isActive = true;
+
+      jest.spyOn(userService, 'findByEmail').mockResolvedValue(user);
+      jest.spyOn(userService, 'validatePassword').mockResolvedValue(true);
+      jest.spyOn(userService, 'update').mockResolvedValue(user);
+      const signSpy = jest.spyOn(jwtService, 'sign').mockReturnValue('signed');
+
+      await service.login(user.email, 'correct-password');
+      await service.login(user.email, 'correct-password');
+
+      const firstJti = (signSpy.mock.calls[1][1] as { jwtid: string }).jwtid;
+      const secondJti = (signSpy.mock.calls[3][1] as { jwtid: string }).jwtid;
+      expect(firstJti).not.toBe(secondJti);
+    });
+
+    it('should stamp tv = 0 when the user document predates the session epoch', async () => {
+      const user = new UserMock();
+      user.isActive = true;
+
+      jest.spyOn(userService, 'findByEmail').mockResolvedValue(user);
+      jest.spyOn(userService, 'validatePassword').mockResolvedValue(true);
+      jest.spyOn(userService, 'update').mockResolvedValue(user);
+      const signSpy = jest.spyOn(jwtService, 'sign').mockReturnValue('signed');
+
+      const result = await service.login(user.email, 'correct-password');
+
+      expect(result).toHaveProperty('refreshToken');
+      const [refreshPayload] = signSpy.mock.calls[1] as [Record<string, unknown>];
+      expect(refreshPayload.tv).toBe(0);
+    });
   });
 
   describe(`${AuthService.name}.${AuthService.prototype.refreshToken.name}`, () => {
+    const validUser = () => {
+      const user = new UserMock();
+      user.isActive = true;
+      return user;
+    };
+
     it('should throw DomainError INVALID_REFRESH_TOKEN when JWT verification fails', async () => {
       jest.spyOn(jwtService, 'verify').mockImplementation(() => {
         throw new Error('jwt expired');
@@ -275,10 +503,156 @@ describe(AuthService.name, () => {
         sub: 'nonexistent-id',
         email: 'ghost@test.com',
         role: UserRole.USER,
+        jti: 'jti-ghost',
+        tv: 0,
       } as never);
       jest.spyOn(userService, 'findById').mockResolvedValue(null);
 
       await expectDomainError(service.refreshToken('valid-but-orphaned-token'), 'INVALID_TOKEN');
+    });
+
+    it('should reject a token without jti and never consult the store (S13)', async () => {
+      jest.spyOn(jwtService, 'verify').mockReturnValue({
+        sub: 'user-1',
+        email: 'user@test.com',
+        role: UserRole.USER,
+        tv: 0,
+      } as never);
+
+      await expectDomainError(service.refreshToken('legacy-token-without-jti'), 'INVALID_REFRESH_TOKEN');
+
+      expect(mockSessionRevocation.isJtiRevoked).not.toHaveBeenCalled();
+    });
+
+    it('should reject a revoked jti (S3/S7)', async () => {
+      const user = validUser();
+      jest
+        .spyOn(jwtService, 'verify')
+        .mockReturnValue({ sub: user.id, email: user.email, role: user.role, jti: 'jti-revoked', tv: 0 } as never);
+      jest.spyOn(userService, 'findById').mockResolvedValue(user);
+      mockSessionRevocation.isJtiRevoked.mockResolvedValue(true);
+
+      await expectDomainError(service.refreshToken('revoked-token'), 'INVALID_REFRESH_TOKEN');
+      expect(mockSessionRevocation.isJtiRevoked).toHaveBeenCalledWith('jti-revoked');
+    });
+
+    it('should reject a token whose tv is lower than the durable sessionEpoch read from the user document (S16)', async () => {
+      const user = Object.assign(validUser(), { sessionEpoch: 2 });
+      jest
+        .spyOn(jwtService, 'verify')
+        .mockReturnValue({ sub: user.id, email: user.email, role: user.role, jti: 'jti-old', tv: 1 } as never);
+      jest.spyOn(userService, 'findById').mockResolvedValue(user);
+      jest.spyOn(jwtService, 'sign').mockReturnValue('signed');
+
+      await expectDomainError(service.refreshToken('token-from-revoked-session'), 'INVALID_REFRESH_TOKEN');
+      // The epoch is a field of the user document, never a Redis counter.
+      expect(userService.findById).toHaveBeenCalledWith(user.id);
+    });
+
+    it('should treat a token without tv as version 0 and reject it after a revoke-all', async () => {
+      const user = Object.assign(validUser(), { sessionEpoch: 1 });
+      jest
+        .spyOn(jwtService, 'verify')
+        .mockReturnValue({ sub: user.id, email: user.email, role: user.role, jti: 'jti-no-tv' } as never);
+      jest.spyOn(userService, 'findById').mockResolvedValue(user);
+      jest.spyOn(jwtService, 'sign').mockReturnValue('signed');
+
+      await expectDomainError(service.refreshToken('token-without-tv'), 'INVALID_REFRESH_TOKEN');
+    });
+
+    it('should fail closed when the store cannot answer isJtiRevoked (S11)', async () => {
+      const user = validUser();
+      jest
+        .spyOn(jwtService, 'verify')
+        .mockReturnValue({ sub: user.id, email: user.email, role: user.role, jti: 'jti-1', tv: 0 } as never);
+      jest.spyOn(userService, 'findById').mockResolvedValue(user);
+      mockSessionRevocation.isJtiRevoked.mockRejectedValue(new Error('redis down'));
+
+      await expectDomainError(service.refreshToken('valid-token'), 'INVALID_REFRESH_TOKEN');
+    });
+
+    it('should issue new tokens for a non-revoked token with tv equal to the durable sessionEpoch', async () => {
+      const user = Object.assign(validUser(), { sessionEpoch: 3 });
+      jest
+        .spyOn(jwtService, 'verify')
+        .mockReturnValue({ sub: user.id, email: user.email, role: user.role, jti: 'jti-1', tv: 3 } as never);
+      jest.spyOn(userService, 'findById').mockResolvedValue(user);
+      const signSpy = jest.spyOn(jwtService, 'sign').mockReturnValue('fresh-token');
+
+      const result = await service.refreshToken('valid-token');
+
+      expect(result.accessToken).toBe('fresh-token');
+      expect(result.refreshToken).toBe('fresh-token');
+      expect(signSpy).toHaveBeenCalledTimes(2);
+
+      // The rotated refresh keeps the epoch of the user document (S16).
+      const [refreshPayload] = signSpy.mock.calls[1] as [Record<string, unknown>];
+      expect(refreshPayload.tv).toBe(3);
+      // The store is only consulted for the jti denylist, never for the epoch.
+      expect(mockSessionRevocation.isJtiRevoked).toHaveBeenCalledWith('jti-1');
+    });
+  });
+
+  describe(`${AuthService.name}.${AuthService.prototype.logout.name}`, () => {
+    it('should throw DomainError INVALID_REFRESH_TOKEN when the signature does not verify', async () => {
+      jest.spyOn(jwtService, 'verify').mockImplementation(() => {
+        throw new Error('invalid signature');
+      });
+
+      await expectDomainError(service.logout('broken-token'), 'INVALID_REFRESH_TOKEN');
+      expect(mockSessionRevocation.revokeJti).not.toHaveBeenCalled();
+    });
+
+    it('should reject a token without jti (S13)', async () => {
+      jest.spyOn(jwtService, 'verify').mockReturnValue({
+        sub: 'user-1',
+        email: 'user@test.com',
+        role: UserRole.USER,
+        exp: Math.floor(Date.now() / 1000) + 600,
+      } as never);
+
+      await expectDomainError(service.logout('legacy-token'), 'INVALID_REFRESH_TOKEN');
+      expect(mockSessionRevocation.revokeJti).not.toHaveBeenCalled();
+    });
+
+    it('should revoke the jti with the token expiration as TTL input (S6)', async () => {
+      const exp = Math.floor(Date.now() / 1000) + 600;
+      jest
+        .spyOn(jwtService, 'verify')
+        .mockReturnValue({ sub: 'user-1', email: 'user@test.com', role: UserRole.USER, jti: 'jti-9', exp } as never);
+
+      await service.logout('valid-token');
+
+      expect(mockSessionRevocation.revokeJti).toHaveBeenCalledWith('jti-9', exp);
+    });
+
+    it('should propagate store failures instead of reporting a successful logout', async () => {
+      jest.spyOn(jwtService, 'verify').mockReturnValue({
+        sub: 'user-1',
+        email: 'user@test.com',
+        role: UserRole.USER,
+        jti: 'jti-9',
+        exp: Math.floor(Date.now() / 1000) + 600,
+      } as never);
+      mockSessionRevocation.revokeJti.mockRejectedValue(new Error('redis down'));
+
+      await expect(service.logout('valid-token')).rejects.toThrow('redis down');
+    });
+  });
+
+  describe(`${AuthService.name}.${AuthService.prototype.logoutAll.name}`, () => {
+    it('should bump the durable session epoch of the user (S8, S16)', async () => {
+      const bumpSpy = jest.spyOn(userService, 'bumpSessionEpoch').mockResolvedValue(1);
+
+      await service.logoutAll('user-42');
+
+      expect(bumpSpy).toHaveBeenCalledWith('user-42');
+    });
+
+    it('should propagate bump failures instead of reporting a successful logout', async () => {
+      jest.spyOn(userService, 'bumpSessionEpoch').mockRejectedValue(new Error('mongo down'));
+
+      await expect(service.logoutAll('user-42')).rejects.toThrow('mongo down');
     });
   });
 

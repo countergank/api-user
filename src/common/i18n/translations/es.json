@@ -80,6 +80,8 @@
     "verification_resent": "Si el email existe, se envió un enlace de verificación",
     "account_unlocked": "Cuenta desbloqueada",
     "user_deleted": "Usuario eliminado",
+    "logged_out": "Sesión cerrada exitosamente",
+    "logged_out_all": "Se cerraron todas las sesiones",
     "translations_reloaded": "Traducciones recargadas desde MongoDB"
   },
   "rbac": {

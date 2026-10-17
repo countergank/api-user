@@ -13,11 +13,28 @@ import { DomainError } from '../common/errors/domain.error';
 import { AuditAction } from '../common/audit/audit.decorator';
 import { runInTransaction } from '../common/utils/transaction';
 import { CacheService } from '../config/cache';
+import { SessionRevocationService } from '../session/session-revocation.service';
 
 export interface JwtPayload {
   sub: string;
   email: string;
   role: UserRole;
+}
+
+/**
+ * Refresh token payload. Refresh tokens carry two extra claims that make them
+ * revocable without changing the token format:
+ * - `jti`: token id, used as the denylist key on logout (S2/S6).
+ * - `tv`: token version, the durable `sessionEpoch` of the user at issue time
+ *   (S8/S9/S16). Rejecting `tv < sessionEpoch` invalidates every token issued
+ *   before the last bump, and the epoch never expires at 1.
+ * The access token keeps `JwtPayload` untouched.
+ */
+export interface RefreshTokenPayload extends JwtPayload {
+  jti: string;
+  tv: number;
+  /** Standard JWT expiration claim (epoch seconds), emitted by the signer. */
+  exp?: number;
 }
 
 export interface AuthResponse {
@@ -43,6 +60,7 @@ export class AuthService {
     @InjectConnection() private readonly connection: Connection,
     private readonly cacheService: CacheService,
     private readonly roleService: RoleService,
+    private readonly sessionRevocation: SessionRevocationService,
   ) {}
 
   @AuditAction({
@@ -220,12 +238,21 @@ export class AuthService {
     // Hash the new password before updating
     const hashedPassword = await this.userService.hashPassword(newPassword);
 
-    await runInTransaction(this.connection, async () => {
-      await this.userService.update(user.id, {
-        password: hashedPassword,
-        resetPasswordToken: undefined,
-        resetPasswordExpires: undefined,
-      } as any);
+    // S14 + S17: a reset is a password change performed by someone who proved
+    // control of the mailbox, so every session opened with the old password must
+    // die — and it must die in the same transaction as the new password. If the
+    // bump fails, the password change is not committed either.
+    await runInTransaction(this.connection, async (session) => {
+      await this.userService.update(
+        user.id,
+        {
+          password: hashedPassword,
+          resetPasswordToken: undefined,
+          resetPasswordExpires: undefined,
+        } as any,
+        session,
+      );
+      await this.userService.bumpSessionEpoch(user.id, session);
     });
 
     this.eventEmitter.emit(EmailEvents.PASSWORD_CHANGED, {
@@ -272,13 +299,16 @@ export class AuthService {
       throw DomainError.fromKind('NO_PENDING_EMAIL_CHANGE');
     }
 
-    await runInTransaction(this.connection, async () => {
-      await this.userService.update(user.id, { email: newEmail } as any);
-      await this.userService.unsetFields(user.id, [
-        'pendingEmail',
-        'pendingEmailToken',
-        'pendingEmailExpires',
-      ]);
+    // S4 + S17: an email change invalidates every session opened with the old
+    // identity, in the same transaction as the new email (S17).
+    await runInTransaction(this.connection, async (session) => {
+      await this.userService.update(user.id, { email: newEmail } as any, session);
+      await this.userService.unsetFields(
+        user.id,
+        ['pendingEmail', 'pendingEmailToken', 'pendingEmailExpires'],
+        session,
+      );
+      await this.userService.bumpSessionEpoch(user.id, session);
     });
 
     this.eventEmitter.emit(EmailEvents.EMAIL_CHANGE_CONFIRMED, {
@@ -322,10 +352,11 @@ export class AuthService {
     getResourceId: (result) => (result as AuthResponse).user.id,
   })
   async refreshToken(refreshToken: string): Promise<AuthResponse> {
-    let payload: JwtPayload;
-    try {
-      payload = this.jwtService.verify(refreshToken) as JwtPayload;
-    } catch {
+    const payload = this.verifyRefreshPayload(refreshToken);
+
+    // S13: tokens issued before the revocation store existed carry no `jti` and
+    // could never be revoked, so they are rejected instead of being honoured.
+    if (!payload.jti) {
       throw DomainError.fromKind('INVALID_REFRESH_TOKEN');
     }
 
@@ -333,18 +364,78 @@ export class AuthService {
     if (!user) {
       throw DomainError.fromKind('INVALID_TOKEN');
     }
+
+    const tokenVersion = typeof payload.tv === 'number' ? payload.tv : 0;
+
+    let revoked: boolean;
+    try {
+      revoked = await this.sessionRevocation.isJtiRevoked(payload.jti);
+    } catch {
+      // S11: fail-closed. A store that does not answer must never let a refresh
+      // exchange through.
+      throw DomainError.fromKind('INVALID_REFRESH_TOKEN');
+    }
+
+    // S3/S7/S16: denylisted token, or issued before the last revoke-all. The
+    // epoch is read from the user document, so it cannot expire and restart.
+    const userEpoch = user.sessionEpoch ?? 0;
+    if (revoked || tokenVersion < userEpoch) {
+      throw DomainError.fromKind('INVALID_REFRESH_TOKEN');
+    }
+
     return this.generateAuthResponse(user);
   }
 
-  private generateAuthResponse(user: User, verificationToken?: string): AuthResponse {
+  /**
+   * Revokes the refresh token used to call `POST /auth/logout` (S1/S6/S12).
+   * Requires no access token, so a session can be closed after the access token
+   * expired.
+   * @throws DomainError INVALID_REFRESH_TOKEN when the value is not a valid,
+   * revocable refresh token (bad signature, expired, or missing `jti`).
+   */
+  async logout(refreshToken: string): Promise<void> {
+    const payload = this.verifyRefreshPayload(refreshToken);
+
+    if (!payload.jti || typeof payload.exp !== 'number') {
+      throw DomainError.fromKind('INVALID_REFRESH_TOKEN');
+    }
+
+    await this.sessionRevocation.revokeJti(payload.jti, payload.exp);
+  }
+
+  /**
+   * Revokes every refresh token issued for the user (S1/S8/S16).
+   * Failures propagate: reporting a successful logout while the epoch bump could
+   * not be persisted would leave every session alive.
+   */
+  async logoutAll(userId: string): Promise<void> {
+    await this.userService.bumpSessionEpoch(userId);
+  }
+
+  private verifyRefreshPayload(refreshToken: string): RefreshTokenPayload {
+    try {
+      return this.jwtService.verify(refreshToken) as RefreshTokenPayload;
+    } catch {
+      throw DomainError.fromKind('INVALID_REFRESH_TOKEN');
+    }
+  }
+
+  private async generateAuthResponse(user: User, verificationToken?: string): Promise<AuthResponse> {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
       role: user.role,
     };
 
+    // S16: the token version is the durable epoch of the user document, so no
+    // store read is needed (and none can fail) while signing.
+    const tokenVersion = user.sessionEpoch ?? 0;
+
     const accessToken = this.jwtService.sign(payload);
-    const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+    const refreshToken = this.jwtService.sign({ ...payload, tv: tokenVersion } as RefreshTokenPayload, {
+      expiresIn: '7d',
+      jwtid: randomUUID(),
+    });
 
     return {
       user: {

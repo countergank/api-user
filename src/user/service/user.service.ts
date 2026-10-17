@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
-import { Connection } from 'mongoose';
+import { ClientSession, Connection } from 'mongoose';
 import { randomUUID } from 'node:crypto';
 import { plainToInstance } from 'class-transformer';
 import { CreateUserDTO } from '../dto/create-user.dto';
@@ -123,14 +123,22 @@ export class UserService {
     return this.userRepository.findByPendingEmailToken(token);
   }
 
-  async update(id: string, data: Partial<User>): Promise<User> {
-    const updated = await this.userRepository.update(id, data);
+  /**
+   * @param session — optional transaction session; without it the write commits
+   * on its own.
+   */
+  async update(id: string, data: Partial<User>, session?: ClientSession): Promise<User> {
+    const updated = await this.userRepository.update(id, data, session);
     this.invalidateUserCache(id);
     return updated;
   }
 
-  async unsetFields(id: string, fields: string[]): Promise<User> {
-    const updated = await this.userRepository.unsetFields(id, fields);
+  /**
+   * @param session — optional transaction session; without it the write commits
+   * on its own.
+   */
+  async unsetFields(id: string, fields: string[], session?: ClientSession): Promise<User> {
+    const updated = await this.userRepository.unsetFields(id, fields, session);
     this.invalidateUserCache(id);
     return updated;
   }
@@ -143,13 +151,38 @@ export class UserService {
     return this.encodeService.hash(password);
   }
 
+  /**
+   * Invalidates every refresh token issued for the user so far by bumping the
+   * durable session epoch (S16).
+   *
+   * Call it with the transaction session that also commits the credential change
+   * (S17): if the bump fails, the credential change must not survive either.
+   *
+   * @returns the new epoch of the user.
+   */
+  async bumpSessionEpoch(userId: string, session?: ClientSession): Promise<number> {
+    const user = await this.userRepository.bumpSessionEpoch(userId, session);
+    if (!user) {
+      throw DomainError.fromKind('USER_NOT_FOUND');
+    }
+    this.invalidateUserCache(userId);
+    return user.sessionEpoch;
+  }
+
   async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void> {
     const user = await this.findById(userId, { includePassword: true });
     if (!(await this.validatePassword(currentPassword, user.password))) {
       throw DomainError.fromKind('CURRENT_PASSWORD_INCORRECT');
     }
     const hashed = await this.hashPassword(newPassword);
-    await this.update(userId, { password: hashed });
+
+    // S4/S9/S17: the new credential and the session-epoch bump are committed by
+    // the same transaction. If the bump fails, the password change is rolled
+    // back instead of leaving the old refresh tokens alive.
+    await runInTransaction(this.connection, async (session) => {
+      await this.userRepository.update(userId, { password: hashed }, session);
+      await this.bumpSessionEpoch(userId, session);
+    });
   }
 
   async existsByEmailOrUsername(email: string, userName: string): Promise<boolean> {

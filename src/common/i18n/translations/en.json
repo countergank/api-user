@@ -80,6 +80,8 @@
     "verification_resent": "If the email exists, a verification link has been sent",
     "account_unlocked": "Account unlocked",
     "user_deleted": "User deleted",
+    "logged_out": "Session closed successfully",
+    "logged_out_all": "All sessions have been closed",
     "translations_reloaded": "Translations reloaded from MongoDB"
   },
   "rbac": {

@@ -18,6 +18,7 @@ import { RegisterRequest, RegisterResponse } from './examples/register.examples'
 import { LoginRequest, LoginResponse } from './examples/login.examples';
 import { ForgotPasswordRequest, ResetPasswordRequest } from './examples/password.examples';
 import { RefreshRequest, RefreshResponse } from './examples/refresh.examples';
+import { LogoutRequest, LogoutResponse, LogoutAllResponse } from './examples/logout.examples';
 import {
   VerifyEmailRequest,
   VerifyEmailResponse,
@@ -174,6 +175,53 @@ export function ApplyRefreshDoc() {
         $ref: getSchemaPath(RefreshRequest),
       },
     }),
+  );
+}
+
+export function ApplyLogoutDoc() {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Cerrar sesión',
+      description:
+        'Revoca el refresh token enviado en el body. No requiere access token, así que permite cerrar sesión aunque el access token haya vencido.',
+    }),
+    ApiExtraModels(LogoutRequest, LogoutResponse),
+    ApiResponse({
+      status: 200,
+      description: 'Sesión cerrada exitosamente',
+      schema: {
+        $ref: getSchemaPath(LogoutResponse),
+      },
+    }),
+    ApiUnauthorizedResponse({ description: 'Refresh token inválido' }),
+    ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
+    ApiResponse(RateLimitResponse),
+    ApiBody({
+      schema: {
+        $ref: getSchemaPath(LogoutRequest),
+      },
+    }),
+  );
+}
+
+export function ApplyLogoutAllDoc() {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Cerrar todas las sesiones',
+      description: 'Revoca todos los refresh tokens del usuario autenticado.',
+    }),
+    ApiBearerAuth(),
+    ApiExtraModels(LogoutAllResponse),
+    ApiResponse({
+      status: 200,
+      description: 'Todas las sesiones fueron cerradas',
+      schema: {
+        $ref: getSchemaPath(LogoutAllResponse),
+      },
+    }),
+    ApiUnauthorizedResponse({ description: 'No autenticado o token inválido' }),
+    ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
+    ApiResponse(RateLimitResponse),
   );
 }
 
