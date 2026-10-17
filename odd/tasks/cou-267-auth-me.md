@@ -3,9 +3,11 @@
 - **Feature**: `cou-267-auth-me`
 - **Issue**: https://linear.app/countergank/issue/COU-267/exponer-el-rol-y-los-permisos-efectivos-del-usuario-autenticado
 - **Base**: `origin/develop` @ `67e0022` — **Rama**: `feat/cou-267-auth-me`
-- **Estado**: IMPLEMENTADO, VERIFICADO Y **REVIEW APROBADO** — ronda 2 del review nativo cerrada en
-  `approved` y autoridad quemada (`review-1286145d5e3d8e66`); 0 blockers, 0 correcciones. Pendiente
-  commit/PR con autorización.
+- **Estado**: IMPLEMENTADO Y **REVIEW APROBADO** — ronda 2 del review nativo cerrada en `approved`
+  y autoridad quemada (`review-1286145d5e3d8e66`); 0 blockers, 0 correcciones. Commit `a1df33b`
+  pusheado y **PR #419 abierto** contra `develop`; sus checks e2e fallaron por contaminación de
+  estado compartido entre suites (no por el endpoint). Corregido en T4: pendiente commit/push y
+  re-corrida de CI.
 
 ## Objetivo
 
@@ -98,6 +100,9 @@ La definición `DB1-DB5` no está escrita en el repo (se buscó en `odd/`, `docs
 - [x] **T3 — Verificación y cierre** ✅ `tsc` exit 0, biome limpio en el archivo tocado,
       suite unit completa verde, e2e verde (dos corridas seguidas), Swagger revisado y
       este documento actualizado. Review nativo ejecutado: ver `Review nativo` abajo.
+- [x] **T4 — Descontaminar el e2e entre suites (checks del PR #419)** ✅ `maxWorkers: 1` en
+      `test/jest-e2e.json` (las suites comparten Mongo/Redis y mutan roles) y `rbac.e2e-spec.ts`
+      restaura en `afterAll` el rol `user` a `USER_PERMISSIONS`. Ver `Corrección post-review` abajo.
 
 ### Ruta elegida por tarea (declaración de ruta)
 
@@ -243,3 +248,56 @@ corrigió.
   admitido en el relanzamiento sobre el mismo slot.
 - Los 6 bytes revisados quedan congelados: cualquier edición de código invalidaría el receipt.
   Los 4 findings no bloqueantes se tratan como trabajo posterior (no re-abren este candidato).
+
+### Corrección post-review — e2e contaminado entre suites (PR #419)
+
+- **Síntoma**: los 2 runs del job `test` del PR #419 fallan solo en e2e; unit verde
+  (68 suites / 738 tests). Único rojo: `test/e2e/auth/auth-me.e2e-spec.ts:100`
+  (`user`) — `Expected Set { user:read, user:update }` / `Received Set { user:read }`.
+- **Causa raíz**: `test/e2e/rbac/rbac.e2e-spec.ts` hacía `PUT /roles/:id/permissions` sobre el rol
+  compartido `user` con `['user:read']` y **nunca lo restauraba**; `test/global-setup.js` siembra
+  roles solo si la colección está vacía (count-gated), así que el recorte persistía todo el run; y
+  `jest-e2e.json` no fijaba workers, así que las suites corrían en paralelo contra el mismo
+  Mongo/Redis. Evidencia de CI: `15:12:20 PASS rbac.e2e-spec.ts` → `15:12:23 FAIL auth-me`.
+- **Fix (opción A, autorizada por el usuario)**: (1) `maxWorkers: 1` en `test/jest-e2e.json`;
+  (2) el spec de RBAC captura el `_id` del rol `user` y su `afterAll` restaura
+  `[...USER_PERMISSIONS]` antes de cerrar la app.
+- **Verificación local**: `npx tsc --noEmit --incremental false` exit 0;
+  `npx jest --config ./test/jest-e2e.json --showConfig` reporta `"maxWorkers": 1`;
+  `npx biome check test/e2e/rbac/rbac.e2e-spec.ts` sin errores nuevos (los 3 `noExplicitAny` y el
+  `format` de la línea 34 ya existen en `HEAD`, verificados con `git show HEAD:<file>`).
+  **e2e no ejecutable en este entorno**: sin Mongo en `27017` ni Redis en `6379` y sin integración
+  Docker en WSL, `global-setup` aborta con `Server selection timed out after 10000 ms`. La prueba
+  real es la re-corrida de CI.
+
+### Review nativo — T4 (candidato del fix de e2e)
+
+- Lineage `review-df9146b191cf462f`; tier **high**; 3 archivos; 64 líneas autoradas;
+  `correction_budget: 32`; target `sha256:dfa29308…` (workspace, solo este fix).
+- Lentes: `risk`, `resilience`, `readability`, `reliability`. Consentimiento resuelto por el host
+  (sin envelope `consent/v3` que relayar).
+- Incidencias de infraestructura, **no del candidato**: el primer intento del grupo y el primer
+  intento del refuter fallaron con `400 {"message":"Reasoning is mandatory for this endpoint and
+  cannot be disabled."}` (los agentes `review-*` de `~/.pi/agent/subagents.json` apuntan a
+  `openrouter/openrouter/free` y el router free a veces elige un endpoint que exige reasoning).
+  En ambos casos STATUS reofreció el mismo slot y el relanzamiento fue admitido.
+- Cierre: **`escalated`** (`store_revision: sha256:b19fed29…`), `cause: unknown_causality` sobre
+  R3-001 y R3-003; R3-002 **refutado** (probó sobre los 3 archivos; probe no disponible en pi).
+  **No es aprobación ni corrección**: el envelope lo declara informacional para el maintainer, no
+  quemó autoridad y no dejó `acknowledge-approved` pendiente.
+- Decisión del maintainer (el usuario): **aceptar el cierre como informacional** (los IDs escalados
+  son los follow-ups no bloqueantes ya documentados arriba) y avanzar a commit + push.
+
+## Log
+
+- **L1** (usuario, verbatim): “COU-267 - Exponer el rol y los permisos efectivos del usuario
+  autenticado — Primero necesito que revises el proyecto usando codegraph, si no esta inicializado
+  en este proyecto, inicializalo. Cuando termines con esto vamos a ir a buscar el contenido del
+  ticket de linear del proyecto api-user, podes usar la variable de entorno LINEAR_API_TOKEN a
+  nivel global para conectarte a la api de linear con mi cuenta y buscar el ticket COU-267, obtener
+  el contexto de la implementacion ya realizada en la rama de github feat/cou-267-auth-me y luego
+  proceder a revisar porque fallan los checks del PR https://github.com/countergank/api-user/pull/419”
+- **L2** (usuario, verbatim): “A”. Referencia la opción A de la revisión: `maxWorkers: 1` en
+  `jest-e2e.json` + restaurar el rol `user` en `rbac.e2e-spec.ts`.
+- **L3** (usuario, verbatim): “ok vamos con la recomendacion”. Acepta el cierre `escalated` del
+  review nativo como informacional (opción 1 de la recomendación) y autoriza commit + push del fix.

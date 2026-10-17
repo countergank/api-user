@@ -1,14 +1,19 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
+import { PermissionService } from '../../../src/rbac/services/permission.service';
+import { RoleService, USER_PERMISSIONS } from '../../../src/rbac/services/role.service';
+import { UserRole } from '../../../src/user/entities/user.entity';
 import { createTestApp } from '../../helpers/create-test-app';
 import { seedAdminForE2E } from '../../helpers/seed-admin';
-import { PermissionService } from '../../../src/rbac/services/permission.service';
-import { RoleService } from '../../../src/rbac/services/role.service';
 
 describe('RBAC (e2e)', () => {
   let app: INestApplication;
   let adminToken: string;
   let userToken: string;
+  // The `user` role is shared with every other e2e suite in the run, so the
+  // mutation exercised below is undone in afterAll (auth-me asserts the seeded
+  // effective permissions of that role).
+  let userRoleId: string;
 
   const regularUser = {
     email: `user-${Date.now()}@example.com`,
@@ -49,9 +54,19 @@ describe('RBAC (e2e)', () => {
     const roleService = app.get(RoleService);
     await permissionService.seedDefaultPermissions();
     await roleService.seedDefaultRoles();
+
+    const userRole = await roleService.findByName(UserRole.USER);
+    if (!userRole) {
+      throw new Error('Default `user` role was not seeded');
+    }
+    userRoleId = userRole._id.toString();
   });
 
   afterAll(async () => {
+    if (app && userRoleId) {
+      const roleService = app.get(RoleService);
+      await roleService.updatePermissions(userRoleId, [...USER_PERMISSIONS]);
+    }
     await app.close();
   });
 
