@@ -1,6 +1,7 @@
+import { Logger } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
-import { PermissionService } from './permission.service';
+import { DEFAULT_PERMISSIONS, PermissionService } from './permission.service';
 import { Permission, PermissionCategory } from '../entities/permission.entity';
 import { CacheService } from '../../config/cache';
 
@@ -48,6 +49,10 @@ describe(PermissionService.name, () => {
     service = module.get<PermissionService>(PermissionService);
   });
 
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it('should be defined', () => {
     expect(service).toBeDefined();
   });
@@ -62,11 +67,7 @@ describe(PermissionService.name, () => {
 
       expect(result).toEqual(perms);
       expect(mockPermissionModel.find).toHaveBeenCalled();
-      expect(mockCacheService.set).toHaveBeenCalledWith(
-        'rbac:permissions:all',
-        perms,
-        900_000,
-      );
+      expect(mockCacheService.set).toHaveBeenCalledWith('rbac:permissions:all', perms, 900_000);
     });
 
     it('should return permissions from cache on cache hit', async () => {
@@ -97,9 +98,7 @@ describe(PermissionService.name, () => {
       const readPerm = mockPermDoc({ name: 'user:read' });
       const writePerm = mockPermDoc({ name: 'user:write' });
 
-      mockCacheService.get
-        .mockResolvedValueOnce(readPerm)
-        .mockResolvedValueOnce(writePerm);
+      mockCacheService.get.mockResolvedValueOnce(readPerm).mockResolvedValueOnce(writePerm);
 
       const result = await service.findByNames(names);
 
@@ -133,9 +132,7 @@ describe(PermissionService.name, () => {
       const readPerm = mockPermDoc({ name: 'user:read' });
       const writePerm = mockPermDoc({ name: 'user:write' });
 
-      mockCacheService.get
-        .mockResolvedValueOnce(undefined)
-        .mockResolvedValueOnce(undefined);
+      mockCacheService.get.mockResolvedValueOnce(undefined).mockResolvedValueOnce(undefined);
 
       mockPermissionModel.find.mockReturnValue(mockExec([readPerm, writePerm]));
 
@@ -158,9 +155,7 @@ describe(PermissionService.name, () => {
       const readPerm = mockPermDoc({ name: 'user:read' });
       const writePerm = mockPermDoc({ name: 'user:write' });
 
-      mockCacheService.get
-        .mockRejectedValueOnce(new Error('Redis timeout'))
-        .mockResolvedValueOnce(writePerm);
+      mockCacheService.get.mockRejectedValueOnce(new Error('Redis timeout')).mockResolvedValueOnce(writePerm);
 
       // user:read fell through to DB due to cache error
       mockPermissionModel.find.mockReturnValue(mockExec([readPerm]));
@@ -169,7 +164,7 @@ describe(PermissionService.name, () => {
 
       expect(result).toHaveLength(2);
       expect(result).toContainEqual(writePerm); // from cache
-      expect(result).toContainEqual(readPerm);  // fell through to DB
+      expect(result).toContainEqual(readPerm); // fell through to DB
       expect(mockPermissionModel.find).toHaveBeenCalledWith({ name: { $in: ['user:read'] } });
     });
 
@@ -178,7 +173,7 @@ describe(PermissionService.name, () => {
       const readPerm = mockPermDoc({ name: 'user:read' });
 
       mockCacheService.get
-        .mockResolvedValueOnce(undefined)  // user:read: miss
+        .mockResolvedValueOnce(undefined) // user:read: miss
         .mockResolvedValueOnce(undefined); // nonexistent: miss
 
       mockPermissionModel.find.mockReturnValue(mockExec([readPerm]));
@@ -202,11 +197,7 @@ describe(PermissionService.name, () => {
       const result = await service.findByName('user:read');
 
       expect(result).toEqual(perm);
-      expect(mockCacheService.set).toHaveBeenCalledWith(
-        'rbac:permissions:name:user:read',
-        perm,
-        900_000,
-      );
+      expect(mockCacheService.set).toHaveBeenCalledWith('rbac:permissions:name:user:read', perm, 900_000);
     });
 
     it('should return permission from cache on cache hit', async () => {
@@ -226,11 +217,7 @@ describe(PermissionService.name, () => {
       const result = await service.findByName('nonexistent');
 
       expect(result).toBeNull();
-      expect(mockCacheService.set).toHaveBeenCalledWith(
-        'rbac:permissions:name:nonexistent',
-        null,
-        900_000,
-      );
+      expect(mockCacheService.set).toHaveBeenCalledWith('rbac:permissions:name:nonexistent', null, 900_000);
     });
 
     it('should fall back to database when cache get throws', async () => {
@@ -271,18 +258,204 @@ describe(PermissionService.name, () => {
       expect(mockCacheService.delByPattern).toHaveBeenCalledWith('cache:rbac:permissions:name:*');
       expect(mockCacheService.del).toHaveBeenCalledWith('rbac:permissions:all');
     });
+
+    it('should resolve with the saved permission when the cache swallows its own invalidation failure', async () => {
+      const saved = mockPermDoc({ name: 'new:perm' });
+      const mockInstance = {
+        save: jest.fn().mockResolvedValue(saved),
+      };
+
+      const module2: TestingModule = await Test.createTestingModule({
+        providers: [
+          PermissionService,
+          {
+            provide: getModelToken(Permission.name),
+            useValue: Object.assign(
+              jest.fn().mockImplementation(() => mockInstance),
+              { find: mockPermissionModel.find, findOne: mockPermissionModel.findOne },
+            ),
+          },
+          { provide: CacheService, useValue: mockCacheService },
+        ],
+      }).compile();
+
+      const createService = module2.get<PermissionService>(PermissionService);
+      const errorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+
+      const result = await createService.create({
+        name: 'new:perm',
+        description: 'New perm',
+        category: PermissionCategory.USER,
+      });
+
+      expect(result).toEqual(saved);
+      expect(mockCacheService.delByPattern).toHaveBeenCalledTimes(1);
+      expect(errorSpy).not.toHaveBeenCalled();
+    });
   });
 
   describe(`${PermissionService.name}.createMany`, () => {
     it('should invalidate all permission cache entries after createMany', async () => {
       mockPermissionModel.insertMany.mockResolvedValue([mockPermDoc({ name: 'perm:1' })]);
 
-      await service.createMany([
-        { name: 'perm:1', description: 'Perm 1', category: PermissionCategory.USER },
-      ]);
+      await service.createMany([{ name: 'perm:1', description: 'Perm 1', category: PermissionCategory.USER }]);
 
       expect(mockCacheService.delByPattern).toHaveBeenCalledWith('cache:rbac:permissions:name:*');
       expect(mockCacheService.del).toHaveBeenCalledWith('rbac:permissions:all');
+    });
+
+    it('should resolve with the insert result when the cache swallows its own invalidation failure', async () => {
+      const inserted = [mockPermDoc({ name: 'perm:1' })];
+      mockPermissionModel.insertMany.mockResolvedValue(inserted);
+
+      const result = await service.createMany([
+        { name: 'perm:1', description: 'Perm 1', category: PermissionCategory.USER },
+      ]);
+
+      expect(result).toEqual(inserted);
+      expect(mockCacheService.delByPattern).toHaveBeenCalledTimes(1);
+    });
+
+    it('should resolve with the insert result when invalidation finds nothing to delete', async () => {
+      const inserted = [mockPermDoc({ name: 'perm:1' })];
+      mockPermissionModel.insertMany.mockResolvedValue(inserted);
+
+      const result = await service.createMany([
+        { name: 'perm:1', description: 'Perm 1', category: PermissionCategory.USER },
+      ]);
+
+      expect(result).toEqual(inserted);
+      expect(mockCacheService.delByPattern).toHaveBeenCalledTimes(1);
+      expect(mockCacheService.del).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe(`${PermissionService.name}.createMany duplicate-key tolerance`, () => {
+    const permissions = [{ name: 'perm:1', description: 'Perm 1', category: PermissionCategory.USER }];
+
+    it('should re-throw a non-object rejection', async () => {
+      mockPermissionModel.insertMany.mockRejectedValue('boom');
+
+      await expect(service.createMany(permissions)).rejects.toBe('boom');
+    });
+
+    it('should re-throw a null rejection', async () => {
+      mockPermissionModel.insertMany.mockRejectedValue(null);
+
+      await expect(service.createMany(permissions)).rejects.toBeNull();
+    });
+
+    it('should tolerate a top-level duplicate-key error (code 11000)', async () => {
+      const duplicateKeyError = Object.assign(new Error('E11000 duplicate key error'), {
+        code: 11000,
+      });
+      mockPermissionModel.insertMany.mockRejectedValue(duplicateKeyError);
+
+      await expect(service.createMany(permissions)).resolves.toEqual([]);
+    });
+
+    it('should tolerate a bulk write error where every writeError is a duplicate key', async () => {
+      mockPermissionModel.insertMany.mockRejectedValue({ writeErrors: [{ err: { code: 11000 } }] });
+
+      await expect(service.createMany(permissions)).resolves.toEqual([]);
+    });
+
+    it('should re-throw a bulk write error when any writeError is not a duplicate key', async () => {
+      const error = { writeErrors: [{ err: { code: 11000 } }, { err: { code: 121 } }] };
+      mockPermissionModel.insertMany.mockRejectedValue(error);
+
+      await expect(service.createMany(permissions)).rejects.toBe(error);
+    });
+
+    it('should re-throw an empty writeErrors array', async () => {
+      const error = { writeErrors: [] };
+      mockPermissionModel.insertMany.mockRejectedValue(error);
+
+      await expect(service.createMany(permissions)).rejects.toBe(error);
+    });
+
+    it('should re-throw a non-duplicate numeric error code', async () => {
+      const error = { code: 121 };
+      mockPermissionModel.insertMany.mockRejectedValue(error);
+
+      await expect(service.createMany(permissions)).rejects.toBe(error);
+    });
+  });
+
+  describe('DEFAULT_PERMISSIONS', () => {
+    it('should contain every permission required by the endpoint matrix', () => {
+      const names = DEFAULT_PERMISSIONS.map((p) => p.name);
+
+      expect(names).toEqual(
+        expect.arrayContaining([
+          'user:unlock',
+          'parameter:read',
+          'parameter:update',
+          'audit:read',
+          'email:read',
+          'email:create',
+          'email:update',
+          'email:delete',
+          'email:send',
+          'i18n:reload',
+        ]),
+      );
+    });
+
+    it('should not duplicate permissions and should keep unique names', () => {
+      const names = DEFAULT_PERMISSIONS.map((p) => p.name);
+
+      expect(new Set(names).size).toBe(names.length);
+    });
+  });
+
+  describe(`${PermissionService.name}.seedDefaultPermissions`, () => {
+    it('should insert only the default permissions missing from the database', async () => {
+      const existing = [{ name: 'user:create' }, { name: 'user:read' }];
+      mockPermissionModel.find.mockReturnValue(mockExec(existing));
+      mockPermissionModel.insertMany.mockResolvedValue([]);
+
+      await service.seedDefaultPermissions();
+
+      expect(mockPermissionModel.insertMany).toHaveBeenCalledTimes(1);
+      const inserted = mockPermissionModel.insertMany.mock.calls[0][0] as { name: string }[];
+      const insertedNames = inserted.map((p) => p.name);
+
+      expect(insertedNames).not.toContain('user:create');
+      expect(insertedNames).not.toContain('user:read');
+      expect(insertedNames).toContain('user:unlock');
+      expect(insertedNames).toContain('i18n:reload');
+    });
+
+    it('should insert every default permission with ordered:false when none exist yet', async () => {
+      mockPermissionModel.find.mockReturnValue(mockExec([]));
+      mockPermissionModel.insertMany.mockResolvedValue([]);
+
+      await service.seedDefaultPermissions();
+
+      expect(mockPermissionModel.insertMany).toHaveBeenCalledTimes(1);
+      const [inserted, options] = mockPermissionModel.insertMany.mock.calls[0] as [
+        { name: string }[],
+        { ordered?: boolean },
+      ];
+      expect(inserted.map((p) => p.name)).toEqual(DEFAULT_PERMISSIONS.map((p) => p.name));
+      expect(options).toEqual({ ordered: false });
+    });
+
+    it('should tolerate a duplicate-key error from insertMany without throwing', async () => {
+      mockPermissionModel.find.mockReturnValue(mockExec([{ name: 'user:create' }]));
+      const duplicateKeyError = Object.assign(new Error('E11000 duplicate key error'), { code: 11000 });
+      mockPermissionModel.insertMany.mockRejectedValue(duplicateKeyError);
+
+      await expect(service.seedDefaultPermissions()).resolves.toBeUndefined();
+    });
+
+    it('should insert nothing when every default permission already exists', async () => {
+      mockPermissionModel.find.mockReturnValue(mockExec(DEFAULT_PERMISSIONS.map((p) => ({ name: p.name }))));
+
+      await service.seedDefaultPermissions();
+
+      expect(mockPermissionModel.insertMany).not.toHaveBeenCalled();
     });
   });
 });

@@ -73,13 +73,13 @@ describe('I18n Admin (e2e)', () => {
       expect(res.body).toHaveProperty('message');
     });
 
-    it('should return 201 with success message for non-admin user (JwtAuthGuard only, no RolesGuard)', async () => {
+    it('should return 403 for a non-admin user (requires the i18n:reload permission)', async () => {
       const res = await request(app.getHttpServer())
         .post('/admin/i18n/reload')
         .set('Authorization', `Bearer ${userToken}`)
-        .expect(201);
+        .expect(403);
 
-      expect(res.body).toHaveProperty('message');
+      expect(res.body.code).toBe('UA-SEC-002');
     });
   });
 });

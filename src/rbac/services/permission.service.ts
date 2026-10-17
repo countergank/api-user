@@ -14,6 +14,7 @@ export const DEFAULT_PERMISSIONS = [
   { name: 'user:read', description: 'Read users', category: PermissionCategory.USER },
   { name: 'user:update', description: 'Update users', category: PermissionCategory.USER },
   { name: 'user:delete', description: 'Delete users', category: PermissionCategory.USER },
+  { name: 'user:unlock', description: 'Unlock user accounts', category: PermissionCategory.USER },
   { name: 'role:create', description: 'Create roles', category: PermissionCategory.SYSTEM },
   { name: 'role:read', description: 'Read roles', category: PermissionCategory.SYSTEM },
   { name: 'role:update', description: 'Update roles', category: PermissionCategory.SYSTEM },
@@ -22,7 +23,43 @@ export const DEFAULT_PERMISSIONS = [
   { name: 'permission:read', description: 'Read permissions', category: PermissionCategory.SYSTEM },
   { name: 'permission:update', description: 'Update permissions', category: PermissionCategory.SYSTEM },
   { name: 'permission:delete', description: 'Delete permissions', category: PermissionCategory.SYSTEM },
+  { name: 'parameter:read', description: 'Read system parameters', category: PermissionCategory.SYSTEM },
+  { name: 'parameter:update', description: 'Update system parameters', category: PermissionCategory.SYSTEM },
+  { name: 'audit:read', description: 'Read audit logs', category: PermissionCategory.SYSTEM },
+  { name: 'email:read', description: 'Read email templates', category: PermissionCategory.SYSTEM },
+  { name: 'email:create', description: 'Create email templates', category: PermissionCategory.SYSTEM },
+  { name: 'email:update', description: 'Update email templates', category: PermissionCategory.SYSTEM },
+  { name: 'email:delete', description: 'Delete email templates', category: PermissionCategory.SYSTEM },
+  { name: 'email:send', description: 'Send emails', category: PermissionCategory.SYSTEM },
+  { name: 'i18n:reload', description: 'Reload i18n translations', category: PermissionCategory.SYSTEM },
 ];
+
+/**
+ * Detects a MongoDB duplicate-key error (code `11000`).
+ *
+ * `insertMany(..., { ordered: false })` keeps inserting the remaining documents
+ * when one collides, but still rejects with a bulk write error carrying the
+ * duplicate. Seeding tolerates it: an already-existing permission is not a
+ * failure, so a concurrent seeder (bootstrap vs. test global setup) cannot abort
+ * the whole seed.
+ */
+function isDuplicateKeyError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const candidate = error as { code?: number; writeErrors?: Array<{ err?: { code?: number } }> };
+
+  if (candidate.code === 11000) {
+    return true;
+  }
+
+  return (
+    Array.isArray(candidate.writeErrors) &&
+    candidate.writeErrors.length > 0 &&
+    candidate.writeErrors.every((writeError) => writeError?.err?.code === 11000)
+  );
+}
 
 @Injectable()
 export class PermissionService {
@@ -38,7 +75,7 @@ export class PermissionService {
       const cached = await this.cacheService.get<Permission[]>(PERM_ALL_KEY);
       if (cached !== undefined) return cached;
     } catch {
-      this.logger.debug('Cache get failed for permissions:all, falling back to DB');
+      this.logger.warn('Cache get failed for permissions:all, falling back to DB');
     }
 
     const perms = await this.permissionModel.find().exec();
@@ -46,7 +83,7 @@ export class PermissionService {
     try {
       await this.cacheService.set(PERM_ALL_KEY, perms, PERM_TTL_MS);
     } catch {
-      this.logger.debug('Cache set failed for permissions:all');
+      this.logger.warn('Cache set failed for permissions:all');
     }
 
     return perms;
@@ -72,7 +109,7 @@ export class PermissionService {
           continue;
         }
       } catch {
-        this.logger.debug(`Cache get failed for ${cacheKey}, treating as miss`);
+        this.logger.warn(`Cache get failed for ${cacheKey}, treating as miss`);
       }
       missingNames.push(name);
     }
@@ -88,7 +125,7 @@ export class PermissionService {
         try {
           await this.cacheService.set(`${PERM_NAME_PREFIX}${name}`, perm, PERM_TTL_MS);
         } catch {
-          this.logger.debug(`Cache set failed for ${PERM_NAME_PREFIX}${name}`);
+          this.logger.warn(`Cache set failed for ${PERM_NAME_PREFIX}${name}`);
         }
       }
     }
@@ -103,7 +140,7 @@ export class PermissionService {
       const cached = await this.cacheService.get<Permission | null>(cacheKey);
       if (cached !== undefined) return cached;
     } catch {
-      this.logger.debug(`Cache get failed for ${cacheKey}, falling back to DB`);
+      this.logger.warn(`Cache get failed for ${cacheKey}, falling back to DB`);
     }
 
     const perm = await this.permissionModel.findOne({ name }).exec();
@@ -111,7 +148,7 @@ export class PermissionService {
     try {
       await this.cacheService.set(cacheKey, perm, PERM_TTL_MS);
     } catch {
-      this.logger.debug(`Cache set failed for ${cacheKey}`);
+      this.logger.warn(`Cache set failed for ${cacheKey}`);
     }
 
     return perm;
@@ -130,12 +167,7 @@ export class PermissionService {
     const permission = new this.permissionModel(permissionData);
     const saved = await permission.save();
 
-    try {
-      await this.cacheService.delByPattern(`cache:${PERM_NAME_PREFIX}*`);
-      await this.cacheService.del(PERM_ALL_KEY);
-    } catch {
-      this.logger.debug('Cache invalidation failed after permission create');
-    }
+    await this.invalidatePermissionCaches('permission create');
 
     return saved;
   }
@@ -143,23 +175,53 @@ export class PermissionService {
   async createMany(
     permissionsData: { name: string; description: string; category: PermissionCategory }[],
   ): Promise<Permission[]> {
-    const result = await this.permissionModel.insertMany(permissionsData);
+    let result: Permission[] = [];
 
     try {
-      await this.cacheService.delByPattern(`cache:${PERM_NAME_PREFIX}*`);
-      await this.cacheService.del(PERM_ALL_KEY);
-    } catch {
-      this.logger.debug('Cache invalidation failed after permission createMany');
+      // `ordered: false` keeps one duplicate from aborting the rest of the batch.
+      result = (await this.permissionModel.insertMany(permissionsData, {
+        ordered: false,
+      })) as unknown as Permission[];
+    } catch (error) {
+      if (!isDuplicateKeyError(error)) {
+        throw error;
+      }
+      // A concurrent seeder may have inserted the same permission between the
+      // read and the insert. Already-existing permissions are benign.
+      this.logger.warn(
+        'Tolerated duplicate-key permission inserts during seeding; already-existing permissions are not a failure',
+      );
     }
 
-    return result as unknown as Permission[];
+    await this.invalidatePermissionCaches('permission createMany');
+
+    return result;
   }
 
   async seedDefaultPermissions(): Promise<void> {
-    const existing = await this.permissionModel.countDocuments();
-    if (existing > 0) {
+    const defaultNames = DEFAULT_PERMISSIONS.map((permission) => permission.name);
+    const existing = await this.permissionModel.find({ name: { $in: defaultNames } }, { name: 1 }).exec();
+    const existingNames = new Set(existing.map((permission) => permission.name));
+    const missing = DEFAULT_PERMISSIONS.filter((permission) => !existingNames.has(permission.name));
+
+    if (missing.length === 0) {
       return;
     }
-    await this.createMany(DEFAULT_PERMISSIONS);
+
+    await this.createMany(missing);
+  }
+
+  /**
+   * Best-effort permission-cache invalidation for a completed write.
+   *
+   * `CacheService.del`/`delByPattern` never reject, so there is nothing to retry.
+   * MongoDB is the source of truth and a stale permission cache is strictly more
+   * restrictive (a revoked grant can only linger, never a new one), so letting
+   * the write succeed cannot widen access.
+   */
+  private async invalidatePermissionCaches(operation: string): Promise<void> {
+    this.logger.debug(`Invalidating permission cache after ${operation}`);
+    await this.cacheService.delByPattern(`cache:${PERM_NAME_PREFIX}*`);
+    await this.cacheService.del(PERM_ALL_KEY);
   }
 }

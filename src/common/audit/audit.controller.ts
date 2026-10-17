@@ -1,7 +1,9 @@
 import { Controller, Get, Inject, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { PermissionGuard } from '../../auth/guards/permissions.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
+import { RequirePermissions } from '../../auth/decorators/permissions.decorator';
 import { UserRole } from '../../user/entities/user.entity';
 import { AuditService } from './audit.service';
 import { AuditLogFilterDTO } from './dto/audit-log-filter.dto';
@@ -16,7 +18,7 @@ import { ApplyAuditLogsDoc } from './api-docs/audit.decorator';
  * @public
  */
 @Controller('admin/audit-logs')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard, RolesGuard)
 @Roles(UserRole.ADMIN)
 export class AuditController {
   constructor(
@@ -25,6 +27,7 @@ export class AuditController {
   ) {}
 
   @ApplyAuditLogsDoc()
+  @RequirePermissions('audit:read')
   @Get()
   async findAuditLogs(
     @Query() filters: AuditLogFilterDTO,

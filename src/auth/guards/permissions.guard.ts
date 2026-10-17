@@ -1,17 +1,30 @@
-import { Injectable, ExecutionContext } from '@nestjs/common';
+import { Injectable, ExecutionContext, Logger } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
 import { DomainError } from '../../common/errors/domain.error';
 
 @Injectable()
 export class PermissionGuard {
+  private readonly logger = new Logger(PermissionGuard.name);
+
   constructor(private reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const requiredPermissions = this.reflector.getAllAndOverride<string[]>(PERMISSIONS_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    let requiredPermissions: string[] | undefined;
+
+    try {
+      requiredPermissions = this.reflector.getAllAndOverride<string[]>(PERMISSIONS_KEY, [
+        context.getHandler(),
+        context.getClass(),
+      ]);
+    } catch (error) {
+      const cause = error instanceof Error ? error : undefined;
+      this.logger.error(
+        `Failed to read required permission metadata; failing closed: ${cause ? cause.message : String(error)}`,
+        cause?.stack,
+      );
+      throw DomainError.fromKind('FORBIDDEN');
+    }
 
     if (!requiredPermissions || requiredPermissions.length === 0) {
       return true;
@@ -21,7 +34,7 @@ export class PermissionGuard {
     const user = request.user;
 
     if (!user) {
-      throw DomainError.fromKind('FORBIDDEN');
+      throw DomainError.fromKind('INVALID_TOKEN');
     }
 
     const userPermissions = user.permissions || [];

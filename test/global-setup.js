@@ -10,6 +10,7 @@ const DEFAULT_PERMISSIONS = [
   { name: 'user:read', description: 'Read users', category: 'user' },
   { name: 'user:update', description: 'Update users', category: 'user' },
   { name: 'user:delete', description: 'Delete users', category: 'user' },
+  { name: 'user:unlock', description: 'Unlock user accounts', category: 'user' },
   { name: 'role:create', description: 'Create roles', category: 'system' },
   { name: 'role:read', description: 'Read roles', category: 'system' },
   { name: 'role:update', description: 'Update roles', category: 'system' },
@@ -18,6 +19,15 @@ const DEFAULT_PERMISSIONS = [
   { name: 'permission:read', description: 'Read permissions', category: 'system' },
   { name: 'permission:update', description: 'Update permissions', category: 'system' },
   { name: 'permission:delete', description: 'Delete permissions', category: 'system' },
+  { name: 'parameter:read', description: 'Read system parameters', category: 'system' },
+  { name: 'parameter:update', description: 'Update system parameters', category: 'system' },
+  { name: 'audit:read', description: 'Read audit logs', category: 'system' },
+  { name: 'email:read', description: 'Read email templates', category: 'system' },
+  { name: 'email:create', description: 'Create email templates', category: 'system' },
+  { name: 'email:update', description: 'Update email templates', category: 'system' },
+  { name: 'email:delete', description: 'Delete email templates', category: 'system' },
+  { name: 'email:send', description: 'Send emails', category: 'system' },
+  { name: 'i18n:reload', description: 'Reload i18n translations', category: 'system' },
 ];
 
 const DEFAULT_ROLES = [
@@ -46,10 +56,16 @@ module.exports = async function () {
     await client.connect();
     const db = client.db();
 
-    const permCount = await db.collection('permissions').countDocuments();
-    if (permCount === 0) {
-      await db.collection('permissions').insertMany(DEFAULT_PERMISSIONS);
-      console.log(`[global-setup] Seeded ${DEFAULT_PERMISSIONS.length} default permissions`);
+    const defaultPermissionNames = DEFAULT_PERMISSIONS.map((permission) => permission.name);
+    const existingPermissionNames = await db
+      .collection('permissions')
+      .distinct('name', { name: { $in: defaultPermissionNames } });
+    const missingPermissions = DEFAULT_PERMISSIONS.filter(
+      (permission) => !existingPermissionNames.includes(permission.name),
+    );
+    if (missingPermissions.length > 0) {
+      await db.collection('permissions').insertMany(missingPermissions);
+      console.log(`[global-setup] Seeded ${missingPermissions.length} missing default permissions`);
     }
 
     const roleCount = await db.collection('roles').countDocuments();
