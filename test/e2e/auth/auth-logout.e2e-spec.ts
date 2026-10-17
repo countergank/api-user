@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { getModelToken } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import request from 'supertest';
+import { RedisService } from '../../../src/config/redis';
 import { User } from '../../../src/user/entities/user.entity';
 import { createTestApp } from '../../helpers/create-test-app';
 
@@ -14,10 +15,11 @@ interface Session {
 }
 
 /**
- * COU-264 — logout and refresh-token revocation (S1, S4, S6, S7, S8, S9, S10, S12).
+ * COU-264 — logout and refresh-token revocation (S1, S4, S6, S7, S8, S9, S10, S12, S16).
  *
- * Requires the docker-compose stack (MongoDB on 27017 and Redis on 6379):
- * the revocation store lives in Redis.
+ * Requires the docker-compose stack (MongoDB on 27017 and Redis on 6379): the
+ * per-token denylist lives in Redis and the durable session epoch lives in the
+ * user document.
  */
 describe('Auth logout & refresh revocation (e2e)', () => {
   let app: INestApplication;
@@ -137,6 +139,27 @@ describe('Auth logout & refresh revocation (e2e)', () => {
       const fresh = await login();
 
       await request(app.getHttpServer()).post('/auth/refresh').send({ refreshToken: fresh.refreshToken }).expect(200);
+    });
+
+    it('persists the revoke-all in the user document, never in Redis (S16)', async () => {
+      const session = await login();
+      const userModel = app.get<Model<User>>(getModelToken(User.name));
+      const redis = app.get(RedisService).getClient();
+
+      const before = await userModel.findOne({ email: testUser.email }).exec();
+      const epochBefore = before?.sessionEpoch ?? 0;
+
+      await request(app.getHttpServer())
+        .post('/auth/logout-all')
+        .set('Authorization', `Bearer ${session.accessToken}`)
+        .expect(200);
+
+      const after = await userModel.findOne({ email: testUser.email }).exec();
+      expect(after?.sessionEpoch).toBe(epochBefore + 1);
+
+      // Redis holds the per-token denylist only; a TTL-bound epoch would expire
+      // and restart, resurrecting tokens the user already revoked.
+      expect(await redis.keys('revoked:user:*')).toEqual([]);
     });
   });
 

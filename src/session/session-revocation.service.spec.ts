@@ -26,31 +26,9 @@ class FakeRedisClient {
     return 'OK';
   }
 
-  async get(key: string): Promise<string | null> {
-    this.guard();
-    return this.store.has(key) ? (this.store.get(key) as string) : null;
-  }
-
   async exists(key: string): Promise<number> {
     this.guard();
     return this.store.has(key) ? 1 : 0;
-  }
-
-  async incr(key: string): Promise<number> {
-    this.guard();
-    const next = Number.parseInt(this.store.get(key) ?? '0', 10) + 1;
-    this.store.set(key, String(next));
-    return next;
-  }
-
-  async expire(key: string, seconds: number): Promise<number> {
-    this.guard();
-    this.ttls.set(key, seconds);
-    return 1;
-  }
-
-  seed(key: string, value: string): void {
-    this.store.set(key, value);
   }
 }
 
@@ -74,6 +52,21 @@ describe(SessionRevocationService.name, () => {
     }).compile();
 
     service = module.get<SessionRevocationService>(SessionRevocationService);
+  });
+
+  describe('scope of the store (S16)', () => {
+    it('exposes no user-epoch API: the epoch lives in the User document', () => {
+      const exposed = service as unknown as Record<string, unknown>;
+
+      expect(exposed.revokeAllForUser).toBeUndefined();
+      expect(exposed.getUserEpoch).toBeUndefined();
+    });
+
+    it('writes only per-token denylist keys, never a per-user epoch key', async () => {
+      await service.revokeJti('jti-scope', nowSeconds() + 600);
+
+      expect([...client.store.keys()]).toEqual(['revoked:refresh:jti-scope']);
+    });
   });
 
   describe(`${SessionRevocationService.name}.${SessionRevocationService.prototype.revokeJti.name}`, () => {
@@ -144,63 +137,6 @@ describe(SessionRevocationService.name, () => {
       client.failWith = new Error('redis unavailable');
 
       await expect(service.isJtiRevoked('jti-5')).rejects.toThrow('redis unavailable');
-    });
-  });
-
-  describe(`${SessionRevocationService.name}.${SessionRevocationService.prototype.revokeAllForUser.name}`, () => {
-    it('increments the user epoch and expires it after 7 days', async () => {
-      const epoch = await service.revokeAllForUser('user-1');
-
-      expect(epoch).toBe(1);
-      expect(client.store.get('revoked:user:user-1:epoch')).toBe('1');
-      expect(client.ttls.get('revoked:user:user-1:epoch')).toBe(7 * 24 * 60 * 60);
-    });
-
-    it('increments cumulatively on every call', async () => {
-      await service.revokeAllForUser('user-2');
-      const epoch = await service.revokeAllForUser('user-2');
-
-      expect(epoch).toBe(2);
-      await expect(service.getUserEpoch('user-2')).resolves.toBe(2);
-    });
-
-    it('keeps epochs isolated per user', async () => {
-      await service.revokeAllForUser('user-a');
-      await service.revokeAllForUser('user-a');
-      await service.revokeAllForUser('user-b');
-
-      await expect(service.getUserEpoch('user-a')).resolves.toBe(2);
-      await expect(service.getUserEpoch('user-b')).resolves.toBe(1);
-    });
-
-    it('throws when the store fails (fail-closed)', async () => {
-      client.failWith = new Error('redis unavailable');
-
-      await expect(service.revokeAllForUser('user-3')).rejects.toThrow('redis unavailable');
-    });
-  });
-
-  describe(`${SessionRevocationService.name}.${SessionRevocationService.prototype.getUserEpoch.name}`, () => {
-    it('defaults to 0 when the user has no epoch', async () => {
-      await expect(service.getUserEpoch('user-without-epoch')).resolves.toBe(0);
-    });
-
-    it('returns the stored epoch', async () => {
-      client.seed('revoked:user:user-4:epoch', '7');
-
-      await expect(service.getUserEpoch('user-4')).resolves.toBe(7);
-    });
-
-    it('throws when the store fails (fail-closed)', async () => {
-      client.failWith = new Error('redis unavailable');
-
-      await expect(service.getUserEpoch('user-5')).rejects.toThrow('redis unavailable');
-    });
-
-    it('throws when the stored epoch is not a number (fail-closed)', async () => {
-      client.seed('revoked:user:user-6:epoch', 'not-a-number');
-
-      await expect(service.getUserEpoch('user-6')).rejects.toThrow();
     });
   });
 });

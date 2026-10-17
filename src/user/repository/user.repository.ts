@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { ClientSession, Model } from 'mongoose';
 import { escapeRegExp, isLocal } from '../../common/utils';
 import { EncodeService } from '../../encode/encode.service';
 import { User, UserRole } from '../entities/user.entity';
@@ -134,15 +134,23 @@ export class UserRepository implements OnApplicationBootstrap {
     return users.map((user) => user._id.toString());
   }
 
-  async update(id: string, data: Partial<User>): Promise<User> {
+  /**
+   * @param session — optional transaction session; without it the write commits
+   * on its own.
+   */
+  async update(id: string, data: Partial<User>, session?: ClientSession): Promise<User> {
     // If password is being updated, use save() to trigger pre-save hooks for hashing
     if (data.password) {
-      const user = await this.userModel.findById(id).exec();
+      const query = this.userModel.findById(id);
+      if (session) {
+        query.session(session);
+      }
+      const user = await query.exec();
       if (!user) {
         throw DomainError.fromKind('USER_NOT_FOUND', { message: `User ${id} not found` });
       }
       user.set(data);
-      return user.save();
+      return user.save({ session });
     }
 
     // Filter out undefined values — Mongoose findByIdAndUpdate ignores them,
@@ -152,16 +160,30 @@ export class UserRepository implements OnApplicationBootstrap {
       Object.entries(data).filter(([, v]) => v !== undefined),
     );
 
-    return this.userModel.findByIdAndUpdate(id, defined, { new: true }).exec();
+    return this.userModel.findByIdAndUpdate(id, defined, { new: true, session }).exec();
+  }
+
+  /**
+   * Atomically increments the durable session epoch (S16/S17).
+   *
+   * `$inc` is applied by the server, so concurrent bumps stay monotonic instead
+   * of overwriting each other with a stale read-modify-write value. Pass the
+   * transaction `session` so the bump commits together with the credential
+   * change it must invalidate.
+   *
+   * @returns the updated user, or `null` when the document does not exist.
+   */
+  async bumpSessionEpoch(id: string, session?: ClientSession): Promise<User | null> {
+    return this.userModel.findByIdAndUpdate(id, { $inc: { sessionEpoch: 1 } }, { new: true, session }).exec();
   }
 
   /**
    * Explicitly remove fields from a user document (uses MongoDB $unset).
    * Use when you need to actually delete fields, not just skip them.
    */
-  async unsetFields(id: string, fields: string[]): Promise<User> {
+  async unsetFields(id: string, fields: string[], session?: ClientSession): Promise<User> {
     const $unset = Object.fromEntries(fields.map((f) => [f, 1]));
-    return this.userModel.findByIdAndUpdate(id, { $unset }, { new: true }).exec();
+    return this.userModel.findByIdAndUpdate(id, { $unset }, { new: true, session }).exec();
   }
 
   async validatePassword(password: string, hashedPassword: string): Promise<boolean> {

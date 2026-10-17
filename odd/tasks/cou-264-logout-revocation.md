@@ -38,6 +38,13 @@ Requisitos tal como los escribe el ticket (verbatim) más las decisiones del mai
 - **S15** — Decisión (parent): el `SessionModule` se cablea **explícitamente** (`UserModule` y
   `AuthModule` lo importan) en vez de `@Global()`; la dependencia de seguridad queda visible en el
   grafo de módulos.
+- **S16** — Decisión (parent, corrección C1): el epoch de sesiones vive en el documento `User`
+  (`sessionEpoch`, default `0`) y es **monotónico**: no expira ni se reinicia por TTL. Redis
+  conserva únicamente la denylist por `jti`, cuyo TTL sí es correcto porque una entrada expira
+  junto con el token que la originó.
+- **S17** — Decisión (parent, corrección C1): el bump del epoch ocurre en la **misma transacción
+  Mongo** que el cambio de credencial; si el bump falla, el cambio no se persiste. Sigue siendo
+  fail-closed: un store de denylist caído sigue rechazando el canje (S11).
 
 ## Diseño (para el writer)
 
@@ -62,6 +69,23 @@ Requisitos tal como los escribe el ticket (verbatim) más las decisiones del mai
   `revokeAllForUser(userId)`.
 - **Swagger**: factories `ApplyLogoutDoc()` / `ApplyLogoutAllDoc()` en `src/auth/api-docs/auth.decorator.ts`
   con ejemplos en `src/auth/api-docs/examples/`, siguiendo el patrón de `ApplyRefreshDoc()`.
+
+## Corrección C1 (post-verificación independiente)
+
+El verificador independiente (`gentle-ai-verify`, 2026-10-17) reportó dos hallazgos bloqueantes
+sobre el candidato `0f4d8e5`, ambos confirmados por lectura del código:
+
+- **BF-1** — el epoch vivía en Redis con TTL de 7 días
+  (`src/session/session-revocation.service.ts` viejo, `USER_EPOCH_TTL_SECONDS`). Al expirar la
+  clave, un `INCR` posterior vuelve a `1`, y un token con `tv=1` emitido antes de la expiración
+  sobrevive a un nuevo revoke-all: la revocación deja de revocar.
+- **BF-2** — el cambio de credencial se persistía antes de revocar; un fallo transitorio del store
+  dejaba la credencial cambiada y el refresh viejo vivo, justo en el escenario del reset
+  defensivo.
+
+Corrección aplicada: **S16** (epoch durable en `User`, sin TTL) + **S17** (bump transaccional).
+Redis queda solo como denylist por `jti`, donde el TTL alineado al `exp` es correcto porque no hay
+contadores que reiniciar.
 
 ## Tasks
 

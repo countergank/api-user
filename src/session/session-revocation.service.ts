@@ -3,12 +3,16 @@ import { RedisService } from '../config/redis';
 
 /** Denylist key per refresh token id. TTL == remaining life of that token. */
 const REVOKED_JTI_PREFIX = 'revoked:refresh:';
-/** Per-user epoch used to invalidate every refresh token issued before it. */
-const USER_EPOCH_PREFIX = 'revoked:user:';
-export const USER_EPOCH_TTL_SECONDS = 7 * 24 * 60 * 60;
 
 /**
- * Store of revoked refresh-token sessions.
+ * Denylist of revoked refresh tokens, keyed by `jti`.
+ *
+ * Redis keeps *only* the per-token denylist. The per-user revocation epoch is a
+ * durable field of the `User` document (`sessionEpoch`, S16): an epoch stored
+ * here would need a TTL, and when that TTL expired the counter would restart at
+ * 1 and resurrect tokens the user had already revoked. A denylist entry has no
+ * such problem — its TTL matches the remaining life of the very token it
+ * denies, so it disappears exactly when the token stops being usable.
  *
  * Fail-closed by contract (S11): every store failure is propagated to the caller
  * instead of being swallowed, so the refresh exchange can reject the token and
@@ -45,44 +49,7 @@ export class SessionRevocationService {
     return found > 0;
   }
 
-  /**
-   * Invalidates every refresh token issued for the user so far.
-   * @returns the new epoch for the user.
-   */
-  async revokeAllForUser(userId: string): Promise<number> {
-    const client = this.redisService.getClient();
-    const key = this.epochKey(userId);
-
-    const epoch = await client.incr(key);
-    await client.expire(key, USER_EPOCH_TTL_SECONDS);
-
-    return epoch;
-  }
-
-  /**
-   * @returns the current epoch of the user, `0` when the user never revoked all
-   * of their sessions. Throws on store failure.
-   */
-  async getUserEpoch(userId: string): Promise<number> {
-    const raw = await this.redisService.getClient().get(this.epochKey(userId));
-    if (raw === null || raw === undefined || raw === '') {
-      return 0;
-    }
-
-    const epoch = Number.parseInt(raw, 10);
-    if (Number.isNaN(epoch)) {
-      // Unreadable epoch: fail closed instead of silently accepting every token.
-      throw new Error(`Invalid revocation epoch for user "${userId}"`);
-    }
-
-    return epoch;
-  }
-
   private jtiKey(jti: string): string {
     return `${REVOKED_JTI_PREFIX}${jti}`;
-  }
-
-  private epochKey(userId: string): string {
-    return `${USER_EPOCH_PREFIX}${userId}:epoch`;
   }
 }

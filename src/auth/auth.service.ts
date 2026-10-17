@@ -25,7 +25,9 @@ export interface JwtPayload {
  * Refresh token payload. Refresh tokens carry two extra claims that make them
  * revocable without changing the token format:
  * - `jti`: token id, used as the denylist key on logout (S2/S6).
- * - `tv`: token version, the user's revocation epoch at issue time (S8/S9).
+ * - `tv`: token version, the durable `sessionEpoch` of the user at issue time
+ *   (S8/S9/S16). Rejecting `tv < sessionEpoch` invalidates every token issued
+ *   before the last bump, and the epoch never expires at 1.
  * The access token keeps `JwtPayload` untouched.
  */
 export interface RefreshTokenPayload extends JwtPayload {
@@ -236,17 +238,22 @@ export class AuthService {
     // Hash the new password before updating
     const hashedPassword = await this.userService.hashPassword(newPassword);
 
-    await runInTransaction(this.connection, async () => {
-      await this.userService.update(user.id, {
-        password: hashedPassword,
-        resetPasswordToken: undefined,
-        resetPasswordExpires: undefined,
-      } as any);
+    // S14 + S17: a reset is a password change performed by someone who proved
+    // control of the mailbox, so every session opened with the old password must
+    // die — and it must die in the same transaction as the new password. If the
+    // bump fails, the password change is not committed either.
+    await runInTransaction(this.connection, async (session) => {
+      await this.userService.update(
+        user.id,
+        {
+          password: hashedPassword,
+          resetPasswordToken: undefined,
+          resetPasswordExpires: undefined,
+        } as any,
+        session,
+      );
+      await this.userService.bumpSessionEpoch(user.id, session);
     });
-
-    // S14: a reset is a password change performed by someone who proved control
-    // of the mailbox, so every session opened with the old password must die.
-    await this.sessionRevocation.revokeAllForUser(user.id);
 
     this.eventEmitter.emit(EmailEvents.PASSWORD_CHANGED, {
       userId: user.id,
@@ -292,17 +299,17 @@ export class AuthService {
       throw DomainError.fromKind('NO_PENDING_EMAIL_CHANGE');
     }
 
-    await runInTransaction(this.connection, async () => {
-      await this.userService.update(user.id, { email: newEmail } as any);
-      await this.userService.unsetFields(user.id, [
-        'pendingEmail',
-        'pendingEmailToken',
-        'pendingEmailExpires',
-      ]);
+    // S4 + S17: an email change invalidates every session opened with the old
+    // identity, in the same transaction as the new email (S17).
+    await runInTransaction(this.connection, async (session) => {
+      await this.userService.update(user.id, { email: newEmail } as any, session);
+      await this.userService.unsetFields(
+        user.id,
+        ['pendingEmail', 'pendingEmailToken', 'pendingEmailExpires'],
+        session,
+      );
+      await this.userService.bumpSessionEpoch(user.id, session);
     });
-
-    // S4: an email change invalidates every session opened with the old identity.
-    await this.sessionRevocation.revokeAllForUser(user.id);
 
     this.eventEmitter.emit(EmailEvents.EMAIL_CHANGE_CONFIRMED, {
       userId: user.id,
@@ -361,17 +368,17 @@ export class AuthService {
     const tokenVersion = typeof payload.tv === 'number' ? payload.tv : 0;
 
     let revoked: boolean;
-    let userEpoch: number;
     try {
       revoked = await this.sessionRevocation.isJtiRevoked(payload.jti);
-      userEpoch = await this.sessionRevocation.getUserEpoch(user.id);
     } catch {
       // S11: fail-closed. A store that does not answer must never let a refresh
       // exchange through.
       throw DomainError.fromKind('INVALID_REFRESH_TOKEN');
     }
 
-    // S3/S7: denylisted token, or issued before the last "logout everywhere".
+    // S3/S7/S16: denylisted token, or issued before the last revoke-all. The
+    // epoch is read from the user document, so it cannot expire and restart.
+    const userEpoch = user.sessionEpoch ?? 0;
     if (revoked || tokenVersion < userEpoch) {
       throw DomainError.fromKind('INVALID_REFRESH_TOKEN');
     }
@@ -397,12 +404,12 @@ export class AuthService {
   }
 
   /**
-   * Revokes every refresh token issued for the user (S1/S8).
-   * Store failures propagate: reporting a successful logout while the store is
-   * down would leave the sessions alive.
+   * Revokes every refresh token issued for the user (S1/S8/S16).
+   * Failures propagate: reporting a successful logout while the epoch bump could
+   * not be persisted would leave every session alive.
    */
   async logoutAll(userId: string): Promise<void> {
-    await this.sessionRevocation.revokeAllForUser(userId);
+    await this.userService.bumpSessionEpoch(userId);
   }
 
   private verifyRefreshPayload(refreshToken: string): RefreshTokenPayload {
@@ -413,19 +420,6 @@ export class AuthService {
     }
   }
 
-  /**
-   * Resolves the epoch to stamp on a fresh refresh token. A store failure is
-   * degraded to `0` so signing stays available; the next exchange queries the
-   * real epoch and fails closed, invalidating the token if the user revoked.
-   */
-  private async resolveTokenVersion(userId: string): Promise<number> {
-    try {
-      return await this.sessionRevocation.getUserEpoch(userId);
-    } catch {
-      return 0;
-    }
-  }
-
   private async generateAuthResponse(user: User, verificationToken?: string): Promise<AuthResponse> {
     const payload: JwtPayload = {
       sub: user.id,
@@ -433,7 +427,9 @@ export class AuthService {
       role: user.role,
     };
 
-    const tokenVersion = await this.resolveTokenVersion(user.id);
+    // S16: the token version is the durable epoch of the user document, so no
+    // store read is needed (and none can fail) while signing.
+    const tokenVersion = user.sessionEpoch ?? 0;
 
     const accessToken = this.jwtService.sign(payload);
     const refreshToken = this.jwtService.sign({ ...payload, tv: tokenVersion } as RefreshTokenPayload, {
