@@ -3,11 +3,9 @@
 - **Feature**: `cou-267-auth-me`
 - **Issue**: https://linear.app/countergank/issue/COU-267/exponer-el-rol-y-los-permisos-efectivos-del-usuario-autenticado
 - **Base**: `origin/develop` @ `67e0022` — **Rama**: `feat/cou-267-auth-me`
-- **Estado**: IMPLEMENTADO Y **REVIEW APROBADO** — ronda 2 del review nativo cerrada en `approved`
-  y autoridad quemada (`review-1286145d5e3d8e66`); 0 blockers, 0 correcciones. Commit `a1df33b`
-  pusheado y **PR #419 abierto** contra `develop`; sus checks e2e fallaron por contaminación de
-  estado compartido entre suites (no por el endpoint). Corregido en T4: pendiente commit/push y
-  re-corrida de CI.
+- **Estado**: **CERRADO EN VERDE** — review nativo `approved` sobre el rango commiteado
+  (`review-85b95fb82346356e`, autoridad quemada); PR #419 con los 2 runs de CI en `success`
+  (unit 69/760, e2e 16/201). Pendiente sólo la decisión de merge.
 
 ## Objetivo
 
@@ -288,6 +286,25 @@ corrigió.
 - Decisión del maintainer (el usuario): **aceptar el cierre como informacional** (los IDs escalados
   son los follow-ups no bloqueantes ya documentados arriba) y avanzar a commit + push.
 
+### Review nativo — rango commiteado (post-rebase) y CI en verde
+
+- Lineage `review-85b95fb82346356e`; base `976b776` (`--committed-only`); 9 archivos;
+  **739 líneas**; tier **high**; `correction_budget: 200`; target `sha256:5b6f55b1…`.
+- Lentes: los 4 (`risk`, `resilience`, `readability`, `reliability`). Forecast relayado:
+  `pi_host_relay`, 4 model runs. Los 4 corrieron sin incidentes de provider (esta vez no apareció
+  el `400 reasoning is mandatory`) y **no hizo falta refuter**: ningún hallazgo escaló.
+- Cierre: **`approved`** (`store_revision: sha256:5ccd4871…`), `acknowledge-approved` ejecutado,
+  `authority: burned`, evidencia `gentle-ai.review-acknowledged/v1`.
+- 11 hallazgos, todos `informational` (3 WARNING: R1-001 controller, R3-003 fixtures de auth-me,
+  R4-001 anotación Swagger; 8 SUGGESTION). Ninguno abrió corrección ni reabre este candidato:
+  quedan como trabajo posterior.
+- Publicación: `git push --force-with-lease` (el agente no puede emitirlo: bloqueado por la
+  política del host) → remoto `a63326a`.
+- CI del PR #419 sobre `a63326a`: run `39056886402` (push) y `39056890386` (pull_request), **ambos
+  `success`**. Job `test`: unit **69 suites / 760 tests**, e2e **16 suites / 201 tests**, 0 `FAIL`.
+  Prueba directa del fix: `PASS test/e2e/rbac/rbac.e2e-spec.ts` (18:12:22) seguido de
+  `PASS test/e2e/auth/auth-me.e2e-spec.ts` (18:12:25) — la misma secuencia que antes fallaba.
+
 ## Log
 
 - **L1** (usuario, verbatim): “COU-267 - Exponer el rol y los permisos efectivos del usuario
@@ -301,3 +318,7 @@ corrigió.
   `jest-e2e.json` + restaurar el rol `user` en `rbac.e2e-spec.ts`.
 - **L3** (usuario, verbatim): “ok vamos con la recomendacion”. Acepta el cierre `escalated` del
   review nativo como informacional (opción 1 de la recomendación) y autoriza commit + push del fix.
+- **L4** (usuario, selección en UI, sin texto libre): “Rebase sobre origin/develop” en la consulta
+  de integración — autoriza rebase + `push --force-with-lease` sobre la rama del PR.
+- **L5** (usuario, verbatim): “listo”. Confirmó que corrió el force-push; el remoto quedó en
+  `a63326a` y CI cerró en verde.
