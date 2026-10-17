@@ -9,6 +9,8 @@ import {
   ApplyConfirmEmailChangeDoc,
   ApplyForgotPasswordDoc,
   ApplyLoginDoc,
+  ApplyLogoutAllDoc,
+  ApplyLogoutDoc,
   ApplyMeDoc,
   ApplyRefreshDoc,
   ApplyRegisterDoc,
@@ -90,6 +92,34 @@ export class AuthController {
   async verifyEmail(@Body() body: { token: string }, @RequestLang() lang: string | undefined) {
     await this.authService.verifyEmail(body.token);
     return { message: await this.t('messages.email_verified', lang) };
+  }
+
+  @Post('logout')
+  @HttpCode(200)
+  @ApplyLogoutDoc()
+  @AuditAction({
+    action: 'auth.logout',
+    resource: 'auth',
+    getBefore: () => ({ refreshToken: '[redacted]' }),
+  })
+  async logout(@Body() body: { refreshToken: string }, @RequestLang() lang: string | undefined) {
+    await this.authService.logout(body.refreshToken);
+    return { message: await this.t('messages.logged_out', lang) };
+  }
+
+  @Post('logout-all')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  @ApplyLogoutAllDoc()
+  @AuditAction({
+    action: 'auth.logout-all',
+    resource: 'auth',
+    getResourceId: (_result, args) => (args[0] as User)?.id,
+    getBefore: () => ({ sessions: 'all' }),
+  })
+  async logoutAll(@CurrentUser() user: User, @RequestLang() lang: string | undefined) {
+    await this.authService.logoutAll(user.id);
+    return { message: await this.t('messages.logged_out_all', lang) };
   }
 
   @Post('confirm-email-change')

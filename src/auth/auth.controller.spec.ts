@@ -6,6 +6,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { DomainError } from '../common/errors/domain.error';
 import { AllExceptionsFilter } from '../common/filters/all-exceptions.filter';
+import { I18nService } from '../common/i18n/i18n.service';
 import { Mock } from '../test-utils';
 import { User, UserRole } from '../user/entities/user.entity';
 
@@ -304,6 +305,70 @@ describe(AuthController.name, () => {
       const response = await request(unlockApp.getHttpServer()).patch('/admin/users/507f1f77bcf86cd799439011/unlock');
 
       expect([401, 403, 404]).toContain(response.status);
+    });
+  });
+
+  describe('POST /auth/logout and /auth/logout-all (COU-264)', () => {
+    let app: INestApplication;
+    let controller: AuthController;
+
+    const mockAuthService = {
+      logout: jest.fn().mockResolvedValue(undefined),
+      logoutAll: jest.fn().mockResolvedValue(undefined),
+    };
+    const mockI18n = {
+      translate: jest.fn().mockImplementation((key: string) => Promise.resolve(key)),
+    };
+
+    beforeAll(async () => {
+      const moduleFixture: TestingModule = await Test.createTestingModule({
+        imports: [
+          ThrottlerModule.forRoot([
+            {
+              ttl: 60,
+              limit: 100,
+            },
+          ]),
+        ],
+        controllers: [AuthController],
+        providers: [
+          { provide: AuthService, useValue: mockAuthService },
+          { provide: I18nService, useValue: mockI18n },
+        ],
+      }).compile();
+
+      app = moduleFixture.createNestApplication();
+      await app.init();
+      controller = moduleFixture.get(AuthController);
+    });
+
+    afterAll(async () => {
+      await app.close();
+    });
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      mockAuthService.logout.mockResolvedValue(undefined);
+      mockAuthService.logoutAll.mockResolvedValue(undefined);
+    });
+
+    it('revokes the refresh token from the body and returns 200 without requiring an access token (S6, S12)', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/auth/logout')
+        .send({ refreshToken: 'refresh-token' })
+        .expect(200);
+
+      expect(mockAuthService.logout).toHaveBeenCalledWith('refresh-token');
+      expect(response.body).toEqual({ message: 'messages.logged_out' });
+    });
+
+    it('revokes every session of the authenticated user (S8)', async () => {
+      const user = { id: 'user-1' } as User;
+
+      const result = await controller.logoutAll(user, undefined);
+
+      expect(mockAuthService.logoutAll).toHaveBeenCalledWith('user-1');
+      expect(result).toEqual({ message: 'messages.logged_out_all' });
     });
   });
 

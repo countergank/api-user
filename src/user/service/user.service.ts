@@ -15,6 +15,7 @@ import { UserRepository } from '../repository/user.repository';
 import { AuditAction } from '../../common/audit/audit.decorator';
 import { runInTransaction } from '../../common/utils/transaction';
 import { CacheService } from '../../config/cache';
+import { SessionRevocationService } from '../../session/session-revocation.service';
 
 @Injectable()
 export class UserService {
@@ -23,6 +24,7 @@ export class UserService {
     private readonly encodeService: EncodeService,
     @InjectConnection() private readonly connection: Connection,
     private readonly cacheService: CacheService,
+    private readonly sessionRevocation: SessionRevocationService,
   ) {}
 
   private async invalidateUserCache(userId: string): Promise<void> {
@@ -150,6 +152,9 @@ export class UserService {
     }
     const hashed = await this.hashPassword(newPassword);
     await this.update(userId, { password: hashed });
+
+    // S4/S9: every session opened with the old password must be closed.
+    await this.sessionRevocation.revokeAllForUser(userId);
   }
 
   async existsByEmailOrUsername(email: string, userName: string): Promise<boolean> {

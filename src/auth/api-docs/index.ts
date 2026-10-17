@@ -6,4 +6,5 @@ export * from './examples/register.examples';
 export * from './examples/login.examples';
 export * from './examples/password.examples';
 export * from './examples/refresh.examples';
+export * from './examples/logout.examples';
 export * from './examples/verification.examples';

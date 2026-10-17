@@ -13,11 +13,26 @@ import { DomainError } from '../common/errors/domain.error';
 import { AuditAction } from '../common/audit/audit.decorator';
 import { runInTransaction } from '../common/utils/transaction';
 import { CacheService } from '../config/cache';
+import { SessionRevocationService } from '../session/session-revocation.service';
 
 export interface JwtPayload {
   sub: string;
   email: string;
   role: UserRole;
+}
+
+/**
+ * Refresh token payload. Refresh tokens carry two extra claims that make them
+ * revocable without changing the token format:
+ * - `jti`: token id, used as the denylist key on logout (S2/S6).
+ * - `tv`: token version, the user's revocation epoch at issue time (S8/S9).
+ * The access token keeps `JwtPayload` untouched.
+ */
+export interface RefreshTokenPayload extends JwtPayload {
+  jti: string;
+  tv: number;
+  /** Standard JWT expiration claim (epoch seconds), emitted by the signer. */
+  exp?: number;
 }
 
 export interface AuthResponse {
@@ -43,6 +58,7 @@ export class AuthService {
     @InjectConnection() private readonly connection: Connection,
     private readonly cacheService: CacheService,
     private readonly roleService: RoleService,
+    private readonly sessionRevocation: SessionRevocationService,
   ) {}
 
   @AuditAction({
@@ -228,6 +244,10 @@ export class AuthService {
       } as any);
     });
 
+    // S14: a reset is a password change performed by someone who proved control
+    // of the mailbox, so every session opened with the old password must die.
+    await this.sessionRevocation.revokeAllForUser(user.id);
+
     this.eventEmitter.emit(EmailEvents.PASSWORD_CHANGED, {
       userId: user.id,
       email: user.email,
@@ -281,6 +301,9 @@ export class AuthService {
       ]);
     });
 
+    // S4: an email change invalidates every session opened with the old identity.
+    await this.sessionRevocation.revokeAllForUser(user.id);
+
     this.eventEmitter.emit(EmailEvents.EMAIL_CHANGE_CONFIRMED, {
       userId: user.id,
       email: newEmail,
@@ -322,10 +345,11 @@ export class AuthService {
     getResourceId: (result) => (result as AuthResponse).user.id,
   })
   async refreshToken(refreshToken: string): Promise<AuthResponse> {
-    let payload: JwtPayload;
-    try {
-      payload = this.jwtService.verify(refreshToken) as JwtPayload;
-    } catch {
+    const payload = this.verifyRefreshPayload(refreshToken);
+
+    // S13: tokens issued before the revocation store existed carry no `jti` and
+    // could never be revoked, so they are rejected instead of being honoured.
+    if (!payload.jti) {
       throw DomainError.fromKind('INVALID_REFRESH_TOKEN');
     }
 
@@ -333,18 +357,89 @@ export class AuthService {
     if (!user) {
       throw DomainError.fromKind('INVALID_TOKEN');
     }
+
+    const tokenVersion = typeof payload.tv === 'number' ? payload.tv : 0;
+
+    let revoked: boolean;
+    let userEpoch: number;
+    try {
+      revoked = await this.sessionRevocation.isJtiRevoked(payload.jti);
+      userEpoch = await this.sessionRevocation.getUserEpoch(user.id);
+    } catch {
+      // S11: fail-closed. A store that does not answer must never let a refresh
+      // exchange through.
+      throw DomainError.fromKind('INVALID_REFRESH_TOKEN');
+    }
+
+    // S3/S7: denylisted token, or issued before the last "logout everywhere".
+    if (revoked || tokenVersion < userEpoch) {
+      throw DomainError.fromKind('INVALID_REFRESH_TOKEN');
+    }
+
     return this.generateAuthResponse(user);
   }
 
-  private generateAuthResponse(user: User, verificationToken?: string): AuthResponse {
+  /**
+   * Revokes the refresh token used to call `POST /auth/logout` (S1/S6/S12).
+   * Requires no access token, so a session can be closed after the access token
+   * expired.
+   * @throws DomainError INVALID_REFRESH_TOKEN when the value is not a valid,
+   * revocable refresh token (bad signature, expired, or missing `jti`).
+   */
+  async logout(refreshToken: string): Promise<void> {
+    const payload = this.verifyRefreshPayload(refreshToken);
+
+    if (!payload.jti || typeof payload.exp !== 'number') {
+      throw DomainError.fromKind('INVALID_REFRESH_TOKEN');
+    }
+
+    await this.sessionRevocation.revokeJti(payload.jti, payload.exp);
+  }
+
+  /**
+   * Revokes every refresh token issued for the user (S1/S8).
+   * Store failures propagate: reporting a successful logout while the store is
+   * down would leave the sessions alive.
+   */
+  async logoutAll(userId: string): Promise<void> {
+    await this.sessionRevocation.revokeAllForUser(userId);
+  }
+
+  private verifyRefreshPayload(refreshToken: string): RefreshTokenPayload {
+    try {
+      return this.jwtService.verify(refreshToken) as RefreshTokenPayload;
+    } catch {
+      throw DomainError.fromKind('INVALID_REFRESH_TOKEN');
+    }
+  }
+
+  /**
+   * Resolves the epoch to stamp on a fresh refresh token. A store failure is
+   * degraded to `0` so signing stays available; the next exchange queries the
+   * real epoch and fails closed, invalidating the token if the user revoked.
+   */
+  private async resolveTokenVersion(userId: string): Promise<number> {
+    try {
+      return await this.sessionRevocation.getUserEpoch(userId);
+    } catch {
+      return 0;
+    }
+  }
+
+  private async generateAuthResponse(user: User, verificationToken?: string): Promise<AuthResponse> {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
       role: user.role,
     };
 
+    const tokenVersion = await this.resolveTokenVersion(user.id);
+
     const accessToken = this.jwtService.sign(payload);
-    const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+    const refreshToken = this.jwtService.sign({ ...payload, tv: tokenVersion } as RefreshTokenPayload, {
+      expiresIn: '7d',
+      jwtid: randomUUID(),
+    });
 
     return {
       user: {
