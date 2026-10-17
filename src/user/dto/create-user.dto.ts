@@ -1,5 +1,14 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsString, IsEnum, IsOptional, IsDefined } from 'class-validator';
+import {
+  ArrayUnique,
+  IsArray,
+  IsDefined,
+  IsEmail,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 import { User, UserRole } from '../entities/user.entity';
 import { PasswordStrength } from '../../common/decorators/password-strength.decorator';
 
@@ -79,6 +88,20 @@ export class CreateUserDTO {
   @IsEnum(UserRole)
   role?: UserRole;
 
+  @ApiProperty({
+    example: ['user:read', 'audit:read'],
+    description:
+      'Permisos explícitos del usuario (opcional). Cada nombre debe existir en el catálogo. ' +
+      'Si se omite, el usuario hereda los permisos de su rol.',
+    type: [String],
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  permissions?: string[];
+
   toEntity(): User {
     const user = new User();
     user.name = this.name;
@@ -87,6 +110,7 @@ export class CreateUserDTO {
     user.userName = this.userName;
     user.password = this.password;
     user.role = this.role || UserRole.USER;
+    user.permissions = this.permissions ?? [];
     return user;
   }
 }

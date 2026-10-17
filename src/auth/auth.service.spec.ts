@@ -6,6 +6,7 @@ import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
 import { DomainError } from '../common/errors/domain.error';
 import { User, UserRole } from '../user/entities/user.entity';
 import { UserService } from '../user/service/user.service';
+import { Permission } from '../rbac/entities/permission.entity';
 import { Role } from '../rbac/entities/role.entity';
 import { RoleService } from '../rbac/services/role.service';
 import { AuthService } from './auth.service';
@@ -113,6 +114,7 @@ describe(AuthService.name, () => {
       .useMocker((token) => {
         if (token === getConnectionToken()) return harness.connection;
         if (token === getModelToken(Role.name)) return {};
+        if (token === getModelToken(Permission.name)) return { find: jest.fn() };
         if (token === CacheService) return mockCacheService;
         if (token === SessionRevocationService) return mockSessionRevocation;
         if (typeof token === 'function') return Mock(token);

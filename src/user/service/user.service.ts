@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { InjectConnection } from '@nestjs/mongoose';
-import { ClientSession, Connection } from 'mongoose';
+import { InjectConnection, InjectModel } from '@nestjs/mongoose';
+import { ClientSession, Connection, Model } from 'mongoose';
 import { randomUUID } from 'node:crypto';
 import { plainToInstance } from 'class-transformer';
+import { Permission } from '../../rbac/entities/permission.entity';
 import { CreateUserDTO } from '../dto/create-user.dto';
 import { UpdateUserDTO } from '../dto/update-user.dto';
 import { PaginationQueryDTO } from '../dto/pagination-query.dto';
@@ -23,6 +24,7 @@ export class UserService {
     private readonly encodeService: EncodeService,
     @InjectConnection() private readonly connection: Connection,
     private readonly cacheService: CacheService,
+    @InjectModel(Permission.name) private readonly permissionModel: Model<Permission>,
   ) {}
 
   private async invalidateUserCache(userId: string): Promise<void> {
@@ -89,9 +91,42 @@ export class UserService {
       throw DomainError.fromKind('ENTITY_EMAIL_ALREADY_EXISTS');
     }
 
-    const created = await this.userRepository.createWithRole(data);
+    const created = await this.userRepository.createWithRole({ ...data, permissions: data.permissions ?? [] });
     this.invalidateUserCache(created._id.toString());
     return created;
+  }
+
+  /**
+   * Validates the explicit permissions an admin assigns through the admin API
+   * (S2, S5) and deduplicates them preserving order (S11).
+   *
+   * It is intentionally NOT called from `createWithRole`: internal callers such as
+   * the RBAC e2e seeds and the guard's wildcard coverage must be able to grant `*`.
+   * The HTTP boundary is where an unknown or wildcard permission must be rejected
+   * (S10), so `POST /admin/users` calls this before creating the user.
+   *
+   * @throws DomainError VALIDATION_ERROR (UA-COM-005) listing the rejected names.
+   */
+  async assertPermissionsAssignable(permissions: string[]): Promise<string[]> {
+    const deduplicated = [...new Set(permissions ?? [])];
+    if (deduplicated.length === 0) {
+      return [];
+    }
+
+    const catalog = await this.permissionModel
+      .find({ name: { $in: deduplicated } })
+      .lean()
+      .exec();
+    const known = new Set(catalog.map((permission) => (permission as { name: string }).name));
+    const rejected = deduplicated.filter((name) => name === '*' || !known.has(name));
+
+    if (rejected.length > 0) {
+      throw DomainError.fromKind('VALIDATION_ERROR', {
+        message: `Unknown permissions: ${rejected.join(', ')}`,
+      });
+    }
+
+    return deduplicated;
   }
 
   async findAll(): Promise<User[]> {

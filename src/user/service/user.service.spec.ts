@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { getConnectionToken } from '@nestjs/mongoose';
+import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
 import { Mock } from '../../test-utils';
+import { Permission } from '../../rbac/entities/permission.entity';
 import { User, UserRole } from '../entities/user.entity';
 import { DomainError } from '../../common/errors/domain.error';
 import { CreateUserDTOMock } from '../mocks/create-user-dto.mock';
@@ -29,6 +30,7 @@ describe(UserService.name, () => {
     existsByEmailExcludingSelf: jest.fn(),
     existsByNameExcludingSelf: jest.fn(),
     create: jest.fn(),
+    createWithRole: jest.fn(),
     findById: jest.fn(),
     findByEmail: jest.fn(),
     findAll: jest.fn(),
@@ -46,6 +48,17 @@ describe(UserService.name, () => {
     }),
   };
 
+  const permissionModel = {
+    find: jest.fn(),
+  };
+
+  /** Makes the permission catalog answer with exactly these names. */
+  const mockCatalog = (names: string[]): void => {
+    permissionModel.find.mockReturnValue({
+      lean: () => ({ exec: () => Promise.resolve(names.map((name) => ({ name }))) }),
+    });
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [UserService, UserRepository],
@@ -55,6 +68,7 @@ describe(UserService.name, () => {
       .useMocker((token) => {
         if (token === getConnectionToken()) return mockConnection;
         if (token === CacheService) return mockCacheService;
+        if (token === getModelToken(Permission.name)) return permissionModel;
         if (typeof token === 'function') return Mock(token);
       })
       .compile();
@@ -292,6 +306,87 @@ describe(UserService.name, () => {
       const result = await service.requestEmailChange(user.id, 'new@example.com');
       expect(result.user).toBe(user);
       expect(result.token).toBeDefined();
+    });
+  });
+
+  describe(`${UserService.name}.${UserService.prototype.createWithRole.name}`, () => {
+    const baseData = {
+      email: 'admin-created@example.com',
+      userName: 'admin-created',
+      password: 'SecurePass123@',
+      name: 'Admin',
+      lastName: 'Created',
+      role: UserRole.USER,
+      isActive: true,
+    };
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      userRepository.existsByName.mockResolvedValue(false);
+      userRepository.existsByEmail.mockResolvedValue(false);
+      userRepository.createWithRole.mockImplementation(async (data) =>
+        Object.assign(new UserMock(), { _id: { toString: () => 'created-user-id' } }, data),
+      );
+    });
+
+    it('persists the permissions it receives (S2, S4)', async () => {
+      await service.createWithRole({ ...baseData, permissions: ['user:read', 'audit:read'] });
+
+      expect(userRepository.createWithRole).toHaveBeenCalledWith(
+        expect.objectContaining({ permissions: ['user:read', 'audit:read'] }),
+      );
+    });
+
+    it('keeps the current behaviour when no permissions are given (S3, S6)', async () => {
+      await service.createWithRole({ ...baseData, permissions: [] });
+
+      expect(userRepository.createWithRole).toHaveBeenCalledWith(expect.objectContaining({ permissions: [] }));
+    });
+  });
+
+  describe(`${UserService.name}.${UserService.prototype.assertPermissionsAssignable.name}`, () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('returns the catalog-validated permissions (S2)', async () => {
+      mockCatalog(['user:read', 'audit:read']);
+
+      await expect(service.assertPermissionsAssignable(['user:read', 'audit:read'])).resolves.toEqual([
+        'user:read',
+        'audit:read',
+      ]);
+    });
+
+    it('deduplicates repeated permissions preserving order (S11)', async () => {
+      mockCatalog(['user:read', 'audit:read']);
+
+      await expect(service.assertPermissionsAssignable(['user:read', 'audit:read', 'user:read'])).resolves.toEqual([
+        'user:read',
+        'audit:read',
+      ]);
+    });
+
+    it('rejects a permission missing from the catalog with VALIDATION_ERROR (S5)', async () => {
+      mockCatalog(['user:read']);
+
+      await expect(service.assertPermissionsAssignable(['user:read', 'ghost:read'])).rejects.toMatchObject({
+        kind: expect.objectContaining({ kind: 'VALIDATION_ERROR' }),
+      });
+    });
+
+    it('rejects the wildcard as an explicit permission (S10)', async () => {
+      mockCatalog(['user:read']);
+
+      await expect(service.assertPermissionsAssignable(['*'])).rejects.toMatchObject({
+        kind: expect.objectContaining({ kind: 'VALIDATION_ERROR' }),
+      });
+    });
+
+    it('answers an empty list without querying the catalog (S3)', async () => {
+      await expect(service.assertPermissionsAssignable([])).resolves.toEqual([]);
+
+      expect(permissionModel.find).not.toHaveBeenCalled();
     });
   });
 

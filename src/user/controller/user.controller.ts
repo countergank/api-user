@@ -60,6 +60,8 @@ export class UserController {
   @RequirePermissions('user:create')
   @Post()
   async create(@Body() createUserDTO: CreateUserDTO): Promise<CreateUserResponseDTO> {
+    const permissions = await this.userService.assertPermissionsAssignable(createUserDTO.permissions ?? []);
+
     const user: User = await this.userService.createWithRole({
       email: createUserDTO.email,
       userName: createUserDTO.userName,
@@ -67,7 +69,7 @@ export class UserController {
       name: createUserDTO.name,
       lastName: createUserDTO.lastName,
       role: createUserDTO.role,
-      permissions: [],
+      permissions,
       isActive: true, // Admin crea usuarios activos
     });
     return CreateUserResponseDTO.of(user);

@@ -10,6 +10,7 @@ export class CreateUserDTOMock extends CreateUserDTO {
   email = 'leandrojaviercepeda@gmail.com';
   userName = 'leandrojaviercepeda';
   password = VALID_PASSWORD;
+  permissions = ['user:read', 'audit:read'];
 
   randomize(): CreateUserDTOMock {
     this.name = faker.person.firstName();
