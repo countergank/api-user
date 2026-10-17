@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { getConnectionToken } from '@nestjs/mongoose';
+import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
 import { Mock } from '../../test-utils';
+import { Permission } from '../../rbac/entities/permission.entity';
 import { CreateUserResponseDTO } from '../dto/create-user-response.dto';
 import { UserDTO } from '../dto/user.dto';
 import { UpdateUserDTO } from '../dto/update-user.dto';
@@ -31,6 +32,7 @@ describe(UserController.name, () => {
     })
       .useMocker((token) => {
         if (token === getConnectionToken()) return mockConnection;
+        if (token === getModelToken(Permission.name)) return { find: jest.fn() };
         if (typeof token === 'function') return Mock(token);
       })
       .compile();
@@ -50,8 +52,30 @@ describe(UserController.name, () => {
     const user = new UserMock().randomize();
     const createUserDTO = new CreateUserDTOMock().randomize();
     it(`should be create a ${User.name}`, async () => {
+      jest.spyOn(userService, 'assertPermissionsAssignable').mockResolvedValue(['user:read']);
       jest.spyOn(userService, 'createWithRole').mockResolvedValue(user);
       await expect(controller.create(createUserDTO)).resolves.toBeInstanceOf(CreateUserResponseDTO);
+    });
+
+    it('persists the validated permissions of the request (S4)', async () => {
+      jest.spyOn(userService, 'assertPermissionsAssignable').mockResolvedValue(['user:read', 'audit:read']);
+      jest.spyOn(userService, 'createWithRole').mockResolvedValue(user);
+
+      await controller.create(Object.assign(new CreateUserDTOMock(), { permissions: ['audit:read', 'user:read'] }));
+
+      expect(userService.assertPermissionsAssignable).toHaveBeenCalledWith(['audit:read', 'user:read']);
+      expect(userService.createWithRole).toHaveBeenCalledWith(
+        expect.objectContaining({ permissions: ['user:read', 'audit:read'] }),
+      );
+    });
+
+    it('rejects an unknown permission before creating the user (S5)', async () => {
+      const error = new Error('validation');
+      jest.spyOn(userService, 'assertPermissionsAssignable').mockRejectedValue(error);
+      jest.spyOn(userService, 'createWithRole').mockResolvedValue(user);
+
+      await expect(controller.create(createUserDTO)).rejects.toBe(error);
+      expect(userService.createWithRole).not.toHaveBeenCalled();
     });
   });
 
