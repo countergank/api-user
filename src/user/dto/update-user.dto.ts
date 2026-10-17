@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsEmail, IsEnum, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsEmail, IsEnum, IsOptional, IsString, ArrayUnique } from 'class-validator';
 import { PartialType } from '@nestjs/mapped-types';
 import { OmitType } from '@nestjs/swagger';
 import { CreateUserDTO } from './create-user.dto';
@@ -63,11 +63,12 @@ export class UpdateUserDTO extends PartialType(OmitType(CreateUserDTO, ['passwor
 
   @ApiPropertyOptional({
     example: ['users:read', 'users:write'],
-    description: 'Permisos del usuario',
+    description: 'Permisos del usuario (cada nombre debe existir en el catálogo)',
     type: [String],
   })
   @IsOptional()
   @IsArray()
+  @ArrayUnique()
   @IsString({ each: true })
   permissions?: string[];
 }

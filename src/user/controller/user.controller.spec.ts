@@ -166,8 +166,43 @@ describe(UserController.name, () => {
     });
 
     it(`should update a ${User.name} and return ${UserDTO.name}`, async () => {
+      jest.spyOn(userService, 'assertPermissionsAssignable').mockResolvedValue([]);
       jest.spyOn(userService, 'updateUser').mockResolvedValue(user);
       await expect(controller.update(user.id, updateDto)).resolves.toBeInstanceOf(UserDTO);
+    });
+
+    it('validates the permissions before updating the user (S1, S3)', async () => {
+      jest.spyOn(userService, 'assertPermissionsAssignable').mockResolvedValue(['user:read']);
+      jest.spyOn(userService, 'updateUser').mockResolvedValue(user);
+
+      await controller.update(user.id, Object.assign(new UpdateUserDTOMock(), { permissions: ['user:read', 'user:read'] }));
+
+      expect(userService.assertPermissionsAssignable).toHaveBeenCalledWith(['user:read', 'user:read']);
+      expect(userService.updateUser).toHaveBeenCalledWith(
+        user.id,
+        expect.objectContaining({ permissions: ['user:read'] }),
+      );
+    });
+
+    it('propagates a rejected permission and never touches the user (S2, S5, S6)', async () => {
+      const error = new Error('validation');
+      jest.spyOn(userService, 'assertPermissionsAssignable').mockRejectedValue(error);
+      jest.spyOn(userService, 'updateUser').mockResolvedValue(user);
+
+      await expect(
+        controller.update(user.id, Object.assign(new UpdateUserDTOMock(), { permissions: ['*'] })),
+      ).rejects.toBe(error);
+      expect(userService.updateUser).not.toHaveBeenCalled();
+    });
+
+    it('does not validate when the permissions are omitted (S4, S8)', async () => {
+      jest.spyOn(userService, 'assertPermissionsAssignable').mockResolvedValue([]);
+      jest.spyOn(userService, 'updateUser').mockResolvedValue(user);
+
+      await controller.update(user.id, new UpdateUserDTOMock());
+
+      expect(userService.assertPermissionsAssignable).not.toHaveBeenCalled();
+      expect(userService.updateUser).toHaveBeenCalledWith(user.id, expect.not.objectContaining({ permissions: expect.anything() }));
     });
   });
 

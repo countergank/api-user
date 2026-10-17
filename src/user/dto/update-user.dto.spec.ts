@@ -23,6 +23,13 @@ describe(UpdateUserDTO.name, () => {
     expect(errors.length).toBe(0);
   });
 
+  it('rejects duplicated permissions (S11)', async () => {
+    const dto = plainToInstance(UpdateUserDTO, { permissions: ['user:read', 'user:read'] });
+    const errors = await validate(dto);
+
+    expect(errors.map((error) => error.property)).toContain('permissions');
+  });
+
   it('should fail validation with invalid email format', async () => {
     const dto = plainToInstance(UpdateUserDTO, { email: 'not-an-email' });
     const errors = await validate(dto);
