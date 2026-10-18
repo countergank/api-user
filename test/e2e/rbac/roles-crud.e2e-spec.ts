@@ -112,8 +112,7 @@ describe('Roles CRUD (e2e)', () => {
     });
 
     it('does not accept `isSystem` from the client (S4)', async () => {
-      await auth(request(app.getHttpServer()))
-        .post('/roles')
+      await auth(request(app.getHttpServer()).post('/roles'))
         .send({ name: uniqueRoleName('system-flag'), isSystem: true })
         .expect(400);
     });
