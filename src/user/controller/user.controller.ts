@@ -114,7 +114,13 @@ export class UserController {
   })
   @Patch(':id')
   async update(@Param('id') id: string, @Body() dto: UpdateUserDTO): Promise<UserDTO> {
-    const user: User = await this.userService.updateUser(id, dto);
+    // S1/S3: the same catalog rule the create path enforces (COU-268). Validation
+    // runs before updateUser, so a rejected name never reaches the transaction.
+    const permissions = dto.permissions
+      ? await this.userService.assertPermissionsAssignable(dto.permissions)
+      : undefined;
+
+    const user: User = await this.userService.updateUser(id, { ...dto, permissions } as UpdateUserDTO);
     return UserDTO.of(user);
   }
 
