@@ -526,4 +526,23 @@ describe(UserService.name, () => {
       expect(mockCacheService.del).not.toHaveBeenCalled();
     });
   });
+
+  describe(`${UserService.name}.${UserService.prototype.findIdsByRole.name}`, () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('should return the ids of every user holding the role (S17)', async () => {
+      jest.spyOn(userRepository, 'findIdsByRole').mockResolvedValue(['id-1', 'id-2']);
+
+      await expect(service.findIdsByRole(UserRole.USER)).resolves.toEqual(['id-1', 'id-2']);
+      expect(userRepository.findIdsByRole).toHaveBeenCalledWith(UserRole.USER);
+    });
+
+    it('should return an empty list when no user holds the role (S17)', async () => {
+      jest.spyOn(userRepository, 'findIdsByRole').mockResolvedValue([]);
+
+      await expect(service.findIdsByRole(UserRole.VIEWER)).resolves.toEqual([]);
+    });
+  });
 });

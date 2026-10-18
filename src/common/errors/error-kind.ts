@@ -75,6 +75,14 @@ export const ErrorKind = {
     statusCode: 400,
     defaultMessage: 'Validation failed',
   },
+  // ── RBAC (RBAC) ────────────────────────────────────────
+  ROLE_IN_USE: {
+    kind: 'ROLE_IN_USE',
+    group: 'RBAC',
+    code: 'UA-RBAC-001',
+    statusCode: 409,
+    defaultMessage: 'Role is assigned to one or more users',
+  },
   // ── Auth (AUTH) ────────────────────────────────────────
   EMAIL_OR_USERNAME_EXISTS: {
     kind: 'EMAIL_OR_USERNAME_EXISTS',

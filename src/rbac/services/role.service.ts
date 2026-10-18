@@ -2,10 +2,14 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Role } from '../entities/role.entity';
+import { Permission } from '../entities/permission.entity';
 import { UserRole } from '../../user/entities/user.entity';
 import { UserService } from '../../user/service/user.service';
+import { PermissionService } from './permission.service';
 import { AuditAction } from '../../common/audit/audit.decorator';
+import { DomainError } from '../../common/errors/domain.error';
 import { CacheService } from '../../config/cache';
+import { UpdateRoleDTO } from '../dto/update-role.dto';
 
 const ROLE_ALL_KEY = 'rbac:roles:all';
 const ROLE_NAME_PREFIX = 'rbac:roles:name:';
@@ -13,6 +17,23 @@ const ROLE_TTL_MS = 600_000; // 10 minutes
 
 // ── Default permissions per role ──────────────────────
 export const ADMIN_PERMISSIONS = ['*'];
+
+/** Wildcard permission accepted by the catalog validator (the `admin` role uses it). */
+export const WILDCARD_PERMISSION = '*';
+
+/**
+ * Data accepted by `RoleService.create`.
+ *
+ * `isSystem` is not part of the HTTP contract (`CreateRoleDTO` omits it); only
+ * the seeder marks a role as system-defined.
+ */
+export interface CreateRoleInput {
+  name: string;
+  description?: string;
+  permissionIds?: string[];
+  isSystem?: boolean;
+  isDefault?: boolean;
+}
 
 export const USER_PERMISSIONS = ['user:read', 'user:update'];
 
@@ -63,6 +84,7 @@ export class RoleService {
     @InjectModel(Role.name) private roleModel: Model<Role>,
     private readonly cacheService: CacheService,
     private readonly userService: UserService,
+    private readonly permissionService: PermissionService,
   ) {}
 
   async findAll(): Promise<Role[]> {
@@ -149,6 +171,58 @@ export class RoleService {
     return this.roleModel.findById(id).exec();
   }
 
+  /**
+   * Validates role permission ids against the existing permission catalog (S11, S13).
+   *
+   * The wildcard `*` is accepted as-is because the `admin` role is defined with it;
+   * every other name must exist in the catalog. Validation lives in the service
+   * (unlike users) because `RoleService` already has the catalog through
+   * `PermissionService` in the same module, so every writer of `permissionIds`
+   * (`create` and `updatePermissions`) goes through the same guard.
+   *
+   * @throws DomainError VALIDATION_ERROR (UA-COM-005) listing the rejected names.
+   */
+  async assertPermissionsExist(permissionIds: string[]): Promise<string[]> {
+    const deduplicated = [...new Set(permissionIds ?? [])];
+    if (deduplicated.length === 0) {
+      return [];
+    }
+
+    const candidates = deduplicated.filter((permissionId) => permissionId !== WILDCARD_PERMISSION);
+    const catalog =
+      candidates.length > 0 ? await this.permissionService.findByNames(candidates) : [];
+    const known = new Set(
+      catalog.filter((permission): permission is Permission => Boolean(permission)).map((permission) => permission.name),
+    );
+    const rejected = deduplicated.filter(
+      (permissionId) => permissionId !== WILDCARD_PERMISSION && !known.has(permissionId),
+    );
+
+    if (rejected.length > 0) {
+      throw DomainError.fromKind('VALIDATION_ERROR', {
+        message: `Unknown permissions: ${rejected.join(', ')}`,
+      });
+    }
+
+    return deduplicated;
+  }
+
+  /**
+   * Invalidates every role cache entry (list + per-name entries) after a write
+   * that changes an existing role (S15).
+   *
+   * Best-effort: Redis is not the source of truth, so a failed invalidation only
+   * delays the refresh and must not fail an already-applied write.
+   */
+  private async invalidateRoleCaches(operation: string): Promise<void> {
+    try {
+      await this.cacheService.delByPattern('cache:rbac:roles:*');
+      await this.cacheService.del(ROLE_ALL_KEY);
+    } catch {
+      this.logger.debug(`Cache invalidation failed after ${operation}`);
+    }
+  }
+
   @AuditAction({
     action: 'role.create',
     resource: 'role',
@@ -158,8 +232,15 @@ export class RoleService {
       return { roleId: r._id.toString(), name: r.name };
     },
   })
-  async create(roleData: Partial<Role>): Promise<Role> {
-    const role = new this.roleModel(roleData);
+  async create(roleData: CreateRoleInput): Promise<Role> {
+    const existing = await this.findByName(roleData.name);
+    if (existing) {
+      throw DomainError.fromKind('ENTITY_NAME_ALREADY_EXISTS');
+    }
+
+    const permissionIds = await this.assertPermissionsExist(roleData.permissionIds ?? []);
+
+    const role = new this.roleModel({ ...roleData, permissionIds });
     const saved = await role.save();
 
     try {
@@ -170,6 +251,117 @@ export class RoleService {
     }
 
     return saved;
+  }
+
+  /**
+   * Updates the name and/or description of a role (S2, S7).
+   *
+   * A system role cannot be renamed (S4, S9); its description stays editable
+   * because the policy protects the identity of the seeded roles, not their
+   * documentation.
+   *
+   * Renaming to a name that already belongs to another role is rejected with
+   * `ENTITY_NAME_ALREADY_EXISTS` (S16), the same guard `create` uses: without it
+   * the Mongo unique index surfaces as a raw 500 instead of a conflict.
+   *
+   * @throws DomainError ENTITY_NOT_FOUND when the role does not exist.
+   * @throws DomainError FORBIDDEN (UA-SEC-002, 403) when renaming a system role.
+   * @throws DomainError ENTITY_NAME_ALREADY_EXISTS (UA-COM-003, 409) on a name clash.
+   */
+  @AuditAction({
+    action: 'role.update',
+    resource: 'role',
+    getResourceId: (_result, args) => args[0] as string,
+    getBefore: (...args) => ({ roleId: args[0] }),
+    getAfter: (result) => {
+      const r = result as Role | null;
+      if (!r) return undefined;
+      return { roleId: r._id.toString(), name: r.name, description: r.description };
+    },
+  })
+  async update(roleId: string, dto: UpdateRoleDTO): Promise<Role> {
+    const role = await this.findById(roleId);
+    if (!role) {
+      throw DomainError.fromKind('ENTITY_NOT_FOUND');
+    }
+
+    const isRename = dto.name !== undefined && dto.name !== role.name;
+    if (role.isSystem && isRename) {
+      throw DomainError.fromKind('FORBIDDEN', {
+        message: 'System roles cannot be renamed',
+      });
+    }
+
+    if (isRename) {
+      const nameOwner = await this.findByName(dto.name as string);
+      if (nameOwner && nameOwner._id.toString() !== role._id.toString()) {
+        throw DomainError.fromKind('ENTITY_NAME_ALREADY_EXISTS');
+      }
+    }
+
+    const changes: Partial<Role> = {};
+    if (dto.name !== undefined) changes.name = dto.name;
+    if (dto.description !== undefined) changes.description = dto.description;
+
+    const updated = await this.roleModel.findByIdAndUpdate(roleId, changes, { new: true }).exec();
+    if (!updated) {
+      throw DomainError.fromKind('ENTITY_NOT_FOUND');
+    }
+
+    await this.invalidateRoleCaches('role update');
+
+    return updated;
+  }
+
+  /**
+   * Deletes a role (S3, S8).
+   *
+   * A system role is never deletable (S4, S9) and a role still assigned to users
+   * is rejected with `ROLE_IN_USE` (S10, S14) so no user is left pointing at a
+   * dangling role name. User documents are never touched (S15).
+   *
+   * @throws DomainError ENTITY_NOT_FOUND when the role does not exist.
+   * @throws DomainError FORBIDDEN (UA-SEC-002, 403) for a system role.
+   * @throws DomainError ROLE_IN_USE (UA-RBAC-001, 409) when users hold the role.
+   */
+  @AuditAction({
+    action: 'role.delete',
+    resource: 'role',
+    getResourceId: (_result, args) => args[0] as string,
+    getBefore: (...args) => ({ roleId: args[0] }),
+    getAfter: (result) => {
+      const r = result as Role | null;
+      if (!r) return undefined;
+      return { roleId: r._id.toString(), name: r.name };
+    },
+  })
+  async remove(roleId: string): Promise<Role> {
+    const role = await this.findById(roleId);
+    if (!role) {
+      throw DomainError.fromKind('ENTITY_NOT_FOUND');
+    }
+
+    if (role.isSystem) {
+      throw DomainError.fromKind('FORBIDDEN', {
+        message: 'System roles cannot be deleted',
+      });
+    }
+
+    const assignedUserIds = await this.userService.findIdsByRole(role.name as UserRole);
+    if (assignedUserIds.length > 0) {
+      throw DomainError.fromKind('ROLE_IN_USE', {
+        message: `Role ${role.name} is assigned to ${assignedUserIds.length} user(s)`,
+      });
+    }
+
+    const deleted = await this.roleModel.findByIdAndDelete(roleId).exec();
+    if (!deleted) {
+      throw DomainError.fromKind('ENTITY_NOT_FOUND');
+    }
+
+    await this.invalidateRoleCaches('role delete');
+
+    return deleted;
   }
 
   @AuditAction({
@@ -184,7 +376,18 @@ export class RoleService {
     },
   })
   async updatePermissions(roleId: string, permissionIds: string[]): Promise<Role | null> {
-    const updated = await this.roleModel.findByIdAndUpdate(roleId, { permissionIds }, { new: true }).exec();
+    // A missing list must never be read as "clear every permission": the HTTP
+    // boundary rejects it, and this guard protects any other caller.
+    if (!Array.isArray(permissionIds)) {
+      throw DomainError.fromKind('VALIDATION_ERROR', {
+        message: 'permissionIds must be an array',
+      });
+    }
+
+    const validatedPermissionIds = await this.assertPermissionsExist(permissionIds);
+    const updated = await this.roleModel
+      .findByIdAndUpdate(roleId, { permissionIds: validatedPermissionIds }, { new: true })
+      .exec();
 
     if (updated) {
       try {

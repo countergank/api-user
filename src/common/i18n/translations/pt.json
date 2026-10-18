@@ -79,6 +79,7 @@
     "verification_resent": "Se o email existir, um link de verificação foi enviado",
     "account_unlocked": "Conta desbloqueada",
     "user_deleted": "Usuário excluído",
+    "role_deleted": "Rol excluído",
     "logged_out": "Sessão encerrada com sucesso",
     "logged_out_all": "Todas as sessões foram encerradas",
     "translations_reloaded": "Traduções recarregadas do MongoDB"
