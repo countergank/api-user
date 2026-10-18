@@ -13,6 +13,18 @@
       "skillPath": "skills/github-conventions/SKILL.md",
       "computedHash": "17b191f8adfa28ed3d16e77696b7d1b7be7cc7160b9eec6cd1ee893e9b53071c"
     },
+    "kickoff": {
+      "source": "countergank/skills",
+      "sourceType": "github",
+      "skillPath": "skills/kickoff/SKILL.md",
+      "computedHash": "d07024d17f9411fed4637810c1c9b5c5c338dc7fb9c12913950fd10ea69fc60f"
+    },
+    "linear-tickets": {
+      "source": "countergank/skills",
+      "sourceType": "github",
+      "skillPath": "skills/linear-tickets/SKILL.md",
+      "computedHash": "8ca5da2faffc62ce2961cfb99db300677cbd2568da37b4d0fc41a74b26354f23"
+    },
     "nestjs-backend": {
       "source": "countergank/skills",
       "sourceType": "github",
