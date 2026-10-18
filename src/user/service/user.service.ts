@@ -41,6 +41,16 @@ export class UserService {
     await Promise.all(ids.map((id) => this.invalidateUserCache(id)));
   }
 
+  /**
+   * Returns the ids of the users currently assigned to the given role (S17).
+   *
+   * Exposed so `RoleService` can refuse to delete a role still held by users
+   * (S10) without pulling whole user documents just to count them.
+   */
+  async findIdsByRole(role: UserRole): Promise<string[]> {
+    return this.userRepository.findIdsByRole(role);
+  }
+
   @AuditAction({
     action: 'user.create',
     resource: 'user',

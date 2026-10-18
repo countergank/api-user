@@ -83,7 +83,7 @@ const NEW_KINDS: Array<[ErrorKindName, { group: string; code: string; statusCode
 ];
 
 describe('ErrorKind registry — COU-209 new entries', () => {
-  it.each(NEW_KINDS)('%s resolves via DomainError.fromKind with matching kind', (kind, expected) => {
+  it.each(NEW_KINDS)('%s resolves via DomainError.fromKind with matching kind', (kind, _expected) => {
     const error = DomainError.fromKind(kind);
 
     expect(error).toBeInstanceOf(DomainError);
@@ -99,8 +99,13 @@ describe('ErrorKind registry — COU-209 new entries', () => {
     expect(entry.defaultMessage).toBe(expected.defaultMessage);
   });
 
-  it('keeps the registry at 29 kinds (9 pre-existing + 20 new)', () => {
-    expect(Object.keys(ErrorKind)).toHaveLength(29);
+  it('keeps the registry at 30 kinds (9 pre-existing + 20 new + ROLE_IN_USE from COU-269)', () => {
+    expect(Object.keys(ErrorKind)).toHaveLength(30);
+  });
+
+  it('registers ROLE_IN_USE as UA-RBAC-001 (409) for COU-269 (S14)', () => {
+    expect(ErrorKind.ROLE_IN_USE).toMatchObject({ group: 'RBAC', code: 'UA-RBAC-001', statusCode: 409 });
+    expect(DomainError.fromKind('ROLE_IN_USE').kind.kind).toBe('ROLE_IN_USE');
   });
 
   it('keeps every ErrorKind code unique across the whole registry (UA-{GROUP}-{CODE})', () => {

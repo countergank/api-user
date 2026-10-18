@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import { RoleService, mergeEffectivePermissions } from './role.service';
 import { Role } from '../entities/role.entity';
+import { PermissionService } from './permission.service';
 import { UserService } from '../../user/service/user.service';
 import { CacheService } from '../../config/cache';
 
@@ -11,7 +12,9 @@ describe(RoleService.name, () => {
   const mockRoleModel = {
     find: jest.fn(),
     findOne: jest.fn(),
+    findById: jest.fn(),
     findByIdAndUpdate: jest.fn(),
+    findByIdAndDelete: jest.fn(),
     countDocuments: jest.fn(),
     insertMany: jest.fn(),
   };
@@ -25,6 +28,11 @@ describe(RoleService.name, () => {
 
   const mockUserService = {
     invalidateUsersByRole: jest.fn().mockResolvedValue(undefined),
+    findIdsByRole: jest.fn().mockResolvedValue([]),
+  };
+
+  const mockPermissionService = {
+    findByNames: jest.fn().mockResolvedValue([]),
   };
 
   const mockExec = (data: unknown) => ({ exec: jest.fn().mockResolvedValue(data) });
@@ -43,12 +51,27 @@ describe(RoleService.name, () => {
   beforeEach(async () => {
     jest.resetAllMocks();
 
+    // `resetAllMocks` clears the module-level defaults above, so re-arm the ones
+    // the happy paths rely on (an empty permission catalog and no assigned users).
+    mockCacheService.set.mockResolvedValue(undefined);
+    mockCacheService.del.mockResolvedValue(undefined);
+    mockCacheService.delByPattern.mockResolvedValue(0);
+    mockUserService.invalidateUsersByRole.mockResolvedValue(undefined);
+    mockUserService.findIdsByRole.mockResolvedValue([]);
+    // Default catalog: every requested name exists. Tests about rejected names
+    // override this with an explicit `[null]` answer.
+    mockPermissionService.findByNames.mockImplementation((names: string[]) =>
+      Promise.resolve(names.map((name) => ({ name }))),
+    );
+    mockRoleModel.findOne.mockReturnValue(mockExec(null));
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RoleService,
         { provide: getModelToken(Role.name), useValue: mockRoleModel },
         { provide: CacheService, useValue: mockCacheService },
         { provide: UserService, useValue: mockUserService },
+        { provide: PermissionService, useValue: mockPermissionService },
       ],
     }).compile();
 
@@ -259,6 +282,8 @@ describe(RoleService.name, () => {
       const mockInstance = {
         save: jest.fn().mockResolvedValue(mockRoleDoc({ name: 'moderator' })),
       };
+      mockCacheService.get.mockResolvedValue(undefined);
+      mockRoleModel.findOne.mockReturnValue(mockExec(null));
 
       // Override the roleModel constructor behavior for this test
       const ModuleWithMock = await Test.createTestingModule({
@@ -273,6 +298,7 @@ describe(RoleService.name, () => {
           },
           { provide: CacheService, useValue: mockCacheService },
           { provide: UserService, useValue: mockUserService },
+          { provide: PermissionService, useValue: mockPermissionService },
         ],
       }).compile();
 
@@ -281,6 +307,18 @@ describe(RoleService.name, () => {
 
       expect(mockCacheService.delByPattern).toHaveBeenCalledWith('cache:rbac:roles:name:*');
       expect(mockCacheService.del).toHaveBeenCalledWith('rbac:roles:all');
+    });
+  });
+
+  describe(`${RoleService.name}.updatePermissions body guard`, () => {
+    it('rejects a missing permissionIds array instead of clearing the role (S13)', async () => {
+      await expect(service.updatePermissions('role-id-1', undefined as unknown as string[])).rejects.toEqual(
+        expect.objectContaining({
+          kind: expect.objectContaining({ kind: 'VALIDATION_ERROR', code: 'UA-COM-005' }),
+        }),
+      );
+
+      expect(mockRoleModel.findByIdAndUpdate).not.toHaveBeenCalled();
     });
   });
 
@@ -330,6 +368,325 @@ describe(RoleService.name, () => {
 
       expect(result).toEqual(updatedRole);
       expect(mockRoleModel.findByIdAndUpdate).toHaveBeenCalled();
+    });
+  });
+
+  describe(`${RoleService.name}.assertPermissionsExist`, () => {
+    it('accepts the `*` wildcard without consulting the catalog', async () => {
+      await expect(service.assertPermissionsExist(['*'])).resolves.toEqual(['*']);
+
+      expect(mockPermissionService.findByNames).not.toHaveBeenCalled();
+    });
+
+    it('accepts permissions present in the catalog', async () => {
+      mockPermissionService.findByNames.mockResolvedValue([
+        { name: 'user:read' },
+        { name: 'audit:read' },
+      ]);
+
+      await expect(service.assertPermissionsExist(['user:read', 'audit:read'])).resolves.toEqual([
+        'user:read',
+        'audit:read',
+      ]);
+      expect(mockPermissionService.findByNames).toHaveBeenCalledWith(['user:read', 'audit:read']);
+    });
+
+    it('accepts the wildcard mixed with catalog names', async () => {
+      mockPermissionService.findByNames.mockResolvedValue([{ name: 'user:read' }]);
+
+      await expect(service.assertPermissionsExist(['*', 'user:read'])).resolves.toEqual(['*', 'user:read']);
+      expect(mockPermissionService.findByNames).toHaveBeenCalledWith(['user:read']);
+    });
+
+    it('rejects a permission missing from the catalog with VALIDATION_ERROR (S11, S13)', async () => {
+      mockPermissionService.findByNames.mockResolvedValue([null]);
+
+      await expect(service.assertPermissionsExist(['user:nope'])).rejects.toEqual(
+        expect.objectContaining({
+          kind: expect.objectContaining({
+            kind: 'VALIDATION_ERROR',
+            code: 'UA-COM-005',
+            statusCode: 400,
+          }),
+        }),
+      );
+    });
+
+    it('lists every rejected name in the error message', async () => {
+      mockPermissionService.findByNames.mockResolvedValue([{ name: 'user:read' }, null]);
+
+      await expect(service.assertPermissionsExist(['user:read', 'user:nope'])).rejects.toThrow(
+        /Unknown permissions: user:nope/,
+      );
+    });
+
+    it('deduplicates the accepted names preserving order', async () => {
+      mockPermissionService.findByNames.mockResolvedValue([{ name: 'user:read' }]);
+
+      await expect(service.assertPermissionsExist(['user:read', 'user:read'])).resolves.toEqual(['user:read']);
+    });
+
+    it('returns an empty list without querying the catalog for empty input', async () => {
+      await expect(service.assertPermissionsExist([])).resolves.toEqual([]);
+
+      expect(mockPermissionService.findByNames).not.toHaveBeenCalled();
+    });
+  });
+
+  describe(`${RoleService.name}.updatePermissions validation`, () => {
+    it('rejects an unknown permission before touching the database (S13)', async () => {
+      mockPermissionService.findByNames.mockResolvedValue([null]);
+
+      await expect(service.updatePermissions('role-id-1', ['user:nope'])).rejects.toEqual(
+        expect.objectContaining({ kind: expect.objectContaining({
+          kind: 'VALIDATION_ERROR',
+          code: 'UA-COM-005',
+          statusCode: 400,
+        }) }),
+      );
+      expect(mockRoleModel.findByIdAndUpdate).not.toHaveBeenCalled();
+    });
+
+    it('persists the wildcard permission used by the admin role', async () => {
+      const updatedRole = mockRoleDoc({ name: 'admin', permissionIds: ['*'] });
+      mockRoleModel.findByIdAndUpdate.mockReturnValue(mockExec(updatedRole));
+
+      await service.updatePermissions('role-id-1', ['*']);
+
+      expect(mockRoleModel.findByIdAndUpdate).toHaveBeenCalledWith('role-id-1', { permissionIds: ['*'] }, { new: true });
+    });
+  });
+
+  describe(`${RoleService.name}.create validation`, () => {
+    it('rejects a duplicate role name with ENTITY_NAME_ALREADY_EXISTS (S6)', async () => {
+      mockCacheService.get.mockResolvedValue(undefined);
+      mockRoleModel.findOne.mockReturnValue(mockExec(mockRoleDoc({ name: 'moderator' })));
+      const save = jest.fn();
+      const ModelCtor = Object.assign(jest.fn(), {
+        find: mockRoleModel.find,
+        findOne: mockRoleModel.findOne,
+      });
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          RoleService,
+          { provide: getModelToken(Role.name), useValue: ModelCtor },
+          { provide: CacheService, useValue: mockCacheService },
+          { provide: UserService, useValue: mockUserService },
+          { provide: PermissionService, useValue: mockPermissionService },
+        ],
+      }).compile();
+
+      await expect(
+        module.get<RoleService>(RoleService).create({ name: 'moderator', description: 'Moderator' }),
+      ).rejects.toEqual(
+        expect.objectContaining({
+          kind: expect.objectContaining({
+            kind: 'ENTITY_NAME_ALREADY_EXISTS',
+            code: 'UA-COM-003',
+            statusCode: 409,
+          }),
+        }),
+      );
+      expect(save).not.toHaveBeenCalled();
+    });
+
+    it('rejects permission ids missing from the catalog before saving (S11)', async () => {
+      mockCacheService.get.mockResolvedValue(undefined);
+      mockRoleModel.findOne.mockReturnValue(mockExec(null));
+      mockPermissionService.findByNames.mockResolvedValue([null]);
+      const save = jest.fn();
+      const ModuleWithMock = await Test.createTestingModule({
+        providers: [
+          RoleService,
+          {
+            provide: getModelToken(Role.name),
+            useValue: Object.assign(jest.fn().mockImplementation(() => ({ save })), {
+              find: mockRoleModel.find,
+              findOne: mockRoleModel.findOne,
+            }),
+          },
+          { provide: CacheService, useValue: mockCacheService },
+          { provide: UserService, useValue: mockUserService },
+          { provide: PermissionService, useValue: mockPermissionService },
+        ],
+      }).compile();
+
+      await expect(
+        ModuleWithMock.get<RoleService>(RoleService).create({
+          name: 'moderator',
+          permissionIds: ['user:nope'],
+        }),
+      ).rejects.toEqual(
+        expect.objectContaining({ kind: expect.objectContaining({ kind: 'VALIDATION_ERROR' }) }),
+      );
+      expect(save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe(`${RoleService.name}.update`, () => {
+    it('updates name and description of a non-system role (S7)', async () => {
+      const current = mockRoleDoc({ name: 'moderator', isSystem: false });
+      const updated = mockRoleDoc({ name: 'moderator-v2', description: 'Renamed', isSystem: false });
+      mockRoleModel.findById.mockReturnValue(mockExec(current));
+      mockRoleModel.findByIdAndUpdate.mockReturnValue(mockExec(updated));
+
+      const result = await service.update('role-id-1', { name: 'moderator-v2', description: 'Renamed' });
+
+      expect(result).toEqual(updated);
+      expect(mockRoleModel.findByIdAndUpdate).toHaveBeenCalledWith(
+        'role-id-1',
+        { name: 'moderator-v2', description: 'Renamed' },
+        { new: true },
+      );
+    });
+
+    it('invalidates the role caches after a successful update', async () => {
+      mockRoleModel.findById.mockReturnValue(mockExec(mockRoleDoc({ name: 'moderator', isSystem: false })));
+      mockRoleModel.findByIdAndUpdate.mockReturnValue(mockExec(mockRoleDoc({ name: 'moderator-v2' })));
+
+      await service.update('role-id-1', { name: 'moderator-v2' });
+
+      expect(mockCacheService.delByPattern).toHaveBeenCalledWith('cache:rbac:roles:*');
+      expect(mockCacheService.del).toHaveBeenCalledWith('rbac:roles:all');
+    });
+
+    it('rejects renaming to an already-existing name with ENTITY_NAME_ALREADY_EXISTS (S16)', async () => {
+      const current = mockRoleDoc({ name: 'moderator', isSystem: false });
+      const conflicting = mockRoleDoc({ _id: { toString: () => 'role-id-2' }, name: 'viewer', isSystem: false });
+      mockRoleModel.findById.mockReturnValue(mockExec(current));
+      mockRoleModel.findOne.mockReturnValue(mockExec(conflicting));
+      mockRoleModel.findByIdAndUpdate.mockReturnValue(mockExec(conflicting));
+
+      await expect(service.update('role-id-1', { name: 'viewer' })).rejects.toEqual(
+        expect.objectContaining({
+          kind: expect.objectContaining({
+            kind: 'ENTITY_NAME_ALREADY_EXISTS',
+            code: 'UA-COM-003',
+            statusCode: 409,
+          }),
+        }),
+      );
+      expect(mockRoleModel.findByIdAndUpdate).not.toHaveBeenCalled();
+    });
+
+    it('does not consult the name catalog when the name is unchanged (S16)', async () => {
+      const current = mockRoleDoc({ name: 'moderator', isSystem: false });
+      mockRoleModel.findById.mockReturnValue(mockExec(current));
+      mockRoleModel.findByIdAndUpdate.mockReturnValue(mockExec(current));
+
+      await expect(service.update('role-id-1', { name: 'moderator', description: 'Same name' })).resolves.toEqual(
+        current,
+      );
+      expect(mockRoleModel.findOne).not.toHaveBeenCalled();
+    });
+
+    it('rejects renaming a system role with FORBIDDEN (S4, S9)', async () => {
+      mockRoleModel.findById.mockReturnValue(mockExec(mockRoleDoc({ name: 'admin', isSystem: true })));
+
+      await expect(service.update('role-id-1', { name: 'superadmin' })).rejects.toEqual(
+        expect.objectContaining({
+          kind: expect.objectContaining({
+            kind: 'FORBIDDEN',
+            code: 'UA-SEC-002',
+            statusCode: 403,
+          }),
+        }),
+      );
+      expect(mockRoleModel.findByIdAndUpdate).not.toHaveBeenCalled();
+    });
+
+    it('allows updating only the description of a system role', async () => {
+      const current = mockRoleDoc({ name: 'admin', isSystem: true });
+      const updated = mockRoleDoc({ name: 'admin', description: 'Full access', isSystem: true });
+      mockRoleModel.findById.mockReturnValue(mockExec(current));
+      mockRoleModel.findByIdAndUpdate.mockReturnValue(mockExec(updated));
+
+      await expect(service.update('role-id-1', { description: 'Full access' })).resolves.toEqual(updated);
+    });
+
+    it('throws ENTITY_NOT_FOUND for an unknown role id', async () => {
+      mockRoleModel.findById.mockReturnValue(mockExec(null));
+
+      await expect(service.update('missing', { name: 'whatever' })).rejects.toEqual(
+        expect.objectContaining({ kind: expect.objectContaining({ kind: 'ENTITY_NOT_FOUND', statusCode: 404 }) }),
+      );
+      expect(mockRoleModel.findByIdAndUpdate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe(`${RoleService.name}.remove`, () => {
+    it('deletes a non-system role without assigned users (S8)', async () => {
+      const role = mockRoleDoc({ name: 'moderator', isSystem: false });
+      mockRoleModel.findById.mockReturnValue(mockExec(role));
+      mockRoleModel.findByIdAndDelete.mockReturnValue(mockExec(role));
+      mockUserService.findIdsByRole.mockResolvedValue([]);
+
+      await expect(service.remove('role-id-1')).resolves.toEqual(role);
+      expect(mockUserService.findIdsByRole).toHaveBeenCalledWith('moderator');
+      expect(mockRoleModel.findByIdAndDelete).toHaveBeenCalledWith('role-id-1');
+    });
+
+    it('invalidates role caches after deleting (S15)', async () => {
+      const role = mockRoleDoc({ name: 'moderator', isSystem: false });
+      mockRoleModel.findById.mockReturnValue(mockExec(role));
+      mockRoleModel.findByIdAndDelete.mockReturnValue(mockExec(role));
+      mockUserService.findIdsByRole.mockResolvedValue([]);
+
+      await service.remove('role-id-1');
+
+      expect(mockCacheService.delByPattern).toHaveBeenCalledWith('cache:rbac:roles:*');
+      expect(mockCacheService.del).toHaveBeenCalledWith('rbac:roles:all');
+    });
+
+    it('does not touch user documents on delete (S15)', async () => {
+      const role = mockRoleDoc({ name: 'moderator', isSystem: false });
+      mockRoleModel.findById.mockReturnValue(mockExec(role));
+      mockRoleModel.findByIdAndDelete.mockReturnValue(mockExec(role));
+      mockUserService.findIdsByRole.mockResolvedValue([]);
+
+      await service.remove('role-id-1');
+
+      expect(mockUserService.invalidateUsersByRole).not.toHaveBeenCalled();
+    });
+
+    it('rejects deleting a system role with FORBIDDEN (S4, S9)', async () => {
+      mockRoleModel.findById.mockReturnValue(mockExec(mockRoleDoc({ name: 'admin', isSystem: true })));
+
+      await expect(service.remove('role-id-1')).rejects.toEqual(
+        expect.objectContaining({
+          kind: expect.objectContaining({
+            kind: 'FORBIDDEN',
+            code: 'UA-SEC-002',
+            statusCode: 403,
+          }),
+        }),
+      );
+      expect(mockRoleModel.findByIdAndDelete).not.toHaveBeenCalled();
+    });
+
+    it('rejects deleting a role with assigned users with ROLE_IN_USE (S10, S14)', async () => {
+      mockRoleModel.findById.mockReturnValue(mockExec(mockRoleDoc({ name: 'moderator', isSystem: false })));
+      mockUserService.findIdsByRole.mockResolvedValue(['user-1']);
+
+      await expect(service.remove('role-id-1')).rejects.toEqual(
+        expect.objectContaining({
+          kind: expect.objectContaining({
+            kind: 'ROLE_IN_USE',
+            code: 'UA-RBAC-001',
+            statusCode: 409,
+          }),
+        }),
+      );
+      expect(mockRoleModel.findByIdAndDelete).not.toHaveBeenCalled();
+    });
+
+    it('throws ENTITY_NOT_FOUND for an unknown role id', async () => {
+      mockRoleModel.findById.mockReturnValue(mockExec(null));
+
+      await expect(service.remove('missing')).rejects.toEqual(
+        expect.objectContaining({ kind: expect.objectContaining({ kind: 'ENTITY_NOT_FOUND', statusCode: 404 }) }),
+      );
+      expect(mockRoleModel.findByIdAndDelete).not.toHaveBeenCalled();
     });
   });
 
