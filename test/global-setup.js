@@ -1,9 +1,6 @@
 const { MongoClient } = require('mongodb');
 const Redis = require('ioredis');
-
-// globalSetup runs BEFORE setupFiles, so jest.setup.ts env vars aren't available yet.
-// Use the docker-compose MongoDB defaults (no auth on local dev).
-const MONGO_URI = 'mongodb://dev_user:dev_password@localhost:27017/api_user?directConnection=true&authSource=admin';
+const { loadTestEnv, getTestMongoUri } = require('./helpers/test-env');
 
 const DEFAULT_PERMISSIONS = [
   { name: 'user:create', description: 'Create users', category: 'user' },
@@ -37,6 +34,15 @@ const DEFAULT_ROLES = [
 ];
 
 module.exports = async function () {
+  // globalSetup runs BEFORE setupFiles, so resolve the same environment the app
+  // under test will use (`.env.local.testing` locally, CI-safe defaults in CI)
+  // instead of hardcoding the development database.
+  const envFile = loadTestEnv();
+  const mongoUri = getTestMongoUri();
+  console.log(
+    `[global-setup] Target database "${process.env.DATABASE_NAME}" on ${process.env.DATABASE_HOST}:${process.env.DATABASE_PORT} (env file: ${envFile ?? 'none, using defaults'})`,
+  );
+
   // Flush Redis cache so stale cached data from previous runs doesn't mask
   // freshly seeded DB state (e.g. empty permissions/roles arrays cached by a
   // prior e2e run).
@@ -50,7 +56,7 @@ module.exports = async function () {
     redis.disconnect();
   }
 
-  const client = new MongoClient(MONGO_URI, { serverSelectionTimeoutMS: 10000 });
+  const client = new MongoClient(mongoUri, { serverSelectionTimeoutMS: 10000 });
 
   try {
     await client.connect();
