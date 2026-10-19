@@ -196,20 +196,33 @@ describe('Email change with identity code and revert (e2e)', () => {
     });
 
     it('answers 410 once the 72-hour window has passed (S5)', async () => {
+      // R3-1: this case builds its own user document instead of mutating the one
+      // the journey uses, so it stays independent and cannot break the
+      // idempotency test that replays the real revert token afterwards.
       const userModel = app.get<Model<User>>(getModelToken(User.name));
-      const pending = await userModel.findOne({ email: testUser.email }).exec();
-      expect(pending).not.toBeNull();
+      const expiredToken = `expired-revert-${suffix}`;
 
-      await userModel
-        .updateOne({ _id: pending?._id }, { emailRevertToken: 'expired-token-e2e', previousEmail: 'gone@example.com', emailRevertExpires: new Date(Date.now() - 1000) })
-        .exec();
+      await userModel.create({
+        name: 'Expired',
+        lastName: 'Window',
+        email: `expired-window-${suffix}@example.com`,
+        userName: `expired-window-${suffix}`,
+        password: 'not-a-real-hash',
+        previousEmail: 'gone@example.com',
+        emailRevertToken: expiredToken,
+        emailRevertExpires: new Date(Date.now() - 1000),
+      });
 
       const response = await request(app.getHttpServer())
         .post('/auth/revert-email-change')
-        .send({ token: 'expired-token-e2e' })
+        .send({ token: expiredToken })
         .expect(410);
 
       expect(response.body).toMatchObject({ code: 'UA-AUTH-011', statusCode: 410 });
+
+      // The journey's own user is untouched by this case.
+      const journeyUser = await findUserDocument(app, { email: testUser.email });
+      expect(journeyUser?.emailRevertToken).toBe(revertToken);
     });
 
     it('keeps the sessions of the reverted identity dead', async () => {
