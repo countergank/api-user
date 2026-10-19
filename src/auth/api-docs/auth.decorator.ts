@@ -28,6 +28,8 @@ import {
   ResendVerificationResponse,
   ChangeEmailRequest,
   ChangeEmailResponse,
+  RevertEmailChangeRequest,
+  RevertEmailChangeResponse,
 } from './examples/verification.examples';
 
 const RateLimitResponse = {
@@ -294,6 +296,34 @@ export function ApplyResendVerificationDoc() {
     ApiBody({
       schema: {
         $ref: getSchemaPath(ResendVerificationRequest),
+      },
+    }),
+  );
+}
+
+export function ApplyRevertEmailChangeDoc() {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Revertir cambio de email',
+      description:
+        'Revierte el cambio de email usando el token enviado al email anterior. No requiere access token: el token es la prueba de identidad. Dentro de las 72 h revierte el cambio y revoca las sesiones; fuera de la ventana responde 410. Repetir la llamada con el mismo token es idempotente (200).',
+    }),
+    ApiExtraModels(RevertEmailChangeRequest, RevertEmailChangeResponse),
+    ApiResponse({
+      status: 200,
+      description: 'Cambio de email revertido (o ya revertido previamente)',
+      schema: {
+        $ref: getSchemaPath(RevertEmailChangeResponse),
+      },
+    }),
+    ApiBadRequestResponse({ description: 'Token ausente o inválido', type: BadRequestDTO }),
+    ApiUnauthorizedResponse({ description: 'Token de reversión desconocido' }),
+    ApiResponse({ status: 410, description: 'La ventana de reversión de 72 h expiró' }),
+    ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
+    ApiResponse(RateLimitResponse),
+    ApiBody({
+      schema: {
+        $ref: getSchemaPath(RevertEmailChangeRequest),
       },
     }),
   );

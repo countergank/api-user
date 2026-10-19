@@ -16,7 +16,7 @@ import { InternalErrorDTO } from '../../common/dto/internal-error.dto';
 import { GetProfileResponse } from './examples/get-profile.response';
 import { UpdateProfileRequest } from './examples/update-profile.request';
 import { ChangePasswordRequest, ChangePasswordResponse } from './examples/change-password.request';
-import { ChangeEmailRequest, ChangeEmailResponse } from '../../auth/api-docs/examples/verification.examples';
+import { ChangeEmailRequest, ChangeEmailResponse, RequestEmailChangeCodeResponse } from '../../auth/api-docs/examples/verification.examples';
 
 export function ApplyGetProfileDoc() {
   return applyDecorators(
@@ -94,25 +94,48 @@ export function ApplyChangeEmailDoc() {
   return applyDecorators(
     ApiOperation({
       summary: 'Cambiar email',
-      description: 'Solicita el cambio de email. Se envía un email de confirmación a la nueva dirección.',
+      description:
+        'Solicita el cambio de email con la prueba de identidad: el email no cambia todavía. Requiere el código de 6 dígitos enviado al email actual; un código ausente responde 400 y uno incorrecto, vencido o agotado responde 401. Al confirmar desde el email nuevo se aplica el cambio, se revocan las sesiones y se notifica a ambas direcciones.',
     }),
     ApiBearerAuth(),
     ApiExtraModels(ChangeEmailRequest, ChangeEmailResponse),
     ApiResponse({
       status: 200,
-      description: 'Email de confirmación enviado',
+      description: 'Email de confirmación enviado a la nueva dirección',
       schema: {
         $ref: getSchemaPath(ChangeEmailResponse),
       },
     }),
     ApiConflictResponse({ description: 'El email ya está en uso' }),
-    ApiUnauthorizedResponse({ description: 'No autenticado' }),
-    ApiBadRequestResponse({ description: 'Datos inválidos', type: BadRequestDTO }),
+    ApiUnauthorizedResponse({ description: 'No autenticado o código de verificación inválido' }),
+    ApiBadRequestResponse({ description: 'Datos inválidos o el email es el actual', type: BadRequestDTO }),
     ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
     ApiBody({
       schema: {
         $ref: getSchemaPath(ChangeEmailRequest),
       },
     }),
+  );
+}
+
+export function ApplyRequestEmailChangeCodeDoc() {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Solicitar código de cambio de email',
+      description:
+        'Envía un código de 6 dígitos al email actual como prueba de identidad. Vale 10 minutos, admite 5 intentos, es de un solo uso y sólo puede reenviarse después de 60 segundos. El código nunca viaja en la respuesta.',
+    }),
+    ApiBearerAuth(),
+    ApiExtraModels(RequestEmailChangeCodeResponse),
+    ApiResponse({
+      status: 200,
+      description: 'Código de verificación enviado al email actual',
+      schema: {
+        $ref: getSchemaPath(RequestEmailChangeCodeResponse),
+      },
+    }),
+    ApiUnauthorizedResponse({ description: 'No autenticado' }),
+    ApiBadRequestResponse({ description: 'Ya se envió un código hace menos de 60 segundos', type: BadRequestDTO }),
+    ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
   );
 }

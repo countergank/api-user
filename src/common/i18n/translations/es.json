@@ -34,7 +34,9 @@
     "PARAMETER_NOT_FOUND": "Parámetro no encontrado",
     "PARAMETER_OVERRIDDEN": "El parámetro está sobrescrito por la variable de entorno",
     "PARAMETER_VALUE_INVALID": "Valor inválido para el parámetro",
-    "MICROSERVICE_UNAVAILABLE": "Microservicio no disponible"
+    "MICROSERVICE_UNAVAILABLE": "Microservicio no disponible",
+    "INVALID_EMAIL_CHANGE_CODE": "Código de cambio de email inválido o vencido",
+    "EMAIL_REVERT_WINDOW_EXPIRED": "La ventana de reversión del email expiró"
   },
   "validation": {
     "IS_EMAIL": "debe ser un email válido",
@@ -65,7 +67,10 @@
     "welcome_subject": "¡Bienvenido {{userName}} — Verifica tu cuenta",
     "password_reset_subject": "Recuperación de contraseña",
     "email_change_subject": "Confirmación de cambio de email",
-    "password_changed_subject": "Tu contraseña fue cambiada"
+    "password_changed_subject": "Tu contraseña fue cambiada",
+    "email_change_code_subject": "Tu código de verificación para cambiar el email",
+    "email_change_old_notice_subject": "El email de tu cuenta fue cambiado",
+    "email_change_reverted_subject": "El cambio de email fue revertido"
   },
   "messages": {
     "welcome": "¡Bienvenido, {{username}}!",
@@ -83,7 +88,9 @@
     "role_deleted": "Rol eliminado",
     "logged_out": "Sesión cerrada exitosamente",
     "logged_out_all": "Se cerraron todas las sesiones",
-    "translations_reloaded": "Traducciones recargadas desde MongoDB"
+    "translations_reloaded": "Traducciones recargadas desde MongoDB",
+    "email_change_code_sent": "Código de verificación enviado al email actual",
+    "email_change_reverted": "Cambio de email revertido exitosamente"
   },
   "rbac": {
     "admin": "Administrador con acceso total",

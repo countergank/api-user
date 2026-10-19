@@ -136,6 +136,92 @@ describe(EmailListener.name, () => {
     });
   });
 
+  describe('handleEmailChangeCodeRequested', () => {
+    it('should send the six digit code to the address the account already has', async () => {
+      await listener.handleEmailChangeCodeRequested({
+        userId: 'user-1',
+        email: 'current@example.com',
+        name: 'John',
+        code: '654321',
+        expiresAt: new Date(),
+        lang: 'en',
+      });
+
+      expect(mockEmailService.sendBySlug).toHaveBeenCalledWith(
+        'email-change-code',
+        'current@example.com',
+        {
+          userName: 'John',
+          code: '654321',
+        },
+        'en',
+      );
+    });
+
+    it('should never log the code when the delivery fails (S8)', async () => {
+      const errorSpy = jest.spyOn(
+        (listener as unknown as { logger: { error: (message: string) => void } }).logger,
+        'error',
+      );
+      mockEmailService.sendBySlug.mockRejectedValueOnce(new Error('smtp down'));
+
+      await listener.handleEmailChangeCodeRequested({
+        userId: 'user-1',
+        email: 'current@example.com',
+        name: 'John',
+        code: '654321',
+        expiresAt: new Date(),
+        lang: 'en',
+      });
+
+      const logged = errorSpy.mock.calls.map((call) => String(call[0])).join(' ');
+      expect(logged).toContain('current@example.com');
+      expect(logged).not.toContain('654321');
+    });
+  });
+
+  describe('handleEmailChangeRequestedOld', () => {
+    it('should send the revert link to the previous address (S12, S13)', async () => {
+      await listener.handleEmailChangeRequestedOld({
+        userId: 'user-1',
+        previousEmail: 'old@example.com',
+        newEmail: 'new@example.com',
+        name: 'John',
+        revertToken: 'revert123',
+        lang: 'es',
+      });
+
+      expect(mockEmailService.sendBySlug).toHaveBeenCalledWith(
+        'email-change-old-notice',
+        'old@example.com',
+        {
+          userName: 'John',
+          newEmail: 'new@example.com',
+          revertLink: 'https://app.example.com/revert-email-change?token=revert123',
+        },
+        'es',
+      );
+    });
+  });
+
+  describe('handleEmailChangeReverted', () => {
+    it('should notify the given address that the change was reverted', async () => {
+      await listener.handleEmailChangeReverted({
+        userId: 'user-1',
+        email: 'old@example.com',
+        name: 'John',
+        lang: 'pt',
+      });
+
+      expect(mockEmailService.sendBySlug).toHaveBeenCalledWith(
+        'email-change-reverted',
+        'old@example.com',
+        { userName: 'John' },
+        'pt',
+      );
+    });
+  });
+
   describe('handleResendVerification', () => {
     it('should resend verification email with link using frontendUrl from AppConfigService', async () => {
       await listener.handleResendVerification({

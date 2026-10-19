@@ -2,8 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { EmailEvents } from '../constants/email.events';
 import {
+  EmailChangeCodeRequestedEvent,
   EmailChangeConfirmedEvent,
   EmailChangeRequestedEvent,
+  EmailChangeRequestedOldEvent,
+  EmailChangeRevertedEvent,
   ForgotPasswordEvent,
   PasswordChangedEvent,
   ResendVerificationEvent,
@@ -104,6 +107,61 @@ export class EmailListener {
       );
     } catch (error) {
       this.logger.error(`Failed to send email change notification to ${payload.email}: ${(error as Error).message}`);
+    }
+  }
+
+  @OnEvent(EmailEvents.EMAIL_CHANGE_CODE_REQUESTED)
+  async handleEmailChangeCodeRequested(payload: EmailChangeCodeRequestedEvent): Promise<void> {
+    try {
+      await this.emailService.sendBySlug(
+        'email-change-code',
+        payload.email,
+        {
+          userName: payload.name,
+          code: payload.code,
+        },
+        payload.lang,
+      );
+    } catch (error) {
+      // S8: the code never reaches the logs — only the recipient is named.
+      this.logger.error(`Failed to send email change code to ${payload.email}: ${(error as Error).message}`);
+    }
+  }
+
+  @OnEvent(EmailEvents.EMAIL_CHANGE_REQUESTED_OLD)
+  async handleEmailChangeRequestedOld(payload: EmailChangeRequestedOldEvent): Promise<void> {
+    try {
+      const revertLink = `${this.config.frontendUrl}/revert-email-change?token=${payload.revertToken}`;
+      await this.emailService.sendBySlug(
+        'email-change-old-notice',
+        payload.previousEmail,
+        {
+          userName: payload.name,
+          newEmail: payload.newEmail,
+          revertLink,
+        },
+        payload.lang,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to send email change notice to ${payload.previousEmail}: ${(error as Error).message}`,
+      );
+    }
+  }
+
+  @OnEvent(EmailEvents.EMAIL_CHANGE_REVERTED)
+  async handleEmailChangeReverted(payload: EmailChangeRevertedEvent): Promise<void> {
+    try {
+      await this.emailService.sendBySlug(
+        'email-change-reverted',
+        payload.email,
+        {
+          userName: payload.name,
+        },
+        payload.lang,
+      );
+    } catch (error) {
+      this.logger.error(`Failed to send email revert notification to ${payload.email}: ${(error as Error).message}`);
     }
   }
 

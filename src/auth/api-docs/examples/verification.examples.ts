@@ -36,6 +36,9 @@ export class ResendVerificationResponse {
 export class ChangeEmailRequest {
   @ApiProperty({ example: 'newemail@example.com', description: 'Nuevo email para la cuenta' })
   email: string;
+
+  @ApiProperty({ example: '123456', description: 'Código de 6 dígitos enviado al email actual' })
+  code: string;
 }
 
 export class ChangeEmailResponse {
@@ -43,5 +46,26 @@ export class ChangeEmailResponse {
     example: 'Confirmation email sent to the new address',
     description: 'Mensaje de confirmación',
   })
+  message: string;
+}
+
+export class RequestEmailChangeCodeResponse {
+  @ApiProperty({
+    example: 'Verification code sent to the current address',
+    description: 'Mensaje de confirmación (el código nunca viaja en la respuesta)',
+  })
+  message: string;
+}
+
+export class RevertEmailChangeRequest {
+  @ApiProperty({
+    example: 'f1f1f1f1-0000-4444-8888-abcdefabcdef',
+    description: 'Token de reversión enviado al email anterior',
+  })
+  token: string;
+}
+
+export class RevertEmailChangeResponse {
+  @ApiProperty({ example: 'Email change reverted successfully', description: 'Mensaje de confirmación' })
   message: string;
 }

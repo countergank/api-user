@@ -16,11 +16,13 @@ import {
   ApplyRegisterDoc,
   ApplyResendVerificationDoc,
   ApplyResetPasswordDoc,
+  ApplyRevertEmailChangeDoc,
   ApplyVerifyEmailDoc,
 } from './api-docs';
 import { AuthService } from './auth.service';
 import { MeResponseDTO } from './dto/me-response.dto';
 import { RegisterUserDTO } from './dto/register-user.dto';
+import { RevertEmailChangeDTO } from './dto/revert-email-change.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @ApiTags('auth')
@@ -127,6 +129,21 @@ export class AuthController {
   async confirmEmailChange(@Body() body: { token: string }, @RequestLang() lang: string | undefined) {
     await this.authService.confirmEmailChange(body.token, lang);
     return { message: await this.t('messages.email_changed', lang) };
+  }
+
+  @Post('revert-email-change')
+  @HttpCode(200)
+  @ApplyRevertEmailChangeDoc()
+  @AuditAction({
+    action: 'auth.revert-email-change',
+    resource: 'auth',
+    // The token is the proof of identity, so it is never audited.
+    getBefore: () => ({ emailChangeReverted: true }),
+  })
+  async revertEmailChange(@Body() dto: RevertEmailChangeDTO, @RequestLang() lang: string | undefined) {
+    // S17: no JWT guard — the token sent to the previous address is the proof.
+    await this.authService.revertEmailChange(dto.token, lang);
+    return { message: await this.t('messages.email_change_reverted', lang) };
   }
 
   @Post('resend-verification')

@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { createTestApp } from '../../helpers/create-test-app';
+import { clearEmailChangeCodeThrottle, requestEmailChangeCode } from '../../helpers/email-change-code';
 
 describe('UserProfile (e2e)', () => {
   let app: INestApplication;
@@ -106,14 +107,36 @@ describe('UserProfile (e2e)', () => {
   describe('/users/change-email (POST)', () => {
     const newEmail = `changed-${Date.now()}@example.com`;
 
-    it('should initiate email change and return 200', async () => {
-      const response = await request(app.getHttpServer())
+    it('should reject the change without the identity proof code (S1)', async () => {
+      await request(app.getHttpServer())
         .post('/users/change-email')
         .set('Authorization', `Bearer ${token}`)
         .send({ email: newEmail })
+        .expect(400);
+    });
+
+    it('should initiate email change with the code sent to the current address and return 200', async () => {
+      const code = await requestEmailChangeCode(app, token);
+
+      const response = await request(app.getHttpServer())
+        .post('/users/change-email')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ email: newEmail, code })
         .expect(200);
 
       expect(response.body).toHaveProperty('message');
+      expect(JSON.stringify(response.body)).not.toContain(code);
+    });
+
+    it('should reject change-email to the current email with 400 (S7)', async () => {
+      await clearEmailChangeCodeThrottle(app, testUser.email);
+      const code = await requestEmailChangeCode(app, token);
+
+      await request(app.getHttpServer())
+        .post('/users/change-email')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ email: testUser.email, code })
+        .expect(400);
     });
 
     it('should reject change-email to a duplicate email', async () => {
@@ -131,10 +154,13 @@ describe('UserProfile (e2e)', () => {
         .expect(201);
 
       // Now try to change our email to the other user's email → should be 409
+      await clearEmailChangeCodeThrottle(app, testUser.email);
+      const code = await requestEmailChangeCode(app, token);
+
       const res = await request(app.getHttpServer())
         .post('/users/change-email')
         .set('Authorization', `Bearer ${token}`)
-        .send({ email: otherUser.email })
+        .send({ email: otherUser.email, code })
         .expect(409);
 
       expect(res.body).toHaveProperty('code', 'UA-USR-004');

@@ -19,6 +19,9 @@ describe(UserProfileController.name, () => {
     update: jest.fn().mockResolvedValue(user),
     changePassword: jest.fn().mockResolvedValue(undefined),
     requestEmailChange: jest.fn().mockResolvedValue({ token: 'token', expires: new Date(), user }),
+    requestEmailChangeCode: jest
+      .fn()
+      .mockResolvedValue({ code: '123456', expires: new Date(), user }),
   };
 
   beforeEach(async () => {
@@ -75,6 +78,51 @@ describe(UserProfileController.name, () => {
       await expect(controller.changePassword(user as any, dto, undefined)).rejects.toMatchObject({
         kind: expect.objectContaining({ kind: 'CURRENT_PASSWORD_INCORRECT' }),
       });
+      expect(mockEventEmitter.emit).not.toHaveBeenCalled();
+    });
+  });
+
+  describe(`${UserProfileController.prototype.requestEmailChangeCode.name}`, () => {
+    it('should emit the code to the current address and keep it out of the HTTP response (S8, S10)', async () => {
+      const result = await controller.requestEmailChangeCode(user as any, 'en');
+
+      expect(mockUserService.requestEmailChangeCode).toHaveBeenCalledWith(user.id);
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+        EmailEvents.EMAIL_CHANGE_CODE_REQUESTED,
+        expect.objectContaining({ email: user.email, code: '123456', lang: 'en' }),
+      );
+      expect(result).toEqual({ message: 'Password changed' });
+      expect(JSON.stringify(result)).not.toContain('123456');
+    });
+
+    it('should propagate the throttle rejection without emitting anything (S11)', async () => {
+      mockUserService.requestEmailChangeCode.mockRejectedValueOnce(DomainError.fromKind('VALIDATION_ERROR'));
+
+      await expect(controller.requestEmailChangeCode(user as any, undefined)).rejects.toBeInstanceOf(DomainError);
+      expect(mockEventEmitter.emit).not.toHaveBeenCalled();
+    });
+  });
+
+  describe(`${UserProfileController.prototype.changeEmail.name}`, () => {
+    it('should hand the code to the service and emit the confirmation to the new address (S1, S3)', async () => {
+      const dto = { email: 'new@example.com', code: '123456' };
+
+      const result = await controller.changeEmail(user as any, dto, undefined);
+
+      expect(mockUserService.requestEmailChange).toHaveBeenCalledWith(user.id, dto);
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+        EmailEvents.EMAIL_CHANGE_REQUESTED,
+        expect.objectContaining({ newEmail: 'new@example.com', pendingEmailToken: 'token' }),
+      );
+      expect(JSON.stringify(result)).not.toContain('123456');
+    });
+
+    it('should not emit a confirmation email when the code is rejected (S1)', async () => {
+      mockUserService.requestEmailChange.mockRejectedValueOnce(DomainError.fromKind('INVALID_EMAIL_CHANGE_CODE'));
+
+      await expect(
+        controller.changeEmail(user as any, { email: 'new@example.com', code: '000000' }, undefined),
+      ).rejects.toMatchObject({ kind: expect.objectContaining({ kind: 'INVALID_EMAIL_CHANGE_CODE' }) });
       expect(mockEventEmitter.emit).not.toHaveBeenCalled();
     });
   });

@@ -98,8 +98,12 @@ Decisiones del parent.
 ## Entrega
 
 - Estrategia: **single-pr** contra `develop`, la misma de COU-264/268/269/304.
-- Rebanada estimada: ~450–600 líneas autoradas; si se pasa de ~600 se parte en dos commits dentro
-  del mismo PR (estado+servicio / rutas+tests) para no volver ilegible el diff.
+- Rebanada **real: 2102 líneas** en 44 archivos (34 `.ts`/`.json` + 9 plantillas HTML + el documento),
+  muy por encima de la estimación de ~450–600. Se aplicó el split previsto en **dos commits** dentro
+  del mismo PR: (1) dominio y servicio — entidad, kinds, ciclo del código, gating y confirm/revert,
+  961 líneas; (2) superficie HTTP, emails y tests — rutas, DTOs, Swagger, i18n, eventos, listener,
+  plantillas y e2e, ~1140 líneas. El segundo sigue por encima de 400 líneas, pero su contenido es
+  mayormente tests y plantillas, donde el costo de revisión por línea es menor.
 - El e2e se valida en CI; en local corrimos la suite unit.
 
 ## Log

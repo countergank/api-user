@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { createTestApp } from '../../helpers/create-test-app';
+import { requestEmailChangeCode } from '../../helpers/email-change-code';
 import { getModelToken } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User } from '../../../src/user/entities/user.entity';
@@ -122,7 +123,7 @@ describe('AuthController (e2e)', () => {
       // Read the reset token directly from the user document
       const userModel = app.get<Model<User>>(getModelToken(User.name));
       const user = await userModel.findOne({ email: testUser.email }).exec();
-      resetToken = user!.resetPasswordToken!;
+      resetToken = user?.resetPasswordToken ?? '';
     });
 
     it('should reset password with valid token', async () => {
@@ -175,17 +176,20 @@ describe('AuthController (e2e)', () => {
 
       const token = loginRes.body.accessToken;
 
+      // S1/S10: the identity proof code goes to the current address first.
+      const code = await requestEmailChangeCode(app, token);
+
       // Initiate email change via /users/change-email
       await request(app.getHttpServer())
         .post('/users/change-email')
         .set('Authorization', `Bearer ${token}`)
-        .send({ email: newEmail })
+        .send({ email: newEmail, code })
         .expect(200);
 
       // Read the pendingEmailToken from the user document
       const userModel = app.get<Model<User>>(getModelToken(User.name));
       const user = await userModel.findOne({ email: testUser.email }).exec();
-      changeToken = user!.pendingEmailToken!;
+      changeToken = user?.pendingEmailToken ?? '';
     });
 
     it('should confirm email change with valid token', async () => {
@@ -200,9 +204,9 @@ describe('AuthController (e2e)', () => {
       const userModel = app.get<Model<User>>(getModelToken(User.name));
       const user = await userModel.findOne({ email: newEmail }).exec();
       expect(user).toBeDefined();
-      expect(user!.pendingEmailToken).toBeUndefined();
-      expect(user!.pendingEmail).toBeUndefined();
-      expect(user!.pendingEmailExpires).toBeUndefined();
+      expect(user?.pendingEmailToken).toBeUndefined();
+      expect(user?.pendingEmail).toBeUndefined();
+      expect(user?.pendingEmailExpires).toBeUndefined();
     });
 
     it('should reject confirm with invalid token', async () => {
