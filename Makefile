@@ -51,49 +51,25 @@ start: dev
 # Docker
 # ==============================================================================
 
-## up — Start Docker services (ENV=<env>, auto-detects Doppler)
+## up — Start Docker services (ENV=<env>, Doppler si tiene secretos, si no .env.<env>)
 up:
-	@if [ ! -f .env.$(ENV) ] && ! command -v doppler >/dev/null 2>&1; then \
-		echo "Error: .env.$(ENV) not found and Doppler not installed"; \
-		exit 1; \
-	fi
-	@if command -v doppler >/dev/null 2>&1; then \
-		echo "Using Doppler for environment: $(ENV)"; \
-		doppler secrets download --no-file --format=env > /tmp/api-user-env.$(ENV).tmp; \
-		NODE_ENV=$(ENV) docker compose --env-file /tmp/api-user-env.$(ENV).tmp up -d --build; \
-		status=$$?; rm -f /tmp/api-user-env.$(ENV).tmp; exit $$status; \
-	else \
-		echo "Using local .env.$(ENV)"; \
-		NODE_ENV=$(ENV) docker compose --env-file .env.$(ENV) up -d --build; \
-	fi
+	@set -e; \
+	file=$$(scripts/resolve-env.sh "$(ENV)"); \
+	trap 'case "$$file" in */api-user-env.*/*) rm -rf "$${file%/*}" ;; esac' EXIT; \
+	NODE_ENV=$(ENV) ENV_FILE="$$file" docker compose up -d --build
 
-## down — Stop Docker services (ENV=<env>, auto-detects Doppler)
+## down — Stop Docker services for this project
 down:
-	@if command -v doppler >/dev/null 2>&1; then \
-		echo "Using Doppler for environment: $(ENV)"; \
-		doppler secrets download --no-file --format=env > /tmp/api-user-env.$(ENV).tmp; \
-		NODE_ENV=$(ENV) docker compose --env-file /tmp/api-user-env.$(ENV).tmp down; \
-		status=$$?; rm -f /tmp/api-user-env.$(ENV).tmp; exit $$status; \
-	else \
-		echo "Using local .env.$(ENV)"; \
-		NODE_ENV=$(ENV) docker compose --env-file .env.$(ENV) down 2>/dev/null || \
-			docker compose down; \
-	fi
+	@docker compose down
 
 ## redeploy — Tear down and start Docker services (ENV=<env>)
 redeploy:
 	@$(MAKE) down ENV=$(ENV) || true
 	@$(MAKE) up ENV=$(ENV)
 
-## logs — Follow Docker service logs (ENV=<env>, auto-detects Doppler)
+## logs — Follow Docker service logs
 logs:
-	@if command -v doppler >/dev/null 2>&1; then \
-		doppler secrets download --no-file --format=env > /tmp/api-user-env.$(ENV).tmp; \
-		NODE_ENV=$(ENV) docker compose --env-file /tmp/api-user-env.$(ENV).tmp logs -f; \
-		status=$$?; rm -f /tmp/api-user-env.$(ENV).tmp; exit $$status; \
-	else \
-		NODE_ENV=$(ENV) docker compose --env-file .env.$(ENV) logs -f; \
-	fi
+	@docker compose logs -f
 
 ## ghcr:up — Start stack with GHCR image (VERSION=<version>)
 ghcr\:up:
