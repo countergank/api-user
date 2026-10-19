@@ -262,8 +262,11 @@ describe(`${UserService.name} — email change code lifecycle (COU-263)`, () => 
       };
 
       expect(config).toBeDefined();
+      // The handler receives the user id only: the code never reaches the audit
+      // context, and the request result carries a message, not the code.
       const before = config.getBefore?.('user-1');
-      expect(JSON.stringify(before)).not.toContain('654321');
+      const after = config.getAfter?.({ message: 'email_change_code_sent' });
+      expect(JSON.stringify({ before, after })).not.toMatch(/\b\d{6}\b/);
     });
   });
 });

@@ -126,6 +126,14 @@ export class AuthController {
 
   @Post('confirm-email-change')
   @ApplyConfirmEmailChangeDoc()
+  @AuditAction({
+    action: 'auth.confirm-email-change',
+    resource: 'auth',
+    // S14: the confirmation is the write that applies the change, so it must be
+    // audited here — the decorator on the service is inert for HTTP requests.
+    // The token is the proof of identity and is never audited.
+    getBefore: () => ({ emailChangeConfirmed: true }),
+  })
   async confirmEmailChange(@Body() body: { token: string }, @RequestLang() lang: string | undefined) {
     await this.authService.confirmEmailChange(body.token, lang);
     return { message: await this.t('messages.email_changed', lang) };

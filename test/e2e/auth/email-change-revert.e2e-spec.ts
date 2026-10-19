@@ -1,9 +1,21 @@
 import { INestApplication } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { getModelToken } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 import request from 'supertest';
+import { EmailEvents } from '../../../src/email/constants/email.events';
+import { User } from '../../../src/user/entities/user.entity';
 import { createTestApp } from '../../helpers/create-test-app';
 import { findUserDocument, requestEmailChangeCode } from '../../helpers/email-change-code';
 
 const PASSWORD = 'TestW0rd!x97';
+
+/** Collects the payloads of one event while a request runs. */
+  const captureEvents = (app: INestApplication, event: string): Array<Record<string, unknown>> => {
+    const captured: Array<Record<string, unknown>> = [];
+    app.get(EventEmitter2).on(event, (payload: Record<string, unknown>) => captured.push(payload));
+    return captured;
+  };
 
 interface Session {
   accessToken: string;
@@ -65,9 +77,15 @@ describe('Email change with identity code and revert (e2e)', () => {
 
     it('sends the code to the current address and keeps it out of the response (S8, S10)', async () => {
       session = await login();
+
+      const codeEvents = captureEvents(app, EmailEvents.EMAIL_CHANGE_CODE_REQUESTED);
       code = await requestEmailChangeCode(app, session.accessToken);
 
       expect(code).toMatch(/^\d{6}$/);
+      // S10: the code is delivered to the address the account has today, not to
+      // the proposed one — that is the whole point of the identity proof.
+      expect(codeEvents).toHaveLength(1);
+      expect(codeEvents[0].email).toBe(testUser.email);
 
       // S2: only the hash is persisted.
       const stored = await findUserDocument(app, { email: testUser.email });
@@ -158,10 +176,15 @@ describe('Email change with identity code and revert (e2e)', () => {
     });
 
     it('reverts from the link without a JWT and notifies both addresses (S5, S17)', async () => {
+      const revertEvents = captureEvents(app, EmailEvents.EMAIL_CHANGE_REVERTED);
+
       const response = await request(app.getHttpServer())
         .post('/auth/revert-email-change')
         .send({ token: revertToken })
         .expect(200);
+
+      // S12: the old and the new address are both told about the revert.
+      expect(revertEvents.map((event) => event.email).sort()).toEqual([testUser.email, newEmail].sort());
 
       expect(response.body).toHaveProperty('message');
 
@@ -170,6 +193,23 @@ describe('Email change with identity code and revert (e2e)', () => {
       // S6: the token stays resolvable so repeat calls can be idempotent.
       expect(stored?.emailRevertToken).toBe(revertToken);
       expect(stored?.previousEmail).toBeUndefined();
+    });
+
+    it('answers 410 once the 72-hour window has passed (S5)', async () => {
+      const userModel = app.get<Model<User>>(getModelToken(User.name));
+      const pending = await userModel.findOne({ email: testUser.email }).exec();
+      expect(pending).not.toBeNull();
+
+      await userModel
+        .updateOne({ _id: pending?._id }, { emailRevertToken: 'expired-token-e2e', previousEmail: 'gone@example.com', emailRevertExpires: new Date(Date.now() - 1000) })
+        .exec();
+
+      const response = await request(app.getHttpServer())
+        .post('/auth/revert-email-change')
+        .send({ token: 'expired-token-e2e' })
+        .expect(410);
+
+      expect(response.body).toMatchObject({ code: 'UA-AUTH-011', statusCode: 410 });
     });
 
     it('keeps the sessions of the reverted identity dead', async () => {
