@@ -60,7 +60,11 @@ services:
     ports:
       - "3000:3000"
     env_file:
-      - ${ENV_FILE:-.env.development}
+      # COU-312: la ruta la resuelve `make` y llega como ENV_FILE. `required:
+      # false` evita que un comando que no necesita el contenido (`down`, `logs`,
+      # `config`) falle cuando el archivo de esta máquina no existe.
+      - path: ${ENV_FILE:-.env.development}
+        required: false
     environment:
       - DATABASE_HOST=db-user
       - REDIS_HOST=redis

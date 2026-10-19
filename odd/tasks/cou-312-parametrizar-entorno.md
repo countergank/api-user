@@ -67,6 +67,32 @@ Los tres caminos dejan **cero residuo** en `/tmp`.
   no existe. El script ahora cae a `/tmp`. Ese mismo `TMPDIR` rompe el build de Docker
   (`invalid output path`), así que acá hay que correr `TMPDIR=/tmp make up`.
 
+## Corrección post-review (escalated)
+
+El review nativo cerró en `escalated` por `unknown_causality` con cinco hallazgos de la misma clase
+(`R2-reg-down-envfile`, `R3-down-env-file-missing`, `R3-logs-env-file-missing`,
+`R4-env-down-ignores-env`, `R4-env-logs-ignores-env`): al sacarles el bloque de Doppler a `down` y
+`logs`, esos comandos quedaban resolviendo el `env_file` a `.env.development`, y si ese archivo no
+existe en la máquina, `docker compose config` fallaba con `env file … not found`. En mi entorno no se
+veía porque el archivo existe.
+
+Corrección: el `env_file` pasó a la forma larga con `required: false`, así un comando que no necesita
+el contenido no falla por un archivo ausente:
+
+```yaml
+env_file:
+  - path: ${ENV_FILE:-.env.development}
+    required: false
+```
+
+Verificado después del cambio: con archivo ausente `docker compose config` ya no falla y quedan sólo
+`DATABASE_HOST` y `REDIS_HOST` del compose; con el archivo real entran 38 variables incluida
+`JWT_SECRET`. Los casos A y C se repitieron con valores distinguibles (`THROTTLE_LIMIT=77` por
+`ENV_FILE`, `10` por el `.env`) y health 200 en ambos, y `make up` por Doppler sigue en 200.
+
+`escalated` es informacional: no quemó autoridad ni abrió una corrección acotada, así que este fix va
+como corrección post-review documentada, no como candidato nuevo automático.
+
 ## Tasks
 
 | ID | Tarea | Specs | Ruta | Commit |
