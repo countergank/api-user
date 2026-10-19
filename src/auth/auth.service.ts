@@ -14,6 +14,7 @@ import { AuditAction } from '../common/audit/audit.decorator';
 import { runInTransaction } from '../common/utils/transaction';
 import { CacheService } from '../config/cache';
 import { SessionRevocationService } from '../session/session-revocation.service';
+import { EMAIL_REVERT_WINDOW_MS } from '../user/service/email-change-code';
 
 export interface JwtPayload {
   sub: string;
@@ -299,10 +300,25 @@ export class AuthService {
       throw DomainError.fromKind('NO_PENDING_EMAIL_CHANGE');
     }
 
+    const previousEmail = user.email;
+    // S13: the previous address is kept so the change can be undone for 72 h,
+    // and the token is the only proof the revert endpoint accepts (S17).
+    const revertToken = randomUUID();
+    const revertExpires = new Date(Date.now() + EMAIL_REVERT_WINDOW_MS);
+
     // S4 + S17: an email change invalidates every session opened with the old
-    // identity, in the same transaction as the new email (S17).
+    // identity, in the same transaction as the new email and the revert state.
     await runInTransaction(this.connection, async (session) => {
-      await this.userService.update(user.id, { email: newEmail } as any, session);
+      await this.userService.update(
+        user.id,
+        {
+          email: newEmail,
+          previousEmail,
+          emailRevertToken: revertToken,
+          emailRevertExpires: revertExpires,
+        } as any,
+        session,
+      );
       await this.userService.unsetFields(
         user.id,
         ['pendingEmail', 'pendingEmailToken', 'pendingEmailExpires'],
@@ -311,12 +327,81 @@ export class AuthService {
       await this.userService.bumpSessionEpoch(user.id, session);
     });
 
+    // S4/S12: the new address is told the change landed…
     this.eventEmitter.emit(EmailEvents.EMAIL_CHANGE_CONFIRMED, {
       userId: user.id,
       email: newEmail,
       name: user.name,
       lang: lang,
     });
+
+    // …and the previous one is told too, with the revert link (S12, S13).
+    this.eventEmitter.emit(EmailEvents.EMAIL_CHANGE_REQUESTED_OLD, {
+      userId: user.id,
+      previousEmail,
+      newEmail,
+      name: user.name,
+      revertToken,
+      lang: lang,
+    });
+  }
+
+  /**
+   * Undoes an email change from the link sent to the previous address (S5, S6, S17).
+   *
+   * The token is the proof: no access token is required, exactly like
+   * `/auth/confirm-email-change`, because the owner of the previous mailbox may be
+   * logged out of the session that performed the change.
+   *
+   * @throws DomainError INVALID_TOKEN when the token is unknown.
+   * @throws DomainError EMAIL_REVERT_WINDOW_EXPIRED (410) outside the 72 h window.
+   */
+  @AuditAction({
+    action: 'auth.revert-email-change',
+    resource: 'auth',
+    getBefore: () => ({ emailChangeReverted: true }),
+  })
+  async revertEmailChange(token: string, lang?: string): Promise<void> {
+    const user = await this.userService.findByEmailRevertToken(token);
+    if (!user) {
+      throw DomainError.fromKind('INVALID_TOKEN');
+    }
+
+    // S6: the token stays resolvable after a revert and `previousEmail` is gone,
+    // so a second call is a no-op that answers 200 instead of an error, and it
+    // cannot reopen the sessions revoked by the first one.
+    if (!user.previousEmail) {
+      return;
+    }
+
+    if (!user.emailRevertExpires || user.emailRevertExpires < new Date()) {
+      throw DomainError.fromKind('EMAIL_REVERT_WINDOW_EXPIRED');
+    }
+
+    const revertedEmail = user.email;
+    const restoredEmail = user.previousEmail;
+
+    // S5: restoring the address and killing every session opened with the
+    // reverted identity commit together, or not at all.
+    await runInTransaction(this.connection, async (session) => {
+      await this.userService.update(user.id, { email: restoredEmail } as any, session);
+      await this.userService.unsetFields(
+        user.id,
+        ['previousEmail', 'pendingEmail', 'pendingEmailToken', 'pendingEmailExpires'],
+        session,
+      );
+      await this.userService.bumpSessionEpoch(user.id, session);
+    });
+
+    // S5/S12: both addresses are notified.
+    for (const email of [restoredEmail, revertedEmail]) {
+      this.eventEmitter.emit(EmailEvents.EMAIL_CHANGE_REVERTED, {
+        userId: user.id,
+        email,
+        name: user.name,
+        lang: lang,
+      });
+    }
   }
 
   @AuditAction({

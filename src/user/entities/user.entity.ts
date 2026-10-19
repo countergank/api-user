@@ -75,6 +75,44 @@ export class User extends Base {
   @Prop()
   pendingEmailExpires?: Date;
 
+  /**
+   * Identity-proof code state (S2/S11). The code itself is never persisted:
+   * only its sha256 hash (salted with the user id) is stored, so a database dump
+   * cannot be replayed against `POST /users/change-email`.
+   *
+   * `emailChangeCodeAttempts` counts failed validations and
+   * `emailChangeCodeSentAt` enforces the 60 s resend throttle. Every field is
+   * optional, so existing documents stay valid without a migration.
+   */
+  @Prop()
+  emailChangeCodeHash?: string;
+
+  @Prop({ type: Date, default: undefined })
+  emailChangeCodeExpires?: Date;
+
+  @Prop({ default: 0 })
+  emailChangeCodeAttempts?: number;
+
+  @Prop({ type: Date, default: undefined })
+  emailChangeCodeSentAt?: Date;
+
+  /**
+   * Revert window state (S13). Set when the email change is applied, so the
+   * previous address can undo the change during the next 72 h.
+   *
+   * `previousEmail` is unset by the revert itself, which makes the operation
+   * idempotent (S6): a second call finds the token, no expired window and no
+   * address to restore, so it answers 200 without touching the document.
+   */
+  @Prop()
+  previousEmail?: string;
+
+  @Prop()
+  emailRevertToken?: string;
+
+  @Prop({ type: Date, default: undefined })
+  emailRevertExpires?: Date;
+
   @Prop({ default: 0 })
   failedLoginAttempts: number;
 

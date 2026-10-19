@@ -17,6 +17,16 @@ import { AuditAction } from '../../common/audit/audit.decorator';
 import { runInTransaction } from '../../common/utils/transaction';
 import { CacheService } from '../../config/cache';
 
+import {
+  EMAIL_CHANGE_CODE_MAX_ATTEMPTS,
+  EMAIL_CHANGE_CODE_RESEND_INTERVAL_MS,
+  EMAIL_CHANGE_CODE_TTL_MS,
+  EMAIL_CHANGE_CONFIRMATION_TTL_MS,
+  generateEmailChangeCode,
+  hashEmailChangeCode,
+  isEmailChangeCodeValid,
+} from './email-change-code';
+
 @Injectable()
 export class UserService {
   constructor(
@@ -168,6 +178,10 @@ export class UserService {
     return this.userRepository.findByPendingEmailToken(token);
   }
 
+  async findByEmailRevertToken(token: string): Promise<User | null> {
+    return this.userRepository.findByEmailRevertToken(token);
+  }
+
   /**
    * @param session — optional transaction session; without it the write commits
    * on its own.
@@ -239,29 +253,129 @@ export class UserService {
   }
 
   @AuditAction({
+    action: 'user.request-email-change-code',
+    resource: 'user',
+    getResourceId: (result) => (result as { user: User }).user._id.toString(),
+    // S8: only the user id is auditable — the code and its hash never are.
+    getBefore: (...args) => ({ userId: args[0] }),
+  })
+  async requestEmailChangeCode(userId: string): Promise<{ code: string; expires: Date; user: User }> {
+    const user = await this.findById(userId);
+    const now = Date.now();
+
+    // S11: one code per minute. The throttle is measured from the last *send*,
+    // so a failed validation does not let the caller mint a fresh attempt budget.
+    if (
+      user.emailChangeCodeSentAt &&
+      now - user.emailChangeCodeSentAt.getTime() < EMAIL_CHANGE_CODE_RESEND_INTERVAL_MS
+    ) {
+      throw DomainError.fromKind('VALIDATION_ERROR', {
+        message: 'An email change code was sent recently, please wait before requesting a new one',
+      });
+    }
+
+    const code = generateEmailChangeCode();
+    const expires = new Date(now + EMAIL_CHANGE_CODE_TTL_MS);
+
+    await this.update(userId, {
+      emailChangeCodeHash: hashEmailChangeCode(code, userId),
+      emailChangeCodeExpires: expires,
+      emailChangeCodeAttempts: 0,
+      emailChangeCodeSentAt: new Date(now),
+    });
+
+    // The plaintext code travels to the caller in memory so it can be mailed to
+    // the current address; it is never persisted, logged nor returned over HTTP (S8).
+    return { code, expires, user };
+  }
+
+  @AuditAction({
     action: 'user.request-email-change',
     resource: 'user',
     getResourceId: (result) => (result as { user: User }).user._id.toString(),
-    getBefore: (...args) => ({ userId: args[0], newEmail: args[1] }),
+    // S8: the DTO carries the plaintext code, so only the fields worth auditing
+    // are picked explicitly.
+    getBefore: (...args) => {
+      const dto = args[1] as { email?: string } | undefined;
+      return { userId: args[0], newEmail: dto?.email };
+    },
   })
-  async requestEmailChange(userId: string, newEmail: string): Promise<{ token: string; expires: Date; user: User }> {
-    const existing = await this.findByEmail(newEmail);
+  async requestEmailChange(
+    userId: string,
+    data: { email: string; code: string },
+  ): Promise<{ token: string; expires: Date; user: User }> {
+    const user = await this.findById(userId);
+
+    // S7: asking for the email the account already has is a client mistake, not
+    // an identity failure, so it answers 400 before touching the code budget.
+    if (user.email === data.email) {
+      throw DomainError.fromKind('VALIDATION_ERROR', {
+        message: 'The new email must be different from the current one',
+      });
+    }
+
+    await this.assertEmailChangeCode(userId, user, data.code);
+
+    // Only once the caller proved control of the current mailbox is it revealed
+    // whether the target address is taken.
+    const existing = await this.findByEmail(data.email);
     if (existing) {
       throw DomainError.fromKind('EMAIL_ALREADY_EXISTS');
     }
 
-    const user = await this.findById(userId);
     const token = randomUUID();
-    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const expires = new Date(Date.now() + EMAIL_CHANGE_CONFIRMATION_TTL_MS);
 
     await this.update(userId, {
-      pendingEmail: newEmail,
+      pendingEmail: data.email,
       pendingEmailToken: token,
       pendingEmailExpires: expires,
     });
 
     this.invalidateUserCache(userId);
     return { token, expires, user };
+  }
+
+  /**
+   * Validates the identity-proof code against the stored hash (S1, S2, S11).
+   *
+   * Every failure increments the attempt counter and, once the budget is spent,
+   * the code is destroyed so a stolen hash cannot be brute-forced later. A valid
+   * code is consumed immediately: it is single use, whatever happens next.
+   *
+   * @throws DomainError INVALID_EMAIL_CHANGE_CODE for a missing, expired, spent
+   * or mismatching code — the same answer for all four, so the response never
+   * tells an attacker which one it was.
+   */
+  private async assertEmailChangeCode(userId: string, user: User, code: string): Promise<void> {
+    const hash = user.emailChangeCodeHash;
+    const expires = user.emailChangeCodeExpires;
+    const attempts = user.emailChangeCodeAttempts ?? 0;
+
+    if (!hash || !expires || expires < new Date() || attempts >= EMAIL_CHANGE_CODE_MAX_ATTEMPTS) {
+      if (hash) {
+        await this.clearEmailChangeCode(userId);
+      }
+      throw DomainError.fromKind('INVALID_EMAIL_CHANGE_CODE');
+    }
+
+    if (!isEmailChangeCodeValid(code, userId, hash)) {
+      const failedAttempts = attempts + 1;
+      if (failedAttempts >= EMAIL_CHANGE_CODE_MAX_ATTEMPTS) {
+        await this.clearEmailChangeCode(userId);
+      } else {
+        await this.update(userId, { emailChangeCodeAttempts: failedAttempts });
+      }
+      throw DomainError.fromKind('INVALID_EMAIL_CHANGE_CODE');
+    }
+
+    await this.clearEmailChangeCode(userId);
+  }
+
+  /** Destroys the identity-proof code state (single use, exhausted or expired). */
+  private async clearEmailChangeCode(userId: string): Promise<void> {
+    await this.unsetFields(userId, ['emailChangeCodeHash', 'emailChangeCodeExpires']);
+    await this.update(userId, { emailChangeCodeAttempts: 0 });
   }
 
   @AuditAction({

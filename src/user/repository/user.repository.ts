@@ -125,6 +125,17 @@ export class UserRepository implements OnApplicationBootstrap {
       .exec();
   }
 
+  /**
+   * Finds the user holding the revert token, regardless of the window (S5).
+   *
+   * Expiry is deliberately not part of the query: the caller has to tell an
+   * expired window (410) from an unknown token (401) and from an already
+   * reverted change (200, idempotent — S6).
+   */
+  async findByEmailRevertToken(token: string): Promise<User | null> {
+    return this.userModel.findOne({ emailRevertToken: token }).exec();
+  }
+
   async findAll(): Promise<User[]> {
     return this.userModel.find().exec();
   }
