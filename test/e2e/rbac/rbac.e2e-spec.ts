@@ -39,7 +39,7 @@ describe('RBAC (e2e)', () => {
     await request(app.getHttpServer())
       .post('/auth/verify-email')
       .send({ token: userRegRes.body.verificationToken })
-      .expect(201);
+      .expect(200);
 
     const userLoginRes = await request(app.getHttpServer())
       .post('/auth/login')

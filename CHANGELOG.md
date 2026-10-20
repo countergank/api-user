@@ -33,6 +33,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - `AuthService.login()` now checks account lockout state before password validation (security optimization)
 - User entity includes new fields: `failedLoginAttempts` (number, default 0) and `lockedUntil` (Date, optional)
+- **Auth action endpoints now answer `200 OK` instead of `201 Created`** (COU-262). These four
+  endpoints declare `@HttpCode(200)` because they perform an action and create no resource:
+  - `POST /auth/reset-password`
+  - `POST /auth/verify-email`
+  - `POST /auth/confirm-email-change`
+  - `POST /auth/resend-verification`
+
+  `POST /auth/register` keeps answering `201 Created` — it does create a user. Swagger already
+  documented `200` for the four endpoints, so the implementation now matches the published contract.
 
 ### Security
 
@@ -51,4 +60,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - No database migration required — new User fields are optional with safe defaults
 - Existing users automatically get `failedLoginAttempts: 0` and no `lockedUntil`
-- All existing API contracts remain unchanged
+- **Migration (COU-262)**: clients that branch on the success status code must accept `200` for
+  `POST /auth/reset-password`, `/auth/verify-email`, `/auth/confirm-email-change` and
+  `/auth/resend-verification`; a check written as `status === 201` for those four will now see
+  `200`. `POST /auth/register` is unaffected and still returns `201`. No route, payload or body
+  shape changes in any of the five endpoints.

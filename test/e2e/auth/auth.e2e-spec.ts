@@ -50,7 +50,7 @@ describe('AuthController (e2e)', () => {
       await request(app.getHttpServer())
         .post('/auth/verify-email')
         .send({ token: verificationToken })
-        .expect(201);
+        .expect(200);
     });
 
     it('should reject duplicate email', async () => {
@@ -130,7 +130,7 @@ describe('AuthController (e2e)', () => {
       const res = await request(app.getHttpServer())
         .post('/auth/reset-password')
         .send({ token: resetToken, newPassword: 'NewW0rd!x97z' })
-        .expect(201);
+        .expect(200);
 
       expect(res.body).toHaveProperty('message');
 
@@ -196,7 +196,7 @@ describe('AuthController (e2e)', () => {
       const res = await request(app.getHttpServer())
         .post('/auth/confirm-email-change')
         .send({ token: changeToken })
-        .expect(201);
+        .expect(200);
 
       expect(res.body).toHaveProperty('message');
 
@@ -232,20 +232,20 @@ describe('AuthController (e2e)', () => {
   // --- Extended: Resend verification ---
 
   describe('/auth/resend-verification (POST)', () => {
-    it('should return 201 for existing user email (current behavior: no verified check)', async () => {
+    it('should return 200 for existing user email (current behavior: no verified check)', async () => {
       const res = await request(app.getHttpServer())
         .post('/auth/resend-verification')
         .send({ email: testUser.email })
-        .expect(201);
+        .expect(200);
 
       expect(res.body).toHaveProperty('message');
     });
 
-    it('should return 201 even for non-existent email (prevents enumeration)', async () => {
+    it('should return 200 even for non-existent email (prevents enumeration)', async () => {
       const res = await request(app.getHttpServer())
         .post('/auth/resend-verification')
         .send({ email: `nonexistent-${Date.now()}@example.com` })
-        .expect(201);
+        .expect(200);
 
       expect(res.body).toHaveProperty('message');
     });

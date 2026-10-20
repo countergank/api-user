@@ -177,7 +177,7 @@ describe('Password Strength Validation (e2e)', () => {
       await request(app.getHttpServer())
         .post('/auth/verify-email')
         .send({ token: registerRes.body.verificationToken })
-        .expect(201);
+        .expect(200);
 
       const loginRes = await request(app.getHttpServer())
         .post('/auth/login')

@@ -76,6 +76,7 @@ export class AuthController {
   }
 
   @Post('reset-password')
+  @HttpCode(200)
   @ApplyResetPasswordDoc()
   async resetPassword(@Body() body: { token: string; newPassword: string }, @RequestLang() lang: string | undefined) {
     await this.authService.resetPassword(body.token, body.newPassword, lang);
@@ -90,6 +91,7 @@ export class AuthController {
   }
 
   @Post('verify-email')
+  @HttpCode(200)
   @ApplyVerifyEmailDoc()
   async verifyEmail(@Body() body: { token: string }, @RequestLang() lang: string | undefined) {
     await this.authService.verifyEmail(body.token);
@@ -125,6 +127,7 @@ export class AuthController {
   }
 
   @Post('confirm-email-change')
+  @HttpCode(200)
   @ApplyConfirmEmailChangeDoc()
   @AuditAction({
     action: 'auth.confirm-email-change',
@@ -155,6 +158,7 @@ export class AuthController {
   }
 
   @Post('resend-verification')
+  @HttpCode(200)
   @ApplyResendVerificationDoc()
   async resendVerification(@Body() body: { email: string }, @RequestLang() lang: string | undefined) {
     const user = await this.authService.findUserByEmail(body.email);

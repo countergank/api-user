@@ -28,7 +28,7 @@ describe('UserProfile (e2e)', () => {
     await request(app.getHttpServer())
       .post('/auth/verify-email')
       .send({ token: registerRes.body.verificationToken })
-      .expect(201);
+      .expect(200);
 
     // Login
     const loginRes = await request(app.getHttpServer())

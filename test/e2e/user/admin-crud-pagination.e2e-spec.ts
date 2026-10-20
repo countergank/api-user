@@ -42,7 +42,7 @@ describe('Admin Users CRUD (e2e)', () => {
     await request(app.getHttpServer())
       .post('/auth/verify-email')
       .send({ token: registerRes.body.verificationToken })
-      .expect(201);
+      .expect(200);
 
     // Promote to admin role directly via Mongoose
     const userModel = app.get<Model<User>>(getModelToken(User.name));
@@ -65,7 +65,7 @@ describe('Admin Users CRUD (e2e)', () => {
     await request(app.getHttpServer())
       .post('/auth/verify-email')
       .send({ token: userRegRes.body.verificationToken })
-      .expect(201);
+      .expect(200);
 
     const userLoginRes = await request(app.getHttpServer())
       .post('/auth/login')
