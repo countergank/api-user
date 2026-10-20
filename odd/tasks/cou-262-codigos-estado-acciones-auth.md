@@ -3,7 +3,7 @@
 - **Feature**: `cou-262-codigos-estado-acciones-auth`
 - **Issue**: https://linear.app/countergank/issue/COU-262/corregir-los-codigos-de-estado-de-los-endpoints-de-accion-de-autenticacion
 - **Base**: `origin/develop` @ `1c39d56` — **Rama**: `fix/cou-262-auth-action-status-codes`
-- **Estado**: IMPLEMENTADO Y VERIFICADO — commit único en la rama, sin push
+- **Estado**: IMPLEMENTADO, VERIFICADO Y REVISADO — commit `46dba4f` en la rama, sin push
 
 ## Specs
 
@@ -55,13 +55,18 @@ Todas las tareas están cerradas en un único commit de unidad de trabajo sobre
 
 ## Review nativo
 
-`gentle_review assess` (RDD on) devolvió `nativeRisk: unassessable` por un motivo mecánico: el
-candidato incluye un archivo sin trackear (`odd/tasks/cou-262-codigos-estado-acciones-auth.md`)
-y el contrato nativo exige declararlo explícitamente. Plan resultante: `writerSelfVerification: true`, `independentVerifier: false` —
-ningún ítem de alto riesgo de Task Size fue escalado, y la verificación del writer ya está hecha
-(unit + e2e + tsc + lint de los archivos tocados). No se inició lineage: no hay `reviewDue` real
-ni pedido explícito de review.
+Primero `gentle_review assess` devolvió `nativeRisk: unassessable` por un motivo mecánico — el
+candidato incluía un archivo sin trackear (`odd/tasks/cou-262-codigos-estado-acciones-auth.md`) y
+el contrato nativo exige declararlo explícitamente — así que el plan quedó en verificación del
+writer. Con el trabajo ya commiteado el candidato quedó limpio y se corrió la review real:
 
+- **Lineage**: `review-658edaddbe561385` · **target**: `sha256:551dcb6e…1223b5` · **tier**: `high`
+  (165 líneas cambiadas, presupuesto de corrección 80) · rango committed-only `1c39d56..46dba4f`.
+- **Lentes elegidas** (2): `review-risk` — el status es un contrato que los consumidores ramifican;
+  `review-reliability` — 15 aserciones e2e y la nota de migración pinnean el nuevo comportamiento.
+- **Resultado**: `approved` en el último evento admitido, sin correcciones ni refutadores; el
+  acknowledgement se ejecutó y la autoridad quedó **quemada** (`gentle-ai.review-acknowledged/v1`).
+- Entrega: queda bajo política ordinaria del repo — push, PR y merge son decisión de la persona.
 
 ## Log
 
@@ -95,3 +100,6 @@ ni pedido explícito de review.
   convención existente: 13 de los 21 handlers `@Post` de `src/` ya declaran `@HttpCode` al lado de
   la ruta. Costo aceptado: el `200` vive dos veces (doc + handler) y ningún test compara el status
   documentado contra el real; el e2e pinnea el real.
+- **L8** — Review nativa sobre el commit: `approved` con las lentes `risk` y `reliability`,
+  lineage `review-658edaddbe561385`, autoridad quemada tras el acknowledgement. Sin hallazgos que
+  requirieran corrección.
