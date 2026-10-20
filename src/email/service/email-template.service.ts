@@ -46,6 +46,27 @@ const DEFAULT_TEMPLATES: DefaultTemplate[] = [
     contentFile: 'password-changed.html',
     variables: ['userName'],
   },
+  {
+    slug: 'email-change-code',
+    name: 'Email Change Verification Code',
+    subject: 'Tu código de verificación para cambiar el email',
+    contentFile: 'email-change-code.html',
+    variables: ['userName', 'code'],
+  },
+  {
+    slug: 'email-change-old-notice',
+    name: 'Email Change Notice (previous address)',
+    subject: 'El email de tu cuenta fue cambiado',
+    contentFile: 'email-change-old-notice.html',
+    variables: ['userName', 'newEmail', 'revertLink'],
+  },
+  {
+    slug: 'email-change-reverted',
+    name: 'Email Change Reverted Notification',
+    subject: 'El cambio de email fue revertido',
+    contentFile: 'email-change-reverted.html',
+    variables: ['userName'],
+  },
 ];
 
 @Injectable()

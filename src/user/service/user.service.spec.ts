@@ -13,6 +13,7 @@ import { PaginationQueryDTO } from '../dto/pagination-query.dto';
 import { PaginatedUserResponseDTO } from '../dto/paginated-user-response.dto';
 import { CacheService } from '../../config/cache';
 import { EncodeService } from '../../encode/encode.service';
+import { hashEmailChangeCode } from './email-change-code';
 
 describe(UserService.name, () => {
   let service: UserService;
@@ -35,6 +36,7 @@ describe(UserService.name, () => {
     findByEmail: jest.fn(),
     findAll: jest.fn(),
     update: jest.fn(),
+    unsetFields: jest.fn(),
     bumpSessionEpoch: jest.fn(),
     softDelete: jest.fn(),
     findPaginated: jest.fn(),
@@ -290,22 +292,55 @@ describe(UserService.name, () => {
   describe(`${UserService.name}.${UserService.prototype.requestEmailChange.name}`, () => {
     const user = new UserMock();
 
+    /** Issues a code for `user` and returns it, with the code state staged on the document. */
+    const issueCode = async (): Promise<string> => {
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(user);
+      jest.spyOn(userRepository, 'update').mockResolvedValue(user);
+      const { code } = await service.requestEmailChangeCode(user.id);
+      Object.assign(user, {
+        emailChangeCodeHash: hashEmailChangeCode(code, user.id),
+        emailChangeCodeExpires: new Date(Date.now() + 60 * 1000),
+        emailChangeCodeAttempts: 0,
+      });
+      return code;
+    };
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      user.email = 'current@example.com';
+      (user as unknown as Record<string, unknown>).id = 'user-1';
+    });
+
     it('should throw DomainError when target email already exists', async () => {
+      const code = await issueCode();
       jest.spyOn(userRepository, 'findByEmail').mockResolvedValue(user);
-      await expect(service.requestEmailChange('some-id', user.email)).rejects.toBeInstanceOf(DomainError);
-      await expect(service.requestEmailChange('some-id', user.email)).rejects.toMatchObject({
+      jest.spyOn(userRepository, 'unsetFields').mockResolvedValue(user);
+
+      await expect(service.requestEmailChange(user.id, { email: 'taken@example.com', code })).rejects.toMatchObject({
         kind: expect.objectContaining({ kind: 'EMAIL_ALREADY_EXISTS' }),
       });
     });
 
     it('should request an email change when target email is free', async () => {
+      const code = await issueCode();
       jest.spyOn(userRepository, 'findByEmail').mockResolvedValue(null);
-      jest.spyOn(userRepository, 'findById').mockResolvedValue(user);
-      jest.spyOn(userRepository, 'update').mockResolvedValue(user);
+      jest.spyOn(userRepository, 'unsetFields').mockResolvedValue(user);
 
-      const result = await service.requestEmailChange(user.id, 'new@example.com');
+      const result = await service.requestEmailChange(user.id, { email: 'new@example.com', code });
+
       expect(result.user).toBe(user);
       expect(result.token).toBeDefined();
+    });
+
+    it('should reject the current email with 400 without spending the code (S7)', async () => {
+      const code = await issueCode();
+      const unsetSpy = jest.spyOn(userRepository, 'unsetFields').mockResolvedValue(user);
+
+      await expect(
+        service.requestEmailChange(user.id, { email: user.email, code }),
+      ).rejects.toMatchObject({ kind: expect.objectContaining({ kind: 'VALIDATION_ERROR' }) });
+
+      expect(unsetSpy).not.toHaveBeenCalled();
     });
   });
 

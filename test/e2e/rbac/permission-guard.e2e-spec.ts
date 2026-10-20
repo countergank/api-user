@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { createTestApp } from '../../helpers/create-test-app';
+import { requestEmailChangeCode } from '../../helpers/email-change-code';
 import { seedAdminForE2E } from '../../helpers/seed-admin';
 import { seedRbacUser, SeededRbacUser } from '../../helpers/seed-rbac-users';
 import { PermissionService } from '../../../src/rbac/services/permission.service';
@@ -269,10 +270,15 @@ describe('Permission guard enforcement (e2e)', () => {
     });
 
     it('POST /users/change-email is not blocked (200)', async () => {
+      // COU-263: the endpoint now requires the identity-proof code, so the guard
+      // check has to obtain one first. The assertion keeps its intent: a permitted
+      // user is not blocked (200), not 403.
+      const code = await requestEmailChangeCode(app, plainUser.token);
+
       const response = await request(app.getHttpServer())
         .post('/users/change-email')
         .set('Authorization', `Bearer ${plainUser.token}`)
-        .send({ email: `guard-check-${Date.now()}@example.com` });
+        .send({ email: `guard-check-${Date.now()}@example.com`, code });
 
       expect(response.status).not.toBe(403);
       expect(response.status).toBe(200);

@@ -10,6 +10,8 @@ import { Permission } from '../rbac/entities/permission.entity';
 import { Role } from '../rbac/entities/role.entity';
 import { RoleService } from '../rbac/services/role.service';
 import { AuthService } from './auth.service';
+import { EmailEvents } from '../email/constants/email.events';
+import { EMAIL_REVERT_WINDOW_MS } from '../user/service/email-change-code';
 import { UserMock } from '../user/mocks/user.mock';
 import { Mock } from '../test-utils';
 import { CacheService } from '../config/cache';
@@ -89,6 +91,7 @@ describe(AuthService.name, () => {
   let roleService: RoleService;
   let jwtService: JwtService;
   let configService: ConfigService;
+  let eventEmitter: EventEmitter2;
   let harness: TransactionHarness;
 
   const mockCacheService = {
@@ -126,6 +129,7 @@ describe(AuthService.name, () => {
     roleService = module.get<RoleService>(RoleService);
     jwtService = module.get<JwtService>(JwtService);
     configService = module.get<ConfigService>(ConfigService);
+    eventEmitter = module.get<EventEmitter2>(EventEmitter2);
   });
 
   describe(`${AuthService.name}.${AuthService.prototype.register.name}`, () => {
@@ -341,6 +345,29 @@ describe(AuthService.name, () => {
   });
 
   describe(`${AuthService.name}.${AuthService.prototype.confirmEmailChange.name}`, () => {
+    /** A user with a live confirmation token for a pending email change. */
+    const pendingChangeUser = (): UserMock => {
+      const user = new UserMock();
+      (user as unknown as Record<string, unknown>).id = 'user-1';
+      user.email = 'old@test.com';
+      user.pendingEmail = 'new@test.com';
+      user.pendingEmailExpires = new Date(Date.now() + 60 * 60 * 1000);
+      return user;
+    };
+
+    /** Writes through the harness so the test observes what actually commits. */
+    const stageUserUpdate = (user: UserMock) =>
+      jest.spyOn(userService, 'update').mockImplementation(async (id, data, session) => {
+        harness.stage(session, () => harness.write(id, data as Record<string, unknown>));
+        return user;
+      });
+
+    const stageEpochBump = () =>
+      jest.spyOn(userService, 'bumpSessionEpoch').mockImplementation(async (id, session) => {
+        harness.stage(session, () => harness.write(id, { sessionEpoch: 1 }));
+        return 1;
+      });
+
     it('should throw DomainError EXPIRED_CONFIRMATION_TOKEN when user is not found by token', async () => {
       jest.spyOn(userService, 'findByPendingEmailToken').mockResolvedValue(null);
 
@@ -417,6 +444,180 @@ describe(AuthService.name, () => {
 
       await expectDomainError(service.confirmEmailChange('invalid-token'), 'EXPIRED_CONFIRMATION_TOKEN');
       expect(bumpSpy).not.toHaveBeenCalled();
+    });
+
+    it('stores the previous email and a 72 h revert token in the same transaction as the new email (S5, S13)', async () => {
+      const user = pendingChangeUser();
+      jest.spyOn(userService, 'findByPendingEmailToken').mockResolvedValue(user);
+      const updateSpy = stageUserUpdate(user);
+      jest.spyOn(userService, 'unsetFields').mockResolvedValue(user);
+      const bumpSpy = stageEpochBump();
+
+      await service.confirmEmailChange('valid-token');
+
+      const transactionSession = updateSpy.mock.calls[0][2];
+      expect(harness.read(user.id, 'email')).toBe('new@test.com');
+      expect(harness.read(user.id, 'previousEmail')).toBe('old@test.com');
+      expect(typeof harness.read(user.id, 'emailRevertToken')).toBe('string');
+      expect(harness.read(user.id, 'emailRevertToken')).not.toHaveLength(0);
+
+      const expires = harness.read(user.id, 'emailRevertExpires') as Date;
+      expect(expires).toBeInstanceOf(Date);
+      expect(expires.getTime()).toBeGreaterThan(Date.now() + EMAIL_REVERT_WINDOW_MS - 5_000);
+      expect(expires.getTime()).toBeLessThanOrEqual(Date.now() + EMAIL_REVERT_WINDOW_MS);
+      expect(bumpSpy).toHaveBeenCalledWith(user.id, transactionSession);
+    });
+
+    it('notifies both the new and the previous address (S4, S12)', async () => {
+      const user = pendingChangeUser();
+      jest.spyOn(userService, 'findByPendingEmailToken').mockResolvedValue(user);
+      stageUserUpdate(user);
+      jest.spyOn(userService, 'unsetFields').mockResolvedValue(user);
+      stageEpochBump();
+      const emitSpy = jest.spyOn(eventEmitter, 'emit');
+
+      await service.confirmEmailChange('valid-token', 'es');
+
+      expect(emitSpy).toHaveBeenCalledWith(
+        EmailEvents.EMAIL_CHANGE_CONFIRMED,
+        expect.objectContaining({ email: 'new@test.com', lang: 'es' }),
+      );
+      expect(emitSpy).toHaveBeenCalledWith(
+        EmailEvents.EMAIL_CHANGE_REQUESTED_OLD,
+        expect.objectContaining({ previousEmail: 'old@test.com', newEmail: 'new@test.com', lang: 'es' }),
+      );
+      const oldNotice = emitSpy.mock.calls.find(([event]) => event === EmailEvents.EMAIL_CHANGE_REQUESTED_OLD)?.[1];
+      expect(oldNotice.revertToken).toBe(harness.read(user.id, 'emailRevertToken'));
+    });
+  });
+
+  describe(`${AuthService.name}.${AuthService.prototype.revertEmailChange.name}`, () => {
+    /** A user whose email was already changed and still has a live revert window. */
+    const revertedUser = (): UserMock => {
+      const user = new UserMock();
+      (user as unknown as Record<string, unknown>).id = 'user-1';
+      user.email = 'new@test.com';
+      user.previousEmail = 'old@test.com';
+      user.emailRevertToken = 'revert-token';
+      user.emailRevertExpires = new Date(Date.now() + 60 * 60 * 1000);
+      return user;
+    };
+
+    /** Writes through the harness and keeps the mocked document readable. */
+    const stageUserUpdate = (user: UserMock) =>
+      jest.spyOn(userService, 'update').mockImplementation(async (id, data, session) => {
+        harness.stage(session, () => harness.write(id, data as Record<string, unknown>));
+        Object.assign(user, data);
+        return user;
+      });
+
+    const stageUnset = (user: UserMock) =>
+      jest.spyOn(userService, 'unsetFields').mockImplementation(async (id, fields, session) => {
+        for (const field of fields) {
+          harness.stage(session, () => {
+            const current = { ...(harness.committed[id] ?? {}) };
+            delete current[field];
+            harness.committed[id] = current;
+          });
+          delete (user as unknown as Record<string, unknown>)[field];
+        }
+        return user;
+      });
+
+    const stageEpochBump = () =>
+      jest.spyOn(userService, 'bumpSessionEpoch').mockImplementation(async (id, session) => {
+        harness.stage(session, () => harness.write(id, { sessionEpoch: 1 }));
+        return 1;
+      });
+
+    it('rejects an unknown revert token with 401 INVALID_TOKEN (S17)', async () => {
+      jest.spyOn(userService, 'findByEmailRevertToken').mockResolvedValue(null);
+      const bumpSpy = jest.spyOn(userService, 'bumpSessionEpoch');
+
+      await expectDomainError(service.revertEmailChange('unknown-token'), 'INVALID_TOKEN');
+      expect(bumpSpy).not.toHaveBeenCalled();
+    });
+
+    it('answers 410 EMAIL_REVERT_WINDOW_EXPIRED outside the 72 h window (S5)', async () => {
+      const user = revertedUser();
+      user.emailRevertExpires = new Date(Date.now() - 1_000);
+      jest.spyOn(userService, 'findByEmailRevertToken').mockResolvedValue(user);
+      const updateSpy = jest.spyOn(userService, 'update');
+      const bumpSpy = jest.spyOn(userService, 'bumpSessionEpoch');
+
+      await expectDomainError(service.revertEmailChange('revert-token'), 'EMAIL_REVERT_WINDOW_EXPIRED');
+
+      expect(updateSpy).not.toHaveBeenCalled();
+      expect(bumpSpy).not.toHaveBeenCalled();
+    });
+
+    it('restores the previous email and revokes every session in one transaction (S5)', async () => {
+      const user = revertedUser();
+      jest.spyOn(userService, 'findByEmailRevertToken').mockResolvedValue(user);
+      const updateSpy = stageUserUpdate(user);
+      stageUnset(user);
+      const bumpSpy = stageEpochBump();
+
+      await service.revertEmailChange('revert-token');
+
+      const transactionSession = updateSpy.mock.calls[0][2];
+      expect(transactionSession).toBeDefined();
+      expect(harness.read(user.id, 'email')).toBe('old@test.com');
+      expect(harness.read(user.id, 'previousEmail')).toBeUndefined();
+      expect(bumpSpy).toHaveBeenCalledWith(user.id, transactionSession);
+      expect(harness.read(user.id, 'sessionEpoch')).toBe(1);
+    });
+
+    it('notifies both addresses after reverting (S5, S12)', async () => {
+      const user = revertedUser();
+      jest.spyOn(userService, 'findByEmailRevertToken').mockResolvedValue(user);
+      stageUserUpdate(user);
+      stageUnset(user);
+      stageEpochBump();
+      const emitSpy = jest.spyOn(eventEmitter, 'emit');
+
+      await service.revertEmailChange('revert-token', 'pt');
+
+      const notified = emitSpy.mock.calls
+        .filter(([event]) => event === EmailEvents.EMAIL_CHANGE_REVERTED)
+        .map(([, payload]) => (payload as { email: string }).email);
+      expect(notified).toEqual(expect.arrayContaining(['old@test.com', 'new@test.com']));
+      expect(notified).toHaveLength(2);
+    });
+
+    it('is idempotent: a second call with the same token answers without writes or notifications (S6)', async () => {
+      const user = revertedUser();
+      jest.spyOn(userService, 'findByEmailRevertToken').mockResolvedValue(user);
+      const updateSpy = stageUserUpdate(user);
+      stageUnset(user);
+      const bumpSpy = stageEpochBump();
+
+      await service.revertEmailChange('revert-token');
+
+      const emitSpy = jest.spyOn(eventEmitter, 'emit');
+      const bumpCalls = bumpSpy.mock.calls.length;
+      const updateCalls = updateSpy.mock.calls.length;
+
+      await expect(service.revertEmailChange('revert-token')).resolves.toBeUndefined();
+
+      expect(bumpSpy).toHaveBeenCalledTimes(bumpCalls);
+      expect(updateSpy).toHaveBeenCalledTimes(updateCalls);
+      expect(emitSpy).not.toHaveBeenCalled();
+      expect(harness.read(user.id, 'sessionEpoch')).toBe(1);
+      expect(user.email).toBe('old@test.com');
+    });
+
+    it('does not fail when the epoch bump fails after a revert (transaction aborts, S5)', async () => {
+      const user = revertedUser();
+      jest.spyOn(userService, 'findByEmailRevertToken').mockResolvedValue(user);
+      stageUserUpdate(user);
+      stageUnset(user);
+      jest.spyOn(userService, 'bumpSessionEpoch').mockRejectedValue(new Error('mongo down'));
+
+      await expect(service.revertEmailChange('revert-token')).rejects.toThrow('mongo down');
+
+      expect(harness.read(user.id, 'email')).toBeUndefined();
+      expect(harness.aborts).toBe(1);
     });
   });
 

@@ -148,6 +148,20 @@ export const ErrorKind = {
     statusCode: 401,
     defaultMessage: 'Invalid refresh token',
   },
+  INVALID_EMAIL_CHANGE_CODE: {
+    kind: 'INVALID_EMAIL_CHANGE_CODE',
+    group: 'AUTH',
+    code: 'UA-AUTH-010',
+    statusCode: 401,
+    defaultMessage: 'Invalid or expired email change code',
+  },
+  EMAIL_REVERT_WINDOW_EXPIRED: {
+    kind: 'EMAIL_REVERT_WINDOW_EXPIRED',
+    group: 'AUTH',
+    code: 'UA-AUTH-011',
+    statusCode: 410,
+    defaultMessage: 'The email revert window has expired',
+  },
   // ── Security / Guards (SEC) ────────────────────────────
   INVALID_TOKEN: {
     kind: 'INVALID_TOKEN',

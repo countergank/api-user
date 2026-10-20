@@ -5,6 +5,7 @@ import request from 'supertest';
 import { RedisService } from '../../../src/config/redis';
 import { User } from '../../../src/user/entities/user.entity';
 import { createTestApp } from '../../helpers/create-test-app';
+import { requestEmailChangeCode } from '../../helpers/email-change-code';
 
 const INITIAL_PASSWORD = 'TestW0rd!x97';
 const CHANGED_PASSWORD = 'NewW0rd!x97z';
@@ -209,10 +210,12 @@ describe('Auth logout & refresh revocation (e2e)', () => {
       await registerAndVerify(emailUser);
       const session = await login(emailUser.email, emailUser.password);
 
+      const code = await requestEmailChangeCode(app, session.accessToken);
+
       await request(app.getHttpServer())
         .post('/users/change-email')
         .set('Authorization', `Bearer ${session.accessToken}`)
-        .send({ email: newEmail })
+        .send({ email: newEmail, code })
         .expect(200);
 
       const userModel = app.get<Model<User>>(getModelToken(User.name));

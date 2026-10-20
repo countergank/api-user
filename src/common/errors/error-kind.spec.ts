@@ -99,8 +99,28 @@ describe('ErrorKind registry — COU-209 new entries', () => {
     expect(entry.defaultMessage).toBe(expected.defaultMessage);
   });
 
-  it('keeps the registry at 30 kinds (9 pre-existing + 20 new + ROLE_IN_USE from COU-269)', () => {
-    expect(Object.keys(ErrorKind)).toHaveLength(30);
+  it('keeps the registry at 32 kinds (9 pre-existing + 20 new + ROLE_IN_USE from COU-269 + 2 from COU-263)', () => {
+    expect(Object.keys(ErrorKind)).toHaveLength(32);
+  });
+
+  it('registers INVALID_EMAIL_CHANGE_CODE as UA-AUTH-010 (401) for COU-263 (S1)', () => {
+    expect(ErrorKind.INVALID_EMAIL_CHANGE_CODE).toMatchObject({
+      group: 'AUTH',
+      code: 'UA-AUTH-010',
+      statusCode: 401,
+      defaultMessage: 'Invalid or expired email change code',
+    });
+    expect(DomainError.fromKind('INVALID_EMAIL_CHANGE_CODE').kind.kind).toBe('INVALID_EMAIL_CHANGE_CODE');
+  });
+
+  it('registers EMAIL_REVERT_WINDOW_EXPIRED as UA-AUTH-011 (410) for COU-263 (S5)', () => {
+    expect(ErrorKind.EMAIL_REVERT_WINDOW_EXPIRED).toMatchObject({
+      group: 'AUTH',
+      code: 'UA-AUTH-011',
+      statusCode: 410,
+      defaultMessage: 'The email revert window has expired',
+    });
+    expect(DomainError.fromKind('EMAIL_REVERT_WINDOW_EXPIRED').kind.kind).toBe('EMAIL_REVERT_WINDOW_EXPIRED');
   });
 
   it('registers ROLE_IN_USE as UA-RBAC-001 (409) for COU-269 (S14)', () => {

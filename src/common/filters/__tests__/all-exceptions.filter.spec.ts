@@ -389,10 +389,10 @@ describe(AllExceptionsFilter.name, () => {
       }
     });
 
-    it('keeps the errors section at exactly 35 keys per language (21 existing + 14 new)', () => {
-      expect(Object.keys(jsonTables.en)).toHaveLength(35);
-      expect(Object.keys(jsonTables.es)).toHaveLength(35);
-      expect(Object.keys(jsonTables.pt)).toHaveLength(35);
+    it('keeps the errors section at exactly 37 keys per language (21 existing + 16 new)', () => {
+      expect(Object.keys(jsonTables.en)).toHaveLength(37);
+      expect(Object.keys(jsonTables.es)).toHaveLength(37);
+      expect(Object.keys(jsonTables.pt)).toHaveLength(37);
     });
   });
 });

@@ -34,7 +34,9 @@
     "PARAMETER_NOT_FOUND": "Parameter not found",
     "PARAMETER_OVERRIDDEN": "Parameter is overridden by environment",
     "PARAMETER_VALUE_INVALID": "Invalid value for parameter",
-    "MICROSERVICE_UNAVAILABLE": "Microservice unavailable"
+    "MICROSERVICE_UNAVAILABLE": "Microservice unavailable",
+    "INVALID_EMAIL_CHANGE_CODE": "Invalid or expired email change code",
+    "EMAIL_REVERT_WINDOW_EXPIRED": "The email revert window has expired"
   },
   "validation": {
     "IS_EMAIL": "must be a valid email",
@@ -65,7 +67,10 @@
     "welcome_subject": "Welcome {{userName}} — Verify your account",
     "password_reset_subject": "Password Reset",
     "email_change_subject": "Email Change Confirmation",
-    "password_changed_subject": "Your password was changed"
+    "password_changed_subject": "Your password was changed",
+    "email_change_code_subject": "Your email change verification code",
+    "email_change_old_notice_subject": "The email of your account was changed",
+    "email_change_reverted_subject": "The email change was reverted"
   },
   "messages": {
     "welcome": "Welcome, {{username}}!",
@@ -83,7 +88,9 @@
     "role_deleted": "Role deleted",
     "logged_out": "Session closed successfully",
     "logged_out_all": "All sessions have been closed",
-    "translations_reloaded": "Translations reloaded from MongoDB"
+    "translations_reloaded": "Translations reloaded from MongoDB",
+    "email_change_code_sent": "Verification code sent to the current address",
+    "email_change_reverted": "Email change reverted successfully"
   },
   "rbac": {
     "admin": "Administrator with full access",
