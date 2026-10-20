@@ -1,53 +1,8 @@
-// Jest setup - load environment variables for e2e tests
-const fs = require('node:fs');
-const path = require('node:path');
+// Jest setup - load environment variables for e2e tests.
+//
+// The resolution lives in test/helpers/test-env.js because jest globalSetup runs
+// before setupFiles: both entry points must agree on the target database.
+const { loadTestEnv } = require('./helpers/test-env');
 
-// Set required env vars with defaults
-process.env.NODE_ENV = 'local';
-process.env.VERSION = '1.0.0';
-process.env.DATABASE_USER = 'dev_user';
-process.env.DATABASE_PASSWORD = 'dev_password';
-process.env.DATABASE_HOST = 'localhost';
-process.env.DATABASE_PORT = '27017';
-process.env.DATABASE_NAME = 'api_user';
-process.env.JWT_SECRET = 'test-jwt-secret-key-for-testing';
-process.env.ENCRYPTION_PASSWORD = 'test_encryption_password_32chars!';
-process.env.CORS_ORIGINS = 'http://localhost:3000';
-process.env.DEBUG = 'false';
-process.env.LOG_LEVEL = 'silent';
-process.env.EXAMPLE_MICROSERVICE_ENABLED = 'false';
-
-// Rate limiting — elevated limits for parallel e2e testing
-process.env.LOGIN_THROTTLE_LIMIT = '20';
-process.env.LOGIN_THROTTLE_TTL = '60';
-process.env.REGISTER_THROTTLE_LIMIT = '30';
-process.env.REGISTER_THROTTLE_TTL = '60';
-process.env.THROTTLE_LIMIT = '30';
-process.env.THROTTLE_TTL = '60';
-process.env.FORGOT_PASSWORD_THROTTLE_LIMIT = '15';
-process.env.FORGOT_PASSWORD_THROTTLE_TTL = '60';
-
-// Account lockout — low threshold for testing
-process.env.MAX_LOGIN_ATTEMPTS = '3';
-process.env.LOCKOUT_DURATION_MINUTES = '1';
-
-// Try to load from .env file if available
-const possibleEnvFiles = [
-  path.resolve(__dirname, '.env.local.testing'),
-  path.resolve(__dirname, '../.env.local.testing'),
-];
-
-for (const envPath of possibleEnvFiles) {
-  if (fs.existsSync(envPath)) {
-    const lines = fs.readFileSync(envPath, 'utf-8').split('\n');
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (trimmed && !trimmed.startsWith('#') && trimmed.includes('=')) {
-        const [key, ...valueParts] = trimmed.split('=');
-        process.env[key.trim()] = valueParts.join('=').trim();
-      }
-    }
-    console.log('Loaded env from:', envPath);
-    break;
-  }
-}
+const loadedEnvFile = loadTestEnv();
+console.log('Loaded env from:', loadedEnvFile ?? 'built-in defaults (no .env.local.testing found)');
