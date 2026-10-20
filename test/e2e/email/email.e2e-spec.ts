@@ -41,7 +41,7 @@ describe('Email (e2e)', () => {
     await request(app.getHttpServer())
       .post('/auth/verify-email')
       .send({ token: userReg.body.verificationToken })
-      .expect(201);
+      .expect(200);
 
     // Login regular user
     const userLogin = await request(app.getHttpServer())

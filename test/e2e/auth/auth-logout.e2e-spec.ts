@@ -46,7 +46,7 @@ describe('Auth logout & refresh revocation (e2e)', () => {
     await request(app.getHttpServer())
       .post('/auth/verify-email')
       .send({ token: registered.body.verificationToken })
-      .expect(201);
+      .expect(200);
   };
 
   beforeAll(async () => {
@@ -223,7 +223,7 @@ describe('Auth logout & refresh revocation (e2e)', () => {
       const pendingToken = pending?.pendingEmailToken;
       expect(pendingToken).toBeDefined();
 
-      await request(app.getHttpServer()).post('/auth/confirm-email-change').send({ token: pendingToken }).expect(201);
+      await request(app.getHttpServer()).post('/auth/confirm-email-change').send({ token: pendingToken }).expect(200);
 
       const rejected = await request(app.getHttpServer())
         .post('/auth/refresh')

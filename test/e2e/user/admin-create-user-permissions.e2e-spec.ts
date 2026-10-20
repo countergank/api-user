@@ -145,7 +145,7 @@ describe('Admin user creation with explicit permissions (e2e)', () => {
       await request(app.getHttpServer())
         .post('/auth/verify-email')
         .send({ token: registered.body.verificationToken })
-        .expect(201);
+        .expect(200);
 
       const { role, permissions } = await effectivePermissionsOf(user.email);
 

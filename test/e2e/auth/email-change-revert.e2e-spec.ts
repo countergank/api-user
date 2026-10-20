@@ -57,7 +57,7 @@ describe('Email change with identity code and revert (e2e)', () => {
     await request(app.getHttpServer())
       .post('/auth/verify-email')
       .send({ token: registered.body.verificationToken })
-      .expect(201);
+      .expect(200);
   });
 
   afterAll(async () => {
@@ -154,7 +154,7 @@ describe('Email change with identity code and revert (e2e)', () => {
       await request(app.getHttpServer())
         .post('/auth/confirm-email-change')
         .send({ token: confirmationToken })
-        .expect(201);
+        .expect(200);
 
       const stored = await findUserDocument(app, { email: newEmail });
       expect(stored).not.toBeNull();
