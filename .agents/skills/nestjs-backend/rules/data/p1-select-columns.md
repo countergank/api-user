@@ -7,7 +7,7 @@ category: data
 
 **Do**: Use `select` in `find()` options or `.select(['field'])` in `QueryBuilder` to fetch only the columns required by the current operation.
 **Avoid**: Fetching all columns (`SELECT *`) when only 2-3 fields are needed, especially on tables with large text, JSON, or BLOB columns.
-**Example**:
+**Example** (snippets live inside a repository, never in a service):
 ```typescript
 // Fetch only id and name for a dropdown list
 const users = await this.userRepo.find({

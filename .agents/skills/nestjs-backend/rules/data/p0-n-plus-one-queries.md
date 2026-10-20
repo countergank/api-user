@@ -7,7 +7,7 @@ category: data
 
 **Do**: Use `find({ relations: ['orders'] })` or `createQueryBuilder().leftJoinAndSelect()` to fetch related entities in a single query. For many-to-many, use `QueryBuilder` with joins.
 **Avoid**: Calling `find()` or `findOne()` inside a `forEach()`, `map()`, or `for` loop, which produces one query per iteration.
-**Example**:
+**Example** (snippets live inside a repository, never in a service):
 ```typescript
 // One query with joined relations
 const users = await this.userRepo.find({

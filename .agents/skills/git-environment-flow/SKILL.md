@@ -27,7 +27,7 @@ Activate when deciding which branch to target, cutting a release, applying a hot
 | Concept | Rule |
 |---------|------|
 | Environment branches | `develop` (default, integration), `staging` (pre-prod mirror), `main` (production, protected) |
-| Merge direction | `feature → develop → release/x.y.z → staging → main → develop (backmerge)` |
+| Merge direction | `feature → develop`; then the same `release/x.y.z` merges to `staging` (tag `vX.Y.Z-rcN`) **and** to `main` (tag `vX.Y.Z`), then `main → develop` (backmerge). `staging` never merges into `main`. Detail: `rules/promotion/p0-promotion-flow.md` |
 | Protection | `develop`: 1 reviewer, CI required, admin bypass allowed. `staging`: 1 reviewer, CI required, admin bypass allowed. `main`: 1 reviewer (increase to 2 when team grows), CI required, admin bypass allowed. All: force push blocked, stale reviews dismissed, last push approval required. |
 | Tag format | `vX.Y.Z` (main, annotated), `vX.Y.Z-rcN` (staging, release candidates) |
 | Hotfix flow | `hotfix/*` from main → merge to main (patch tag) → backmerge to develop only |
@@ -35,7 +35,8 @@ Activate when deciding which branch to target, cutting a release, applying a hot
 ## Compatibility
 
 This skill extends the Git workflow beyond what `github-conventions` covers:
-- **Use `github-conventions` for**: branch naming (`feat/*`, `fix/*`, `hotfix/*`), commit format (Conventional Commits), PR template and review checklist.
+- **Use `github-conventions` for**: branch naming when there is no ticket (`feat/*`, `fix/*`, `hotfix/*`), commit format (Conventional Commits), PR template and review checklist.
+- **Ticket branches belong to Linear**: the name is the `branchName` field of the ticket, created by `kickoff` on top of `develop`.
 - **This skill adds**: environment branch purposes, promotion/merge direction, release lifecycle, hotfix flow, and deployment tracking.
 
 Load `github-conventions` first for naming conventions; load this skill when you need to know *which branch to target* or *how code flows between environments*.
@@ -45,4 +46,4 @@ Load `github-conventions` first for naming conventions; load this skill when you
 1. **Agent loads this SKILL.md first** — the priority table tells the agent which rules matter most.
 2. **Navigate `rules/<category>/` by priority** — start with `p0-*.md` files (always load), then `p1-*.md` (context-dependent), then `p2-*.md` (deploy scenarios).
 3. **Each rule file is self-contained** — read it, apply the pattern, move on. No need to load all 6 files.
-4. **Use `assets/` for future templates** — directory reserved for environment-specific CI/CD templates.
+4. **Use `assets/release.sh` for release automation** — shipped implementation of `rules/release/p0-release-automation.md`.

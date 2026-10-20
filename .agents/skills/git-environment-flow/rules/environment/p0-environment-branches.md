@@ -102,7 +102,7 @@ When working solo, the admin needs `bypass_pull_request_allowances` on ALL branc
 
 ### `main` Protection
 
-**Intent**: Production source — highest protection, multiple approvals required.
+**Intent**: Production source — highest protection, 1 required reviewer (increase to 2 when the team grows).
 
 - **Required reviewers**: 1 (one approval required; increase to 2 when team grows)
 - **Status checks**: Required (CI + staging validation)
@@ -118,11 +118,11 @@ When working solo, the admin needs `bypass_pull_request_allowances` on ALL branc
 
 ### Hotfix Exception
 
-**Rule**: `hotfix/*` branches bypass staging protection and merge directly to `main`.
+**Rule**: `hotfix/*` branches skip the staging curation path and open a PR directly to `main`, which still requires 1 approving reviewer and CI passing.
 
-**Rationale**: Hotfixes are emergency production fixes that cannot wait for staging curation. The tradeoff is acceptable because hotfixes are small, targeted, and already reviewed before merge.
+**Rationale**: Hotfixes are emergency production fixes that cannot wait for staging curation. The tradeoff is acceptable because hotfixes are small, targeted, and reviewed before merge.
 
-**Enforcement**: GitHub branch protection rules must allow `hotfix/*` to bypass required reviews/status checks on `staging` and `main`.
+**Enforcement**: GitHub branch protection on `main` must still require a PR with 1 reviewer and status checks for `hotfix/*`. What hotfixes skip is the staging promotion path — not review.
 
 **Cross-reference**: See `rules/hotfix/p1-hotfix-flow.md` for hotfix lifecycle details.
 

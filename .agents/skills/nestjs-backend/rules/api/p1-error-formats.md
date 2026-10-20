@@ -17,6 +17,7 @@ export class HttpExceptionFilter extends BaseExceptionFilter {
     ctx.getResponse().status(status).json({
       statusCode: status,
       message: exception.message,
+      error: exception.constructor.name,
       timestamp: new Date().toISOString(),
       path: ctx.getRequest().url,
     });

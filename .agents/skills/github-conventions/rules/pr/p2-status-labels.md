@@ -16,7 +16,7 @@ category: pr
 | `WIP` / `draft` | Work in progress — do not review yet | When the PR is opened but incomplete |
 | `ready-for-review` | Ready for reviewer attention | When all self-review checklist items pass |
 | `blocked` | Cannot proceed (waiting on dependency, decision, or external factor) | When something blocks merging |
-| `needs-rebase` | Branch is behind `main` and has conflicts | When rebase is required before merge |
+| `needs-rebase` | Branch is behind `develop` and has conflicts | When rebase is required before merge |
 
 ## Size Labels (optional)
 

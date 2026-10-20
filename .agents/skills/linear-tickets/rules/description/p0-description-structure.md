@@ -6,7 +6,7 @@ category: description
 # Estructura de descripción Contexto → Scope → Criterios
 
 **Do**: Estructura la descripción en `Contexto` → `Scope` (in/out) → `Criterios de aceptación`, con AC como bullets de checklist verificables (sin ceremonia Given/When/Then).
-**Avoid**: Ceremonia Scrum (DoR, Prioridad, Tamaño/Estimación), criterios no testeables, o descripciones sin contexto que obliguen a preguntar.
+**Avoid**: Ceremonia Scrum (DoR, Given/When/Then), criterios no testeables, o descripciones sin contexto que obliguen a preguntar. La estimación, la prioridad y el asignado son campos del ticket: no se escriben en la prosa.
 **Reference**: `../config/p0-platform-structure.md` — contrato de extensión para el formato de AC de nuevas estructuras.
 
 ## Estructura
@@ -21,6 +21,7 @@ category: description
 2. **Testeable** — cada AC declara un comportamiento verificable y sus bordes.
 3. **Sin G/W/T** — no uses ceremonia Given/When/Then; usa bullets escaneables.
 4. **Español** — contenido en español (ver LT-05 para tooling).
+5. **Campos fuera de la prosa** — `project`, `estimate` y `assignee` se completan como campos de Linear; la descripción no los repite.
 
 **Ejemplos**:
 ```
@@ -30,5 +31,5 @@ category: description
    - [ ] El scroll funciona sin JavaScript.
    - [ ] Sin zoom accidental en iOS al hacer scroll.
    - [ ] No rompe el menú hamburguesa existente.
-❌ AC con Given/When/Then o prioridad/estimación.
+❌ AC con Given/When/Then, o estimación/prioridad escritas en la descripción.
 ```
