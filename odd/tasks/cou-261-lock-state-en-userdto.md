@@ -83,6 +83,13 @@ dejar pasar el commit y el push. El merge sigue siendo decisión del humano.
   `review-91d847c0be0ef48b` quedó en `collect` con lentes `risk`, `readability`, `reliability`.
   Esa lineage apunta al target `sha256:8e2bdda…` de los dos primeros commits: al corregir el e2e el
   target cambia y la review se reabre sobre el candidato corregido.
+- **L9** (usuario, selección en UI): “Crear tickets de seguimiento para los 4 reales”. Se dieron de alta
+  con el estándar de `linear-tickets` (proyecto `api-user`, estimación, asignado, tipo + componente):
+  **COU-319** `chore+docs` est. 1 (R2-001, derivar `UserResponse` de `UserDTO`), **COU-320**
+  `chore+api` est. 1 (R2-003, fixture sin doble cast), **COU-321** `chore+api` est. 2
+  (R3-dto-date-type-drift), **COU-322** `spike+api` est. 1 (R1, decidir si se separa el DTO de
+  administración). `R2-002` no generó ticket: quedó resuelto al registrar los hashes en la tabla, y
+  `R3-e2e-seed-cache-bypass` queda cubierto por `auth.service.spec.ts:201`.
 - **L8** (evidencia de CI, no del usuario): corridas `39645339018` (pull_request) y `39645332605`
   (push) sobre `6025017` → `conclusion: success`. El e2e corregido pasa en CI: 22 suites, sin fallos.
 - **Review nativo del candidato corregido (observado)**: lineage `review-bbcf300733bbb9f0` sobre
