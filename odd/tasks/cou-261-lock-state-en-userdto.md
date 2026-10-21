@@ -3,10 +3,10 @@
 - **Feature**: `cou-261-lock-state-en-userdto`
 - **Issue**: https://linear.app/countergank/issue/COU-261/exponer-el-estado-de-bloqueo-de-cuenta-en-userdto
 - **Base**: `origin/develop` @ `d65f6f1` — **Rama**: `feature/cou-261-exponer-el-estado-de-bloqueo-de-cuenta-en-userdto`
-- **Estado**: **COMMITEADO** en `a7b1bcc` — unit `75/75` suites (`897/897` tests), `tsc --noEmit` 0,
-biome limpio en todo lo tocado; el hook del commit volvió a correr la suite completa (897/897). El
-e2e del AC está escrito y tipado pero **no se pudo ejecutar en local** (sin MongoDB ni Redis); se
-estrena en CI, igual que COU-304. Sin push ni PR todavía.
+- **Estado**: **EN PR** → https://github.com/countergank/api-user/pull/431 (rama
+`feature/cou-261-exponer-el-estado-de-bloqueo-de-cuenta-en-userdto`, base `develop`). Commits
+`a7b1bcc` (feature) y `72d67ac` (registro ODD); el e2e se estrenó en CI y **falló**, corregido en
+el commit de `test(user)`. Unit `75/75` suites (`897/897` tests), `tsc --noEmit` 0, biome limpio.
 
 ## Specs
 
@@ -47,8 +47,11 @@ Citas verbatim del ticket. No se agrega nada que el ticket no pida.
 | T3 | e2e: cuenta bloqueada visible en admin y ausente en self/público | S3, S4, S6, S7 | inline (parent) | `a7b1bcc` |
 | T4 | Verificación: unit, typecheck, lint | todas | inline (parent) | `a7b1bcc` |
 
-Sin push ni PR: son decisiones del humano. El commit fue autorizado explícitamente para ese comando
-(`GIT_COMMIT_APPROVED=1` sólo en esa invocación) y el hook corrió `npm test` antes de dejarlo pasar.
+| T5 | Corregir el setup del e2e tras la primera corrida de CI | S6 | inline (parent) | `test(user)` |
+
+PR #431 abierto por autorización explícita del humano. Cada commit fue autorizado para ese comando
+(`GIT_COMMIT_APPROVED=1` sólo en esa invocación) y los hooks corrieron `npm test`/la suite antes de
+dejar pasar el commit y el push. El merge sigue siendo decisión del humano.
 
 ## Log
 
@@ -67,9 +70,22 @@ Sin push ni PR: son decisiones del humano. El commit fue autorizado explícitame
 - **Clasificación**: Task Size = **small** — el outcome y la superficie están claros, no hay decisión
   de producto abierta, el riesgo está contenido (no hay migración, ni cambio de contrato consumido:
   sólo se agregan dos campos a un DTO de admin) y el trabajo se reanuda con el diff.
-- **RDD**: `assess` → `nativeRisk: unassessable` (los archivos nuevos sin declarar como intended-
-  untracked). Plan resultante: `writerSelfVerification: true`, `independentVerifier: false` —
-  coincide con `Risk: none`, sin ítem de alto riesgo que escalar.
+- **Corrección por CI (primera corrida del PR #431)**: el e2e falló entero en `beforeAll` con
+  `expected 423 "Locked", got 200 "OK"`. Causa: `.github/workflows/test.yml:109` define
+  `MAX_LOGIN_ATTEMPTS: '100'` (y `LOCKOUT_DURATION_MINUTES: '1'`) para que las suites no se bloqueen
+  entre sí, así que el ritual de cinco intentos fallidos no bloquea nada en CI. Se cambió el setup:
+  el estado se siembra con `findByIdAndUpdate` y el bloqueo se prueba con el síntoma que ve el
+  cliente (`423 UA-AUTH-003`). Sigue siendo una cuenta efectivamente bloqueada — lo que se verifica
+  es que la aplicación la trata como tal — y deja de depender de un umbral configurable.
+  Resto de la corrida: 21 suites y 259 tests en verde; sólo falló la suite nueva.
+- **RDD / review nativo**: `assess` → `nativeRisk: unassessable` (archivos nuevos sin declarar como
+  intended-untracked). Luego, con el candidato ya commiteado, `inspect` → `start` y la lineage
+  `review-91d847c0be0ef48b` quedó en `collect` con lentes `risk`, `readability`, `reliability`.
+  Esa lineage apunta al target `sha256:8e2bdda…` de los dos primeros commits: al corregir el e2e el
+  target cambia y la review se reabre sobre el candidato corregido.
+- **L7** (evidencia de CI, no del usuario): corrida `39643176765` del PR #431 → `Test Suites: 1
+  failed, 21 passed, 22 total` / `Tests: 7 failed, 259 passed, 266 total`; único archivo fallido
+  `test/e2e/user/admin-user-lock-state.e2e-spec.ts`.
 - **Bootstrap (observado)**: proyecto Linear `api-user`; ticket con `project`, `estimate=2`,
   `assignee` y `branchName` completos; estado movido a **In Progress**; rama creada con
   `--no-track` sobre `origin/develop` (`d65f6f1`), árbol limpio.
@@ -101,7 +117,8 @@ Sin push ni PR: son decisiones del humano. El commit fue autorizado explícitame
 | S3 | e2e: `GET /admin/users/:id`, envelope paginado y envelope por defecto |
 | S4 | e2e: `GET /users/profile` y body de `POST /auth/register` sin los campos |
 | S5 | `UserResponse` de `user.examples.ts` (modelo de los 4 decoradores de admin) + `@ApiProperty` en el DTO |
-| S6 | e2e: la cuenta se bloquea con 5 intentos fallidos y el 6.º responde `423 UA-AUTH-003` |
+| S6 | e2e: la cuenta objetivo queda bloqueada y `POST /auth/login` responde `423 UA-AUTH-003` (la
+prueba de que el bloqueo está activo la da la aplicación, no el campo) |
 | S7 | e2e: `PATCH /admin/users/:id` con `lockedUntil` en el body → `400` (`whitelist` + `forbidNonWhitelisted`) y el estado no cambia |
 
 ## Decisiones y hallazgos

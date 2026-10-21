@@ -9,9 +9,13 @@ import { User, UserRole } from '../../../src/user/entities/user.entity';
  * COU-261 — El estado de bloqueo de la cuenta se expone en las respuestas de
  * administración (S3) y no aparece en las respuestas self ni públicas (S4).
  *
- * La cuenta objetivo se bloquea de verdad, con cinco intentos fallidos, y el
- * bloqueo se confirma por su síntoma observable: `POST /auth/login` responde 423
- * (S6). No se escribe `lockedUntil` a mano en la base.
+ * La cuenta objetivo queda bloqueada y el bloqueo se prueba con el síntoma que
+ * ve el cliente: `POST /auth/login` responde `423 UA-AUTH-003` (S6).
+ *
+ * El estado se siembra en la base en vez de llegar a él con intentos fallidos
+ * porque el umbral es configurable y CI lo eleva a `MAX_LOGIN_ATTEMPTS: 100`
+ * (`.github/workflows/test.yml`) para que las suites no se bloqueen entre sí:
+ * un ritual de cinco intentos no bloquea nada en CI.
  */
 describe('Admin Users lock state (COU-261, e2e)', () => {
   let app: INestApplication;
@@ -91,15 +95,17 @@ describe('Admin Users lock state (COU-261, e2e)', () => {
       .expect(200);
     healthyToken = healthyLogin.body.accessToken;
 
-    // Bloqueo real: MAX_LOGIN_ATTEMPTS (5) intentos con contraseña incorrecta.
-    for (let attempt = 1; attempt <= 5; attempt++) {
-      await request(app.getHttpServer())
-        .post('/auth/login')
-        .send({ email: lockedUser.email, password: 'Wr0ngPassword!x' })
-        .expect(401);
-    }
+    // Bloqueo real de la cuenta objetivo. `MAX_LOGIN_ATTEMPTS` es configurable y
+    // CI lo sube a 100, así que el estado se siembra; lo que se verifica a
+    // continuación es que la aplicación lo trata como bloqueado.
+    await userModel
+      .findByIdAndUpdate(lockedUserId, {
+        failedLoginAttempts: 5,
+        lockedUntil: new Date(Date.now() + 15 * 60 * 1000),
+      })
+      .exec();
 
-    // La cuenta quedó bloqueada: la contraseña correcta ya no entra.
+    // La cuenta está bloqueada: la contraseña correcta ya no entra.
     const blocked = await request(app.getHttpServer())
       .post('/auth/login')
       .send({ email: lockedUser.email, password: lockedUser.password })
