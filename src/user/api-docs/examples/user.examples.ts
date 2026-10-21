@@ -27,6 +27,18 @@ export class UserResponse {
 
   @ApiProperty({ example: '2024-01-01T00:00:00.000Z', description: 'Fecha de actualización' })
   updatedAt: string;
+
+  @ApiProperty({
+    example: null,
+    nullable: true,
+    type: String,
+    format: 'date-time',
+    description: 'Fecha en la que la cuenta se desbloquea sola; null si no está bloqueada. Solo lectura',
+  })
+  lockedUntil: Date | null;
+
+  @ApiProperty({ example: 0, description: 'Intentos de login fallidos acumulados. Solo lectura' })
+  failedLoginAttempts: number;
 }
 
 export class UserListResponse {

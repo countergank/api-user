@@ -1,0 +1,48 @@
+import { UserDTO } from './user.dto';
+import { UserMock } from '../mocks/user.mock';
+import { UserRole } from '../entities/user.entity';
+
+describe(UserDTO.name, () => {
+  describe('account lock state (COU-261)', () => {
+    it('exposes lockedUntil and failedLoginAttempts of a locked account', () => {
+      const lockedUntil = new Date(Date.now() + 15 * 60 * 1000);
+      const user = new UserMock();
+      user.id = 'user-1';
+      user.failedLoginAttempts = 5;
+      user.lockedUntil = lockedUntil;
+
+      const dto = UserDTO.of(user);
+
+      expect(dto.failedLoginAttempts).toBe(5);
+      expect(dto.lockedUntil).toEqual(lockedUntil);
+    });
+
+    it('reports a never-locked account as lockedUntil=null and failedLoginAttempts=0', () => {
+      const user = new UserMock();
+      user.failedLoginAttempts = undefined as unknown as number;
+      user.lockedUntil = undefined;
+
+      const dto = UserDTO.of(user);
+
+      expect(dto.lockedUntil).toBeNull();
+      expect(dto.failedLoginAttempts).toBe(0);
+    });
+
+    it('keeps the previously exposed fields unchanged', () => {
+      const user = new UserMock();
+      user.id = 'user-2';
+      user.role = UserRole.ADMIN;
+      user.failedLoginAttempts = 2;
+
+      const dto = UserDTO.of(user);
+
+      expect(dto.id).toBe('user-2');
+      expect(dto.name).toBe(user.name);
+      expect(dto.lastName).toBe(user.lastName);
+      expect(dto.email).toBe(user.email);
+      expect(dto.userName).toBe(user.userName);
+      expect(dto.role).toBe(UserRole.ADMIN);
+      expect(dto.isActive).toBe(true);
+    });
+  });
+});
