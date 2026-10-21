@@ -83,6 +83,17 @@ dejar pasar el commit y el push. El merge sigue siendo decisión del humano.
   `review-91d847c0be0ef48b` quedó en `collect` con lentes `risk`, `readability`, `reliability`.
   Esa lineage apunta al target `sha256:8e2bdda…` de los dos primeros commits: al corregir el e2e el
   target cambia y la review se reabre sobre el candidato corregido.
+- **L8** (evidencia de CI, no del usuario): corridas `39645339018` (pull_request) y `39645332605`
+  (push) sobre `6025017` → `conclusion: success`. El e2e corregido pasa en CI: 22 suites, sin fallos.
+- **Review nativo del candidato corregido (observado)**: lineage `review-bbcf300733bbb9f0` sobre
+  `sha256:36dbc71d…` (tres commits, 440 líneas), lentes `risk`, `readability`, `reliability`, tier
+  `medium`. Forecast: 3 model runs por `pi_host_relay`; los tres reviewers se admitieron y el último
+  evento **cerró en `approved`**. Acknowledgement ejecutado: `authority: burned`
+  (`gentle-ai.review-acknowledged/v1`), delivery por política ordinaria del repo. Sin correcciones
+  abiertas: los seis hallazgos son **advisories no bloqueantes** para trabajo posterior —
+  `R1-lockstate-scope-by-convention` (risk), `R2-001/002/003` (readability),
+  `R3-dto-date-type-drift` y `R3-e2e-seed-cache-bypass` (reliability). Ninguno reabre la review de
+  este candidato.
 - **L7** (evidencia de CI, no del usuario): corrida `39643176765` del PR #431 → `Test Suites: 1
   failed, 21 passed, 22 total` / `Tests: 7 failed, 259 passed, 266 total`; único archivo fallido
   `test/e2e/user/admin-user-lock-state.e2e-spec.ts`.
