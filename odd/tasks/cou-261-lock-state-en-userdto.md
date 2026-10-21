@@ -3,9 +3,10 @@
 - **Feature**: `cou-261-lock-state-en-userdto`
 - **Issue**: https://linear.app/countergank/issue/COU-261/exponer-el-estado-de-bloqueo-de-cuenta-en-userdto
 - **Base**: `origin/develop` @ `d65f6f1` — **Rama**: `feature/cou-261-exponer-el-estado-de-bloqueo-de-cuenta-en-userdto`
-- **Estado**: IMPLEMENTADO — unit `75/75` suites (`897/897` tests), `tsc --noEmit` 0, biome limpio en
-todo lo tocado. El e2e del AC está escrito y tipado pero **no se pudo ejecutar en local** (sin MongoDB
-ni Redis); se estrena en CI, igual que COU-304.
+- **Estado**: **COMMITEADO** en `a7b1bcc` — unit `75/75` suites (`897/897` tests), `tsc --noEmit` 0,
+biome limpio en todo lo tocado; el hook del commit volvió a correr la suite completa (897/897). El
+e2e del AC está escrito y tipado pero **no se pudo ejecutar en local** (sin MongoDB ni Redis); se
+estrena en CI, igual que COU-304. Sin push ni PR todavía.
 
 ## Specs
 
@@ -41,12 +42,13 @@ Citas verbatim del ticket. No se agrega nada que el ticket no pida.
 
 | ID | Tarea | Specs | Ruta | Commit |
 |----|-------|-------|------|--------|
-| T1 | RED/GREEN: `lockedUntil` y `failedLoginAttempts` en `UserDTO` + unit spec | S1, S2 | inline (parent) | — |
-| T2 | Swagger: campos y ejemplo de `UserResponse` | S5 | inline (parent) | — |
-| T3 | e2e: cuenta bloqueada visible en admin y ausente en self/público | S3, S4, S6, S7 | inline (parent) | — |
-| T4 | Verificación: unit, typecheck, lint | todas | inline (parent) | — |
+| T1 | RED/GREEN: `lockedUntil` y `failedLoginAttempts` en `UserDTO` + unit spec | S1, S2 | inline (parent) | `a7b1bcc` |
+| T2 | Swagger: campos y ejemplo de `UserResponse` | S5 | inline (parent) | `a7b1bcc` |
+| T3 | e2e: cuenta bloqueada visible en admin y ausente en self/público | S3, S4, S6, S7 | inline (parent) | `a7b1bcc` |
+| T4 | Verificación: unit, typecheck, lint | todas | inline (parent) | `a7b1bcc` |
 
-Sin commit: la autorización del commit es aparte, después de mostrar el diff.
+Sin push ni PR: son decisiones del humano. El commit fue autorizado explícitamente para ese comando
+(`GIT_COMMIT_APPROVED=1` sólo en esa invocación) y el hook corrió `npm test` antes de dejarlo pasar.
 
 ## Log
 
@@ -58,19 +60,22 @@ Sin commit: la autorización del commit es aparte, después de mostrar el diff.
 - **L5** (usuario, selección en UI): “No commitees todavía” ante el commit
   `feat(user): exponer el estado de bloqueo de cuenta en UserDTO (COU-261)`. El commit sigue
   pendiente de autorización explícita; no hay push ni PR.
-- **RDD**: `assess` → `nativeRisk: unassessable` (los archivos nuevos sin declarar como intended-
-  untracked). Plan resultante: `writerSelfVerification: true`, `independentVerifier: false` —
-  coincide con `Risk: none`, sin ítem de alto riesgo que escalar.
+- **L6** (usuario, verbatim): “vamos con commit” — autoriza el commit exacto
+  `feat(user): exponer el estado de bloqueo de cuenta en UserDTO (COU-261)`.
+- **Commit (observado)**: `a7b1bcc` — 5 archivos, 411 inserciones(+), 1 deleción(-). El hook
+  `.husky/pre-commit` corrió la suite completa: `75/75` suites, `897/897` tests PASS, exit 0.
 - **Clasificación**: Task Size = **small** — el outcome y la superficie están claros, no hay decisión
   de producto abierta, el riesgo está contenido (no hay migración, ni cambio de contrato consumido:
   sólo se agregan dos campos a un DTO de admin) y el trabajo se reanuda con el diff.
+- **RDD**: `assess` → `nativeRisk: unassessable` (los archivos nuevos sin declarar como intended-
+  untracked). Plan resultante: `writerSelfVerification: true`, `independentVerifier: false` —
+  coincide con `Risk: none`, sin ítem de alto riesgo que escalar.
 - **Bootstrap (observado)**: proyecto Linear `api-user`; ticket con `project`, `estimate=2`,
   `assignee` y `branchName` completos; estado movido a **In Progress**; rama creada con
   `--no-track` sobre `origin/develop` (`d65f6f1`), árbol limpio.
 - **Entorno**: Docker Desktop no está corriendo en este WSL y no hay Mongo (27017) ni Redis (6379)
   escuchando. `npm run test:e2e` no puede ejecutarse en local; es el mismo límite que registró
   COU-304 (“el e2e se estrena en CI”).
-- **Sin commit**: el commit se autoriza aparte, después de mostrar el diff.
 
 ## Verificación (observada)
 
