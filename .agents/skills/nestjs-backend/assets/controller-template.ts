@@ -20,6 +20,8 @@ export class ExampleController {
   @Post()
   @ApiOperation({ summary: 'Create a new example' })
   @ApiResponse({ status: 201, type: ExampleResponseDto })
+  // NOTE: Prefer a global ValidationPipe in main.ts. Route-level @UsePipes
+  // is a documented exception only (e.g., endpoint-specific validation options).
   @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
   async create(@Body() dto: CreateExampleDto): Promise<ExampleResponseDto> {
     return this.exampleService.create(dto);

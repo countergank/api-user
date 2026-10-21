@@ -1,1 +1,8 @@
+# Blocks every commit until a human authorizes it (see AGENTS.md).
+if [ "${GIT_COMMIT_APPROVED:-}" != "1" ]; then
+  echo "pre-commit: commit blocked. Show the diff and ask for explicit authorization."
+  echo "After the person approves: GIT_COMMIT_APPROVED=1 git commit ..."
+  exit 1
+fi
+
 npm test

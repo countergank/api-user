@@ -19,6 +19,7 @@ Activate when writing NestJS code: scaffolding modules, controllers, services, o
 | P0 | Controllers | 2 | Decorators, Route organization |
 | P0 | Security | 3 | Guards, ValidationPipe, Helmet/CORS |
 | P0 | Data | 4 | TypeORM entities, Repositories, N+1 query prevention, Eager/lazy loading |
+| P1 | Architecture | 3 | Custom providers, Dynamic modules, Module organization |
 | P1 | Controllers | 5 | DTO validation, Serialization, Response types, Custom param decorators, Decorator composition |
 | P1 | Security | 4 | Rate limiting, CSRF, Input sanitization, File uploads |
 | P1 | Data | 5 | Prisma setup, Migrations, Transactions, Select columns, Batch operations |
@@ -26,7 +27,7 @@ Activate when writing NestJS code: scaffolding modules, controllers, services, o
 | P1 | API | 2 | OpenAPI/Swagger, Error formats |
 | P1 | Testing | 3 | Unit tests, E2E, Test.createTestingModule |
 | P1 | Operations | 4 | Config module, Logging, Docker, Fastify adapter |
-| P2 | Architecture | 2 | Dynamic modules, Lazy loading |
+| P2 | Architecture | 1 | Lazy loading |
 | P2 | Controllers | 4 | Versioning, Sub-domain routing, Endpoint decorator files, Controller file structure |
 | P2 | Security | 2 | Encryption, Audit logging |
 | P2 | Data | 2 | Read replicas, Multiple databases |

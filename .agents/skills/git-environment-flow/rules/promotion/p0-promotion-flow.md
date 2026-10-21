@@ -5,7 +5,7 @@ category: promotion
 
 # Code flows left to right through environments
 
-**Do**: Merge code through the promotion chain: feature → develop → release/x.y.z → staging → main → develop (backmerge).
+**Do**: Merge code through the promotion chain: `feature → develop`; cut `release/x.y.z` from `develop`; merge that same release branch to `staging` (tag `vX.Y.Z-rcN`) and, after curation approval, to `main` (tag `vX.Y.Z`); then backmerge `main → develop`. `staging` is a testing mirror and never the source of `main`.
 **Avoid**: Direct merges to `staging` or `main` outside of release or hotfix branches, skipping environments, or merging right to left.
 **Reference**: [GitHub Flow](https://docs.github.com/en/get-started/using-github/github-flow)
 

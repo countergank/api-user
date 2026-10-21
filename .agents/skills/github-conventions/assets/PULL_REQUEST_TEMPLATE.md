@@ -35,3 +35,7 @@
 ## Related Issues
 
 <!-- Link issues: Closes #123, Fixes #456, Refs #789 -->
+
+## Related Linear Ticket
+
+<!-- If this PR links to a Linear ticket, use the magic word so its status updates on merge: fixes COU-###. Format defined by the linear-tickets skill. -->

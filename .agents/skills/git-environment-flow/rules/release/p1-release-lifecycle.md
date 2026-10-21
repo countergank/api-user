@@ -5,14 +5,16 @@ category: release
 
 # Release branches follow SemVer lifecycle with annotated tags
 
-**Do**: Cut `release/x.y.z` from `develop` at scope freeze, allow only bugfixes, merge through staging to main, create annotated tags, backmerge, and delete the release branch.
+**Do**: Cut `release/x.y.z` from `develop` at scope freeze, allow only bugfixes, merge that release branch to `staging` for curation and then to `main` for production (never `staging → main`), create annotated tags, backmerge, and delete the release branch.
 **Avoid**: Merging unfinished features into release branches, skipping staging curation, omitting tags, or leaving release branches alive after the cycle completes.
 **Reference**: [Semantic Versioning](https://semver.org/)
 
 ## Release Lifecycle
 
 ```
-develop ──cut──▶ release/x.y.z ──bugfixes──▶ staging (vX.Y.Z-rcN) ──approve──▶ main (vX.Y.Z) ──backmerge──▶ develop ──delete release branch
+develop ──cut──▶ release/x.y.z ──bugfixes──┬──▶ staging (vX.Y.Z-rcN)  [curation testing]
+                                            └──▶ main    (vX.Y.Z)      [production, after approval]
+main ──backmerge──▶ develop ──delete release branch
 ```
 
 ## Lifecycle Stages

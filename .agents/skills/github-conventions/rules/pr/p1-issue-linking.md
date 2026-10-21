@@ -7,7 +7,7 @@ category: pr
 
 **Do**: Use GitHub keywords (`Closes`, `Fixes`, `Resolves`) in PR descriptions or commit footers to automatically close related issues when the PR merges.
 **Avoid**: Manually closing issues after merge, forgetting to link issues entirely, or using non-keyword phrases like "this fixes" that GitHub does not recognize.
-**Reference**: [Linking a Pull Request to an Issue](https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue)
+**Reference**: [Linking a Pull Request to an Issue](https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue); Linear linkage (`fixes COU-###`): the `linear-tickets` skill (`rules/integration/p1-github-integration.md`) is the single source.
 
 ## GitHub Keywords
 
@@ -39,10 +39,21 @@ Closes #43
 Refs #50
 ```
 
+### Linear tickets (`fixes COU-###`)
+
+To link a PR to a Linear ticket so its status updates automatically on merge, use the Linear magic word `fixes COU-###` in the PR description. The `COU-###`/`fixes` contract is single-sourced in the `linear-tickets` skill — reference it instead of re-defining the behavior here.
+
+```
+fixes COU-240
+```
+
+GitHub keywords close GitHub issues; `fixes COU-###` drives Linear status automation. Both can coexist in the same PR without conflicting guidance.
+
 **Examples**:
 ```
 ✅ Good: PR description includes "Closes #42"
 ✅ Good: Commit footer: "Refs #78"
+✅ Good: PR description includes "fixes COU-240"   ← Linear magic word (see linear-tickets)
 ❌ Bad:  "this should fix issue 42"              ← not a recognized keyword
 ❌ Bad:  Issue #42 is still open after merge     ← keyword was missing
 ```
