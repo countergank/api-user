@@ -11,8 +11,8 @@
  * Ejecución: npx ts-node test/hurl/fixtures/seed-hurl.ts
  */
 import { NestFactory } from '@nestjs/core';
-import { getModelToken } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
+import { Connection, Model } from 'mongoose';
 import { AppModule } from '../../../src/app/app.module';
 import { User, UserRole } from '../../../src/user/entities/user.entity';
 import { UserService } from '../../../src/user/service/user.service';
@@ -31,6 +31,12 @@ export const HURL_USERS = {
   flow: { email: 'hurl.flow@test.com', userName: 'hurl-flow', role: UserRole.USER },
   /** Cuenta bloqueada de verdad: el login responde 423 y el admin ve el estado. */
   locked: { email: 'hurl.locked@test.com', userName: 'hurl-locked', role: UserRole.USER },
+  /**
+   * Cuenta bloqueada dedicada al endpoint de desbloqueo. Es distinta de `locked` a propósito:
+   * `user.hurl` la desbloquea, así que si compartieran el documento, el caso 423 de `auth.hurl`
+   * dependería del orden de ejecución de los archivos.
+   */
+  unlockable: { email: 'hurl.unlockable@test.com', userName: 'hurl-unlockable', role: UserRole.USER },
   /** Usuario sin permisos, para el 403 del guard de roles. */
   viewer: { email: 'hurl.viewer@test.com', userName: 'hurl-viewer', role: UserRole.USER },
   /** Admin propio de la suite, independiente de los seeds de desarrollo. */
@@ -45,8 +51,14 @@ async function main(): Promise<void> {
   const userModel = app.get<Model<User>>(getModelToken(User.name));
   const userService = app.get(UserService);
 
+  // Purga de residuos: una corrida fallida deja usuarios, roles y plantillas `hurl-*`, y la
+  // siguiente choca con 409. Se limpia por patrón, no por lista: cualquier resto de la suite cae.
+  const connection = app.get<Connection>(getConnectionToken());
+  await userModel.deleteMany({ email: /^hurl[-.]/ }).exec();
+  await connection.collection('roles').deleteMany({ name: /^hurl-/ });
+  await connection.collection('emailtemplates').deleteMany({ slug: /^hurl-/ });
+
   const emails = [...Object.values(HURL_USERS).map((u) => u.email), HURL_FREE_EMAIL];
-  await userModel.deleteMany({ email: { $in: emails } }).exec();
 
   for (const user of Object.values(HURL_USERS)) {
     const created = await userService.createWithRole({
@@ -60,7 +72,7 @@ async function main(): Promise<void> {
       isActive: true,
     });
 
-    if (user.email === HURL_USERS.locked.email) {
+    if (user.email === HURL_USERS.locked.email || user.email === HURL_USERS.unlockable.email) {
       // El umbral de intentos es configurable y en CI vale 100, así que el bloqueo
       // se siembra. El 423 del flujo demuestra que la aplicación lo trata como tal.
       await userModel
