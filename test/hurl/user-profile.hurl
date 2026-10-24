@@ -142,7 +142,8 @@ HTTP 200
 [Asserts]
 jsonpath "$.message" isString
 
-# El login con la contraseña nueva funciona.
+# El login con la contraseña nueva funciona. Se captura un token NUEVO: el anterior quedó
+# obsoleto porque el cambio de contraseña bumpea el epoch de sesión en la misma transacción.
 POST {{baseUrl}}/auth/login
 Content-Type: application/json
 {
@@ -150,10 +151,25 @@ Content-Type: application/json
   "password": "Zq4$nR8t!"
 }
 HTTP 200
+[Captures]
+freshToken: jsonpath "$.accessToken"
+
+# La contraseña anterior deja de servir.
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+{
+  "email": "hurl-ep-password@test.com",
+  "password": "Xk7#mQ2w!"
+}
+HTTP 401
+[Asserts]
+jsonpath "$.code" == "UA-AUTH-002"
 
 # Negativo: contraseña actual incorrecta → 400 UA-USR-003.
+# Con el token emitido después del cambio: reusar el anterior sería operar con una sesión
+# que el bump del epoch dejó obsoleta.
 POST {{baseUrl}}/users/change-password
-Authorization: Bearer {{token}}
+Authorization: Bearer {{freshToken}}
 Content-Type: application/json
 {
   "currentPassword": "WrongPass1@",
