@@ -39,7 +39,9 @@ HTTP 409
 [Asserts]
 jsonpath "$.code" == "UA-AUTH-001"
 
-# Negativo: contraseña débil → 400.
+# Negativo: contraseña débil → 400. La contraseña es débil a propósito: el caso prueba que la
+# política la rechaza, y como la respuesta es 400 no se crea ningún usuario, así que no deja
+# residuos ni ensucia la corrida siguiente.
 POST {{baseUrl}}/auth/register
 Content-Type: application/json
 {
@@ -275,7 +277,9 @@ jsonpath "$.code" == "UA-AUTH-009"
 # 13 — POST /auth/logout-all (JWT): revoca todas las sesiones del usuario.
 #
 # Se corre contra el usuario de flujo (no el admin) para no pisar otras
-# sesiones admin que puedan estar vivas.
+# sesiones admin que puedan estar vivas. Ese usuario lo garantiza `fixtures/seed-hurl.ts`,
+# que además purga los residuos `hurl-*` de corridas anteriores: el flujo depende del
+# fixture, no de un estado que este archivo construya.
 
 POST {{baseUrl}}/auth/login
 Content-Type: application/json
