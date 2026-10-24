@@ -27,7 +27,9 @@ real**. Cubren lo que el e2e de Jest no puede ver (`src/main.ts`: CORS, `helmet`
   docker run -d --name mailpit -p 1025:1025 -p 8025:8025 axllent/mailpit
   ```
 - Usuarios de prueba: los crea `npx ts-node test/hurl/fixtures/seed-hurl.ts` sobre la base que
-  apuntes. Ya están creados en `api_user_hurl` si corriste la suite antes.
+  apuntes (`hurl.flow`, `hurl.locked`, `hurl.unlockable`, `hurl.viewer`, `hurl.admin`). El script
+  purga los residuos `hurl-*` de corridas anteriores y deja `hurl.locked` y `hurl.unlockable`
+  efectivamente bloqueadas en cada ejecución.
 
 ## Levantar la API para la suite
 
@@ -68,8 +70,12 @@ correos reales por Gmail, así que el flujo 04 no puede leer el código.
 | `fixtures/seed-hurl.ts` | — | usuarios de prueba (`hurl.flow`, `hurl.locked`, `hurl.viewer`, `hurl.admin`) |
 
 Cada archivo hace su propio login y **restaura lo que toca**: crea un rol/plantilla/usuario temporal y
-lo borra; el `PUT /admin/parameters/:key` se ejerce con el valor que ya tiene. Si un archivo falla a
-mitad deja residuos: limpiá los `hurl-*` antes de volver a correr.
+lo borra; el `PUT /admin/parameters/:key` se ejerce con el valor que ya tiene.
+
+Si una corrida falla a mitad deja residuos, pero **ya no hay que limpiarlos a mano**: los fixtures
+borran todo lo que empiece con `hurl-` (usuarios, roles y plantillas) antes de sembrar. Correr
+`npx ts-node test/hurl/fixtures/seed-hurl.ts` deja la base en un estado conocido, sin importar cómo
+terminó la corrida anterior.
 
 ## Variables
 

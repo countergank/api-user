@@ -64,6 +64,9 @@ lo que crea lo borra, y lo que muta lo restaura. Total: **45 endpoints en 11 arc
 
 ## Si una corrida falla a mitad
 
-Los archivos que crean recursos los borran al final: si el archivo falla antes, quedan residuos y la
-siguiente corrida puede dar 409. Limpiá los `hurl-*` de `roles`, `users` y `emailtemplates` antes de
-volver a correr. Si `POST /roles` da 409 con el nombre libre en la base, reiniciá la API (caché de RBAC).
+Los archivos que crean recursos los borran al final; si el archivo falla antes, quedan residuos. No
+hace falta limpiarlos a mano: `fixtures/seed-hurl.ts` purga todo lo que empiece con `hurl-` (usuarios,
+roles y plantillas) antes de sembrar, así que volver a correrlo deja la base en estado conocido.
+
+Única excepción: si `POST /roles` da 409 con el nombre libre en la base, es una caché de RBAC del
+proceso; reiniciando la API se resuelve.
