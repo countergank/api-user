@@ -22,7 +22,8 @@ Authorization: Bearer {{adminToken}}
 HTTP 200
 [Asserts]
 jsonpath "$.data" isList
-jsonpath "$.data[0].email" isString
+jsonpath "$.total" isInteger
+jsonpath "$.page" == 1
 
 # Con `page` la respuesta es el envelope paginado.
 GET {{baseUrl}}/admin/users?page=1&limit=2
@@ -489,3 +490,44 @@ Authorization: Bearer {{adminToken}}
 HTTP 200
 [Asserts]
 jsonpath "$.isActive" == false
+
+# ---------------------------------------------------------------------------
+# Desbloqueo real: la cuenta `hurl.unlockable` la deja bloqueada el script de fixtures
+# (5 intentos fallidos y `lockedUntil` a futuro), así que este bloque prueba el viaje
+# completo: bloqueada → 423, desbloqueo por admin → el login vuelve a funcionar.
+# ---------------------------------------------------------------------------
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+{
+  "email": "{{unlockableEmail}}",
+  "password": "{{flowPassword}}"
+}
+HTTP 423
+[Asserts]
+jsonpath "$.code" == "UA-AUTH-003"
+
+GET {{baseUrl}}/admin/users?page=1&limit=5&search={{unlockableEmail}}
+Authorization: Bearer {{adminToken}}
+HTTP 200
+[Captures]
+unlockableId: jsonpath "$.data[0].id"
+[Asserts]
+jsonpath "$.data[0].email" == "{{unlockableEmail}}"
+
+PATCH {{baseUrl}}/admin/users/{{unlockableId}}/unlock
+Authorization: Bearer {{adminToken}}
+HTTP 200
+[Asserts]
+jsonpath "$.userId" == "{{unlockableId}}"
+
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+{
+  "email": "{{unlockableEmail}}",
+  "password": "{{flowPassword}}"
+}
+HTTP 200
+[Captures]
+unlockedToken: jsonpath "$.accessToken"
+[Asserts]
+jsonpath "$.accessToken" isString
