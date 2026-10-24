@@ -41,6 +41,22 @@ services:
     networks:
       - default
 
+  mailpit:
+    # Buzón de prueba de la suite Hurl (COU-325). No arranca con `make up`: vive bajo el
+    # profile `mail` para no sumar un contenedor al stack por defecto.
+    #   docker compose --profile mail up -d mailpit
+    # 1025 = SMTP (a donde apunta la app local), 8025 = UI/API (lo que lee Hurl y el navegador).
+    image: axllent/mailpit
+    container_name: mailpit
+    profiles:
+      - mail
+    restart: always
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks:
+      - default
+
   api-user:
     image: countergank/api-user:${NODE_ENV:-development}-${VERSION:-1.0.0}
     container_name: api-user
