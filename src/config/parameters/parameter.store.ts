@@ -146,7 +146,9 @@ export class ParameterStore {
       }
       case 'number': {
         const parsed = Number(value);
-        if (value.trim() === '' || Number.isNaN(parsed)) {
+        // `Number.isFinite` descarta NaN e Infinity: un umbral infinito desactivaría el
+        // throttling sin error, que es peor que fallar.
+        if (value.trim() === '' || !Number.isFinite(parsed)) {
           throw new Error(`Parameter "${key}" has invalid number override: "${value}"`);
         }
         return parsed;

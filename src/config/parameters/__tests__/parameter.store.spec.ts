@@ -467,4 +467,11 @@ describe(ParameterStore.name, () => {
       });
     });
   });
+
+  it('rejects non-finite number overrides like Infinity', async () => {
+    mockRegistry.findByKey.mockReturnValue({ key: 'THROTTLE_TTL', type: 'number', default: 60, group: 'g', ttl: 300 });
+    mockConfigService.get.mockReturnValue('Infinity');
+
+    await expect(store.get('THROTTLE_TTL')).rejects.toThrow(/invalid number override/);
+  });
 });

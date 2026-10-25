@@ -49,6 +49,7 @@ el registry (`src/config/parameters/parameter.store.ts`). Consecuencia medida en
 | T2 | GREEN: convertir el override según el tipo del registry antes de cachear | S1–S4 | inline (parent) | — |
 | T3 | Verificar el flujo de email con `EMAIL_SECURE` definido por entorno | S5 | inline (parent) | — |
 | T5 | Ticket de seguimiento: el camino de Redis tampoco coerciona | — | pendiente | — |
+| T6 | Advisories de la review: rechazar números no finitos y validar los overrides en el arranque | — | inline (parent) | — |
 | T4 | Verificación: tsc, biome, suite completa | todas | inline (parent) | — |
 
 ## Log
@@ -81,3 +82,28 @@ el registry (`src/config/parameters/parameter.store.ts`). Consecuencia medida en
 - Valores numéricos con decimales pasan por `Number()`; la validación fina (`IS_INT_MIN_1`) sigue
   ocurriendo sólo en `registry.validate()` al escribir, no en `get()`. Preexistente.
 - Un string vacío en un parámetro `number` falla explícito en vez de convertirse en `0`.
+
+## Advisories de la review nativa (resueltos)
+
+La review `review-7f41664af72c2932` aprobó el candidato con 6 advisories. Se actuó sobre los dos que
+tenían consecuencia real:
+
+- **`R3-number-coercion-accepts-nonfinite`** → `coerceOverride` ahora exige `Number.isFinite`, así que
+  `Infinity` (y `-Infinity`) se rechazan igual que `NaN`. Un umbral infinito habría desactivado el
+  throttling sin error.
+- **`R1-env-boolean-throws`** (el único *warning*) → `ParameterService.onApplicationBootstrap` ahora
+  **precalienta cada parámetro definido**, así que un override inválido rompe el **arranque** y no la
+  primera request que lo lea.
+
+Los otros cuatro se dejaron como están y quedan documentados en el ticket: el mensaje de error incluye
+el valor (los parámetros actuales no son secretos), `Number()` acepta `1e3`/`0x10` (es su
+comportamiento), el set booleano es más angosto que el "todo string es truthy" anterior (eso **es** el
+fix), y `value.trim()` asume string (`process.env` siempre lo es).
+
+### Evidencia
+
+- **RED**: el nuevo caso de `Infinity` fallaba con `Resolved to value: Infinity`.
+- **GREEN**: `parameter.store.spec.ts` + `parameter.service.spec.ts` → **35/35**. `tsc` 0, biome limpio.
+- **Arranque**: con `EMAIL_SECURE=maybe` la app **no levanta** (exit 1) y el error dice
+  `Parameter "EMAIL_SECURE" has invalid boolean override: "maybe" (expected true/false/1/0/si/no)`.
+  Antes, ese mismo valor habría fallado recién en la primera lectura.

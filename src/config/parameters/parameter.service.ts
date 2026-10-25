@@ -20,8 +20,14 @@ export class ParameterService implements OnApplicationBootstrap {
     private readonly registry: ParameterRegistry,
   ) {}
 
-  onApplicationBootstrap(): void {
+  async onApplicationBootstrap(): Promise<void> {
     ParameterService.instance = this;
+    // Precalienta cada parámetro definido. Además de poblar la caché, esto valida los overrides
+    // de entorno en el arranque: un valor inválido rompe el boot en vez de la primera request
+    // que lo lea (advisory R1-env-boolean-throws de la review de COU-327).
+    for (const definition of this.registry.getAll()) {
+      await this.store.get(definition.key);
+    }
   }
 
   async get(key: string): Promise<string | number | boolean> {
