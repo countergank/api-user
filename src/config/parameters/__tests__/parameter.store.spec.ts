@@ -19,6 +19,7 @@ describe(ParameterStore.name, () => {
     getDefault: jest.fn(),
     getTTL: jest.fn(),
     has: jest.fn(),
+    findByKey: jest.fn(),
   };
 
   const mockEventEmitter = {
@@ -34,6 +35,7 @@ describe(ParameterStore.name, () => {
     mockRegistry.getDefault.mockReturnValue(undefined);
     mockRegistry.getTTL.mockReturnValue(300);
     mockRegistry.has.mockReturnValue(true);
+    mockRegistry.findByKey.mockReturnValue(undefined);
     mockConfigService.get.mockReturnValue(undefined);
 
     const module: TestingModule = await Test.createTestingModule({
@@ -91,6 +93,94 @@ describe(ParameterStore.name, () => {
 
       expect(result).toBe('sendgrid');
       expect(mockRedisService.get).toHaveBeenCalledWith('param:EMAIL_PROVIDER');
+    });
+  });
+
+  describe('env override coercion (COU-327)', () => {
+    const def = (type: string) => ({ key: 'X', type, default: undefined, group: 'g', ttl: 300 });
+
+    it('S1: coerces EMAIL_SECURE=false to boolean false', async () => {
+      mockRegistry.findByKey.mockReturnValue(def('boolean'));
+      mockConfigService.get.mockReturnValue('false');
+
+      const result = await store.get('EMAIL_SECURE');
+
+      expect(result).toBe(false);
+    });
+
+    it('S2: coerces THROTTLE_TTL=60 to number 60', async () => {
+      mockRegistry.findByKey.mockReturnValue(def('number'));
+      mockConfigService.get.mockReturnValue('60');
+
+      const result = await store.get('THROTTLE_TTL');
+
+      expect(result).toBe(60);
+      expect(typeof result).toBe('number');
+    });
+
+    it('S2: returns EMAIL_HOST=127.0.0.1 as-is for string type', async () => {
+      mockRegistry.findByKey.mockReturnValue(def('string'));
+      mockConfigService.get.mockReturnValue('127.0.0.1');
+
+      const result = await store.get('EMAIL_HOST');
+
+      expect(result).toBe('127.0.0.1');
+    });
+
+    it('throws explicitly on a non-convertible number override instead of returning NaN', async () => {
+      mockRegistry.findByKey.mockReturnValue(def('number'));
+      mockConfigService.get.mockReturnValue('abc');
+
+      await expect(store.get('THROTTLE_TTL')).rejects.toThrow(/THROTTLE_TTL/);
+    });
+
+    it('caches the converted value in L1 so both gets return the same type', async () => {
+      mockRegistry.findByKey.mockReturnValue(def('number'));
+      mockConfigService.get.mockReturnValue('60');
+
+      const first = await store.get('THROTTLE_TTL');
+      mockConfigService.get.mockClear();
+      const second = await store.get('THROTTLE_TTL');
+
+      expect(first).toBe(60);
+      expect(second).toBe(60);
+      expect(typeof second).toBe('number');
+      expect(mockConfigService.get).not.toHaveBeenCalled();
+    });
+
+    it('accepts boolean variants true/false/1/0/si/no case-insensitive', async () => {
+      mockRegistry.findByKey.mockReturnValue(def('boolean'));
+      const cases: Array<[string, boolean]> = [
+        ['true', true],
+        ['TRUE', true],
+        ['1', true],
+        ['Si', true],
+        ['false', false],
+        ['FALSE', false],
+        ['0', false],
+        ['NO', false],
+      ];
+      for (const [envValue, expected] of cases) {
+        store = await Test.createTestingModule({
+          providers: [
+            ParameterStore,
+            { provide: RedisService, useValue: mockRedisService },
+            { provide: ParameterRegistry, useValue: mockRegistry },
+            { provide: EventEmitter2, useValue: mockEventEmitter },
+            { provide: ConfigService, useValue: mockConfigService },
+          ],
+        }).compile().then((m) => m.get(ParameterStore));
+        mockConfigService.get.mockReturnValue(envValue);
+        const result = await store.get('EMAIL_SECURE');
+        expect(result).toBe(expected);
+      }
+    });
+
+    it('throws on an unrecognized boolean override', async () => {
+      mockRegistry.findByKey.mockReturnValue(def('boolean'));
+      mockConfigService.get.mockReturnValue('maybe');
+
+      await expect(store.get('EMAIL_SECURE')).rejects.toThrow(/EMAIL_SECURE/);
     });
   });
 
@@ -376,5 +466,12 @@ describe(ParameterStore.name, () => {
         value: null,
       });
     });
+  });
+
+  it('rejects non-finite number overrides like Infinity', async () => {
+    mockRegistry.findByKey.mockReturnValue({ key: 'THROTTLE_TTL', type: 'number', default: 60, group: 'g', ttl: 300 });
+    mockConfigService.get.mockReturnValue('Infinity');
+
+    await expect(store.get('THROTTLE_TTL')).rejects.toThrow(/invalid number override/);
   });
 });

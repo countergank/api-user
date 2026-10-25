@@ -35,11 +35,12 @@ export class ParameterStore {
     this.l1Cache.delete(key);
     const envValue = this.configService.get<string>(key);
     if (envValue !== undefined) {
-      // Cache the env override in L1 for performance
+      const value = this.coerceOverride(key, envValue);
+      // Cache the converted env override in L1 for performance
       const ttl = this.registry.getTTL(key) ?? 300;
       const expiresAt = Date.now() + ttl * 1000;
-      this.l1Cache.set(key, { value: envValue, expiresAt });
-      return envValue;
+      this.l1Cache.set(key, { value, expiresAt });
+      return value;
     }
 
     try {
@@ -126,6 +127,34 @@ export class ParameterStore {
   private publishEvent(key: string, value: string | number | boolean | null): void {
     if (this.eventEmitter) {
       this.eventEmitter.emit(PARAMETER_CHANGED_EVENT, { key, value });
+    }
+  }
+
+  private coerceOverride(key: string, value: string): string | number | boolean {
+    const definition = this.registry.findByKey(key);
+    if (!definition) {
+      return value;
+    }
+    switch (definition.type) {
+      case 'boolean': {
+        const normalized = value.trim().toLowerCase();
+        if (['true', '1', 'si'].includes(normalized)) return true;
+        if (['false', '0', 'no'].includes(normalized)) return false;
+        throw new Error(
+          `Parameter "${key}" has invalid boolean override: "${value}" (expected true/false/1/0/si/no)`,
+        );
+      }
+      case 'number': {
+        const parsed = Number(value);
+        // `Number.isFinite` descarta NaN e Infinity: un umbral infinito desactivaría el
+        // throttling sin error, que es peor que fallar.
+        if (value.trim() === '' || !Number.isFinite(parsed)) {
+          throw new Error(`Parameter "${key}" has invalid number override: "${value}"`);
+        }
+        return parsed;
+      }
+      default:
+        return value;
     }
   }
 }

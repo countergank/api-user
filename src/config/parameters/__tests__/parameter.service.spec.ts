@@ -300,4 +300,25 @@ describe(ParameterService.name, () => {
       expect(() => ParameterService.ensureInitialized()).toThrow('ParameterService has not been initialized');
     });
   });
+
+  describe(`${ParameterService.name}.onApplicationBootstrap (COU-327)`, () => {
+    it('reads every defined parameter at startup', async () => {
+      mockStore.get.mockResolvedValue('ok');
+
+      await service.onApplicationBootstrap();
+
+      for (const def of defaultDefs) {
+        expect(mockStore.get).toHaveBeenCalledWith(def.key);
+      }
+    });
+
+    it('propagates an invalid environment override instead of hiding it', async () => {
+      // Advisory R1-env-boolean-throws: el override inválido debe romper el arranque.
+      mockStore.get.mockRejectedValueOnce(
+        new Error('Parameter "MAX_LOGIN_ATTEMPTS" has invalid number override: "Infinity"'),
+      );
+
+      await expect(service.onApplicationBootstrap()).rejects.toThrow(/invalid number override/);
+    });
+  });
 });
