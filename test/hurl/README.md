@@ -2,7 +2,11 @@
 
 Requests declarados en archivos de texto, ejecutados a mano contra una **API levantada por HTTP
 real**. Cubren lo que el e2e de Jest no puede ver (`src/main.ts`: CORS, `helmet`, `compression`,
-`/docs-json`, el `ValidationPipe` custom) y los flujos que necesitan estado y datos sembrados.
+`/docs-json`) y los flujos que necesitan estado y datos sembrados.
+
+El contrato de error de validación (`400` + `code: UA-COM-005`) ya **no** es territorio exclusivo de
+esta suite: desde COU-339 el harness de e2e instala el mismo `ValidationPipe` que producción, así que
+los e2e también lo afirman. Acá se sigue verificando sobre el stack HTTP real.
 
 **No corre en CI**: el workflow valida con Jest (unit + e2e). Esta suite es una herramienta manual.
 

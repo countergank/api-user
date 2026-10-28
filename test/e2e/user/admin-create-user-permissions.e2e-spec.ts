@@ -5,6 +5,7 @@ import { RoleService, USER_PERMISSIONS } from '../../../src/rbac/services/role.s
 import { UserRole } from '../../../src/user/entities/user.entity';
 import { createTestApp } from '../../helpers/create-test-app';
 import { seedAdminForE2E } from '../../helpers/seed-admin';
+import { expectValidationError } from '../../helpers/validation-error';
 
 /**
  * COU-268 — an admin assigns explicit permissions when creating a user through
@@ -124,14 +125,14 @@ describe('Admin user creation with explicit permissions (e2e)', () => {
       const user = newUser('self-registered-escalation');
 
       // The global ValidationPipe forbids unknown properties, so a self-registering
-      // user cannot even smuggle a role or a permission into the payload.
-      // Only the status is asserted: this harness installs the stock Nest
-      // ValidationPipe (test/helpers/create-test-app.ts), so the body code falls back
-      // to HTTP_400 instead of the UA-COM-005 the production pipe emits.
-      await request(app.getHttpServer())
+      // user cannot even smuggle a role or a permission into the payload. The harness
+      // installs the production pipe (COU-339), so the real error contract is asserted.
+      const response = await request(app.getHttpServer())
         .post('/auth/register')
         .send({ ...user, role: UserRole.ADMIN, permissions: ['*'] })
         .expect(400);
+
+      expectValidationError(response.body, 'role');
 
       // Nothing was created by the rejected registration.
       await request(app.getHttpServer()).post('/auth/login').send({ email: user.email, password }).expect(401);
