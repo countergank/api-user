@@ -46,19 +46,48 @@ export const HURL_USERS = {
 const LOCK_MINUTES = 15;
 const FAILED_ATTEMPTS = 5;
 
+/**
+ * Nombres de rol que la suite crea de verdad (POST /roles en role.hurl). Si la suite
+ * pasa a crear otro rol, se agrega acá y la verificación sigue cubriendo el caso ajeno.
+ */
+export const HURL_ROLE_NAMES = ['hurl-role-temp'] as const;
+
+/**
+ * Slugs de plantilla que la suite crea de verdad (POST /email/templates en
+ * email-template.hurl). Mismo criterio que HURL_ROLE_NAMES.
+ */
+export const HURL_TEMPLATE_SLUGS = ['hurl-template-temp'] as const;
+
+/** Emails que la suite siembra: los de `HURL_USERS` más la dirección libre del flujo 04. */
+export function hurlUserEmails(): string[] {
+  return [...Object.values(HURL_USERS).map((u) => u.email), HURL_FREE_EMAIL];
+}
+
+/**
+ * Borra exactamente los documentos que la suite crea, por `$in` sobre las listas de
+ * arriba y no por patrón (COU-341): un `hurl-*` creado a mano y ajeno a la suite
+ * sobrevive. Como la lista es exactamente lo que la suite siembra, una corrida fallida
+ * deja esos mismos documentos y la siguiente los borra igual (S2), y correr dos veces
+ * deja la misma base (S3).
+ */
+export async function purgeHurlResidues(connection: Connection, userModel: Model<User>): Promise<void> {
+  await userModel.deleteMany({ email: { $in: hurlUserEmails() } }).exec();
+  await connection.collection('roles').deleteMany({ name: { $in: [...HURL_ROLE_NAMES] } });
+  await connection.collection('emailtemplates').deleteMany({ slug: { $in: [...HURL_TEMPLATE_SLUGS] } });
+}
+
 async function main(): Promise<void> {
   const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
   const userModel = app.get<Model<User>>(getModelToken(User.name));
   const userService = app.get(UserService);
 
-  // Purga de residuos: una corrida fallida deja usuarios, roles y plantillas `hurl-*`, y la
-  // siguiente choca con 409. Se limpia por patrón, no por lista: cualquier resto de la suite cae.
+  // Purga de residuos: una corrida fallida deja usuarios, roles y plantillas de la
+  // suite, y la siguiente choca con 409. Se borra por identificador exacto, no por
+  // patrón, para no llevarse documentos `hurl-*` creados a mano (COU-341).
   const connection = app.get<Connection>(getConnectionToken());
-  await userModel.deleteMany({ email: /^hurl[-.]/ }).exec();
-  await connection.collection('roles').deleteMany({ name: /^hurl-/ });
-  await connection.collection('emailtemplates').deleteMany({ slug: /^hurl-/ });
+  await purgeHurlResidues(connection, userModel);
 
-  const emails = [...Object.values(HURL_USERS).map((u) => u.email), HURL_FREE_EMAIL];
+  const emails = hurlUserEmails();
 
   for (const user of Object.values(HURL_USERS)) {
     const created = await userService.createWithRole({
@@ -91,7 +120,12 @@ async function main(): Promise<void> {
   process.stdout.write(`fixtures hurl listos: ${emails.join(', ')}\n`);
 }
 
-main().catch((error) => {
-  process.stderr.write(`fallo al sembrar fixtures hurl: ${String(error)}\n`);
-  process.exit(1);
-});
+// Sólo cuando se ejecuta directamente (`npx ts-node ...`): el spec de verificación
+// importa este módulo por `purgeHurlResidues` y no debe sembrar nada como efecto
+// secundario de la importación.
+if (require.main === module) {
+  main().catch((error) => {
+    process.stderr.write(`fallo al sembrar fixtures hurl: ${String(error)}\n`);
+    process.exit(1);
+  });
+}
