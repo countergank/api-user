@@ -1,17 +1,16 @@
 import { getModelToken } from '@nestjs/mongoose';
 import { Test, TestingModule } from '@nestjs/testing';
-import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { Connection, Model } from 'mongoose';
-import { clearMongoCollection, clearMongoConnection, createConnection } from '../../../test-utils';
+import { clearMongoConnection, createConnection, TestMongo } from '../../../test-utils';
 import { AuditLog, AuditLogSchema } from './audit-log.entity';
 
 describe('AuditLog Entity', () => {
-  let newMongod: MongoMemoryReplSet;
+  let newMongod: TestMongo['mongod'];
   let newMongoConnection: Connection;
   let auditLogModel: Model<AuditLog>;
 
   beforeEach(async () => {
-    const { mongod, mongoConnection } = await createConnection();
+    const { mongod, mongoConnection } = await createConnection('audit-log-entity');
     newMongod = mongod;
     newMongoConnection = mongoConnection;
 
@@ -27,12 +26,8 @@ describe('AuditLog Entity', () => {
     auditLogModel = module.get<Model<AuditLog>>(getModelToken(AuditLog.name));
   });
 
-  afterAll(async () => {
-    await clearMongoConnection(newMongoConnection, newMongod);
-  });
-
   afterEach(async () => {
-    await clearMongoCollection(newMongoConnection);
+    await clearMongoConnection(newMongoConnection, newMongod);
   });
 
   it('should be defined', () => {
