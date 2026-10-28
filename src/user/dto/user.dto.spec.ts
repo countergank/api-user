@@ -18,8 +18,9 @@ describe(UserDTO.name, () => {
     });
 
     it('reports a never-locked account as lockedUntil=null and failedLoginAttempts=0', () => {
+      // A fresh document: `UserMock` never initializes `failedLoginAttempts`, so the
+      // property is absent at runtime and the DTO has to map that absence (COU-320).
       const user = new UserMock();
-      user.failedLoginAttempts = undefined as unknown as number;
       user.lockedUntil = undefined;
 
       const dto = UserDTO.of(user);
