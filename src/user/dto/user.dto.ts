@@ -82,7 +82,7 @@ export class UserDTO {
     description:
       'Fecha y hora en la que la cuenta se desbloquea sola; null si no está bloqueada. Solo lectura.',
   })
-  lockedUntil: Date | null;
+  lockedUntil: string | null;
 
   @ApiProperty({
     example: 0,
@@ -100,7 +100,7 @@ export class UserDTO {
     this.createdAt = user.createdAt;
     this.updatedAt = user.updatedAt;
     this.isActive = user.isActive;
-    this.lockedUntil = user.lockedUntil ?? null;
+    this.lockedUntil = user.lockedUntil ? user.lockedUntil.toISOString() : null;
     this.failedLoginAttempts = user.failedLoginAttempts ?? 0;
   }
 
