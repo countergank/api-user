@@ -3,9 +3,8 @@ import { MongooseModule, getModelToken } from '@nestjs/mongoose';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ClsModule } from 'nestjs-cls';
-import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { Connection, Model } from 'mongoose';
-import { clearMongoConnection, createConnection } from '../../test-utils';
+import { clearMongoConnection, createConnection, TestMongo } from '../../test-utils';
 import { AuditModule } from './audit.module';
 import { AuditLog, AuditLogSchema } from './entities/audit-log.entity';
 import { AuditLogRepository } from './audit-log.repository';
@@ -14,21 +13,23 @@ import { AuditListener } from './audit.listener';
 import { I18nModule } from '../../common/i18n/i18n.module';
 
 describe(AuditModule.name, () => {
-  let newMongod: MongoMemoryReplSet;
+  let newMongod: TestMongo['mongod'];
+  let newUri: string;
   let newMongoConnection: Connection;
 
   beforeEach(async () => {
-    const { mongod, mongoConnection } = await createConnection();
+    const { uri, mongod, mongoConnection } = await createConnection('audit-module');
+    newUri = uri;
     newMongod = mongod;
     newMongoConnection = mongoConnection;
   });
 
-  afterAll(async () => {
+  afterEach(async () => {
     await clearMongoConnection(newMongoConnection, newMongod);
   });
 
   it('should compile the module', async () => {
-    const uri = newMongod.getUri();
+    const uri = newUri;
     const module: TestingModule = await Test.createTestingModule({
       imports: [
         MongooseModule.forRoot(uri),
@@ -51,7 +52,7 @@ describe(AuditModule.name, () => {
   });
 
   it('should export AuditService', async () => {
-    const uri = newMongod.getUri();
+    const uri = newUri;
     const module: TestingModule = await Test.createTestingModule({
       imports: [
         MongooseModule.forRoot(uri),
