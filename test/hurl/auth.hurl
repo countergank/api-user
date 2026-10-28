@@ -98,6 +98,21 @@ HTTP 401
 [Asserts]
 jsonpath "$.code" == "UA-AUTH-002"
 
+# Contrato de validación (COU-326): login valida contra LoginDTO con el pipe global
+# (whitelist + forbidNonWhitelisted), igual que /auth/register. Una propiedad
+# desconocida → 400 UA-COM-005. Antes de COU-326 el handler no tenía DTO y este
+# mismo body se aceptaba con 200.
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+{
+  "email": "{{adminEmail}}",
+  "password": "{{adminPassword}}",
+  "lockedUntil": null
+}
+HTTP 400
+[Asserts]
+jsonpath "$.code" == "UA-COM-005"
+
 
 # ======================================================================
 # 06 — GET /auth/me (JWT): datos del usuario autenticado.
