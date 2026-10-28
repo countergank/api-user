@@ -20,6 +20,7 @@ import {
   ApplyVerifyEmailDoc,
 } from './api-docs';
 import { AuthService } from './auth.service';
+import { LoginDTO } from './dto/login.dto';
 import { MeResponseDTO } from './dto/me-response.dto';
 import { RegisterUserDTO } from './dto/register-user.dto';
 import { RevertEmailChangeDTO } from './dto/revert-email-change.dto';
@@ -63,8 +64,8 @@ export class AuthController {
     resource: 'auth',
     getResourceId: (result: any) => result?.user?.id,
   })
-  async login(@Body() body: { email: string; password: string }) {
-    return this.authService.login(body.email, body.password);
+  async login(@Body() dto: LoginDTO) {
+    return this.authService.login(dto.email, dto.password);
   }
 
   @Post('forgot-password')

@@ -71,6 +71,33 @@ describe('AuthController (e2e)', () => {
       expect(response.body).toHaveProperty('accessToken');
       expect(response.body).toHaveProperty('refreshToken');
     });
+
+    // S1/S4: el handler debe validar contra un DTO; si vuelve a aceptar
+    // propiedades desconocidas, este test falla.
+    // Only the status is asserted: this harness installs the stock Nest
+    // ValidationPipe (test/helpers/create-test-app.ts), so the body code falls back
+    // to HTTP_400 instead of the UA-COM-005 the production pipe emits. The code
+    // contract is asserted in test/hurl/auth.hurl, which runs against the real app.
+    it('should reject login with an unknown property', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: testUser.email, password: testUser.password, lockedUntil: null })
+        .expect(400);
+    });
+
+    it('should reject login with a malformed email', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: 'no-es-email', password: testUser.password })
+        .expect(400);
+    });
+
+    it('should reject login without password', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: testUser.email })
+        .expect(400);
+    });
   });
 
   describe('/auth/refresh (POST)', () => {
