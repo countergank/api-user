@@ -35,7 +35,7 @@ export class ParameterStore {
     this.l1Cache.delete(key);
     const envValue = this.configService.get<string>(key);
     if (envValue !== undefined) {
-      const value = this.coerceOverride(key, envValue);
+      const value = this.coerceValue(key, envValue);
       // Cache the converted env override in L1 for performance
       const ttl = this.registry.getTTL(key) ?? 300;
       const expiresAt = Date.now() + ttl * 1000;
@@ -43,29 +43,9 @@ export class ParameterStore {
       return value;
     }
 
+    let redisValue: string | null;
     try {
-      // Redis read
-      const redisValue = await this.redisService.get(`${PREFIX}${key}`);
-      if (redisValue !== null) {
-        const ttl = this.registry.getTTL(key) ?? 300;
-        const expiresAt = Date.now() + ttl * 1000;
-        this.l1Cache.set(key, { value: redisValue, expiresAt });
-        return redisValue;
-      }
-      // Redis miss: seed Redis with default
-      const defaultValue = this.registry.getDefault(key);
-      if (defaultValue === undefined) {
-        throw new Error(`Parameter "${key}" not found in registry`);
-      }
-      const ttl = this.registry.getTTL(key) ?? 300;
-      try {
-        await this.redisService.set(`${PREFIX}${key}`, String(defaultValue), ttl);
-      } catch (error) {
-        this.logger.warn(`Redis seed failed for key "${key}": ${(error as Error).message}`);
-      }
-      const expiresAt = Date.now() + ttl * 1000;
-      this.l1Cache.set(key, { value: defaultValue, expiresAt });
-      return defaultValue;
+      redisValue = await this.redisService.get(`${PREFIX}${key}`);
     } catch (error) {
       // Redis failure: log warning, return registry default without caching
       this.logger.warn(`Redis read failed for key "${key}": ${(error as Error).message}`);
@@ -75,6 +55,31 @@ export class ParameterStore {
       }
       return defaultValue;
     }
+
+    if (redisValue !== null) {
+      // COU-340: coerción fuera del try/catch de "Redis failure" para que un valor
+      // corrupto falle explícitamente en vez de degradar en silencio al default.
+      const value = this.coerceValue(key, redisValue);
+      const ttl = this.registry.getTTL(key) ?? 300;
+      const expiresAt = Date.now() + ttl * 1000;
+      this.l1Cache.set(key, { value, expiresAt });
+      return value;
+    }
+
+    // Redis miss: seed Redis with default
+    const defaultValue = this.registry.getDefault(key);
+    if (defaultValue === undefined) {
+      throw new Error(`Parameter "${key}" not found in registry`);
+    }
+    const ttl = this.registry.getTTL(key) ?? 300;
+    try {
+      await this.redisService.set(`${PREFIX}${key}`, String(defaultValue), ttl);
+    } catch (error) {
+      this.logger.warn(`Redis seed failed for key "${key}": ${(error as Error).message}`);
+    }
+    const expiresAt = Date.now() + ttl * 1000;
+    this.l1Cache.set(key, { value: defaultValue, expiresAt });
+    return defaultValue;
   }
 
   async set(key: string, value: string | number | boolean): Promise<void> {
@@ -130,7 +135,7 @@ export class ParameterStore {
     }
   }
 
-  private coerceOverride(key: string, value: string): string | number | boolean {
+  private coerceValue(key: string, value: string): string | number | boolean {
     const definition = this.registry.findByKey(key);
     if (!definition) {
       return value;

@@ -184,6 +184,109 @@ describe(ParameterStore.name, () => {
     });
   });
 
+  describe('Redis value coercion (COU-340)', () => {
+    const def = (type: string) => ({ key: 'X', type, default: undefined, group: 'g', ttl: 300 });
+
+    // Emulates the real persistence contract: ParameterStore.set() stores String(value)
+    // in Redis, and get() reads that raw string back.
+    const useRedisBackedStorage = () => {
+      const redisData = new Map<string, string>();
+      mockRedisService.set.mockImplementation((key: string, value: string) => {
+        redisData.set(key, value);
+        return Promise.resolve(undefined);
+      });
+      mockRedisService.get.mockImplementation((key: string) =>
+        Promise.resolve(redisData.has(key) ? (redisData.get(key) as string) : null),
+      );
+      return redisData;
+    };
+
+    it('S1: reads a boolean written with set(false) back as boolean false, not "false"', async () => {
+      useRedisBackedStorage();
+      mockRegistry.findByKey.mockReturnValue(def('boolean'));
+      mockRegistry.getDefault.mockReturnValue(true);
+
+      await store.set('EMAIL_SECURE', false);
+      // Storage format is unchanged: Redis holds the string 'false'
+      expect(mockRedisService.set).toHaveBeenCalledWith('param:EMAIL_SECURE', 'false', 300);
+
+      const result = await store.get('EMAIL_SECURE');
+
+      expect(result).toBe(false);
+      expect(typeof result).toBe('boolean');
+    });
+
+    it('S2: reads a number written with set(60) back as number 60', async () => {
+      useRedisBackedStorage();
+      mockRegistry.findByKey.mockReturnValue(def('number'));
+      mockRegistry.getDefault.mockReturnValue(30);
+
+      await store.set('THROTTLE_TTL', 60);
+      expect(mockRedisService.set).toHaveBeenCalledWith('param:THROTTLE_TTL', '60', 300);
+
+      const result = await store.get('THROTTLE_TTL');
+
+      expect(result).toBe(60);
+      expect(typeof result).toBe('number');
+    });
+
+    it('S4: passes a string value through unchanged', async () => {
+      useRedisBackedStorage();
+      mockRegistry.findByKey.mockReturnValue(def('string'));
+      mockRegistry.getDefault.mockReturnValue('smtp');
+
+      await store.set('EMAIL_PROVIDER', 'resend');
+
+      const result = await store.get('EMAIL_PROVIDER');
+
+      expect(result).toBe('resend');
+    });
+
+    it('S3: rejects with an error naming the key when a stored number value is not convertible', async () => {
+      const redisData = useRedisBackedStorage();
+      mockRegistry.findByKey.mockReturnValue(def('number'));
+      mockRegistry.getDefault.mockReturnValue(60);
+      redisData.set('param:THROTTLE_TTL', 'abc');
+
+      await expect(store.get('THROTTLE_TTL')).rejects.toThrow(/THROTTLE_TTL/);
+    });
+
+    it('S3: rejects with an error naming the key when a stored boolean value is not convertible', async () => {
+      const redisData = useRedisBackedStorage();
+      mockRegistry.findByKey.mockReturnValue(def('boolean'));
+      mockRegistry.getDefault.mockReturnValue(true);
+      redisData.set('param:EMAIL_SECURE', 'maybe');
+
+      await expect(store.get('EMAIL_SECURE')).rejects.toThrow(/EMAIL_SECURE/);
+    });
+
+    it('S4: caches the coerced value in L1 so a second get returns the typed value without a second Redis read', async () => {
+      useRedisBackedStorage();
+      mockRegistry.findByKey.mockReturnValue(def('number'));
+      mockRegistry.getDefault.mockReturnValue(30);
+
+      await store.set('THROTTLE_TTL', 60);
+
+      const first = await store.get('THROTTLE_TTL');
+      mockRedisService.get.mockClear();
+      const second = await store.get('THROTTLE_TTL');
+
+      expect(first).toBe(60);
+      expect(second).toBe(60);
+      expect(typeof second).toBe('number');
+      expect(mockRedisService.get).not.toHaveBeenCalled();
+    });
+
+    it('does not swallow a coercion failure into the registry default', async () => {
+      mockRegistry.findByKey.mockReturnValue(def('number'));
+      mockRegistry.getDefault.mockReturnValue(60);
+      // Corrupt stored value: coercion must fail explicitly, not degrade to default 60
+      mockRedisService.get.mockResolvedValue('abc');
+
+      await expect(store.get('THROTTLE_TTL')).rejects.toThrow(/THROTTLE_TTL/);
+    });
+  });
+
   describe(`${ParameterStore.name}.get`, () => {
     it('should return registry default when both L1 and Redis are empty', async () => {
       mockRegistry.getDefault.mockReturnValue('smtp');
