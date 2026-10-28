@@ -44,6 +44,24 @@ The e2e suite reads `.env.local.testing` (gitignored). Required vars:
 | `REDIS_PORT` | `6379` | Redis port |
 | `LOG_LEVEL` | `info` | Log verbosity (use `silent` for CI) |
 
+## What the harness reproduces (and why)
+
+`test/helpers/create-test-app.ts` boots `AppModule` and installs the **production** global
+`ValidationPipe` (`src/common/pipes/validation.pipe.ts`), imported from `src`, not re-declared with
+its own options.
+
+That is deliberate. `AppModule` registers the `AllExceptionsFilter` that normalizes every error into
+`ErrorResponseDto`, and the pipe is what decides the `code` inside it. A helper that declares pipe
+options of its own drifts from production without anyone noticing — before COU-339 this helper
+installed the stock Nest `ValidationPipe`, so validation errors surfaced as `code: HTTP_400` and no
+e2e could assert the real contract (`code: UA-COM-005` + `details`).
+
+Rule: an e2e that asserts an HTTP error body should always run on this harness, and the harness should
+get contract-relevant pieces from `src` rather than copying them.
+
+Not reproduced on purpose: `helmet`, `compress`, CORS, the pino logger and the real port. They do not
+change the response contract, and they would only add boot time.
+
 ## Commands
 
 ```bash

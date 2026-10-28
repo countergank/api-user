@@ -56,6 +56,7 @@ jobs:
         run: npm test
         env:
           NODE_ENV: local
+          MONGO_TEST_EXTERNAL: '1'
           DATABASE_USER: dev_user
           DATABASE_PASSWORD: dev_password
           DATABASE_HOST: localhost

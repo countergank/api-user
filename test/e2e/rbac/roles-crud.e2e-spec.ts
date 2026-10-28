@@ -8,6 +8,7 @@ import { Role } from '../../../src/rbac/entities/role.entity';
 import { User } from '../../../src/user/entities/user.entity';
 import { createTestApp } from '../../helpers/create-test-app';
 import { seedAdminForE2E } from '../../helpers/seed-admin';
+import { expectValidationError } from '../../helpers/validation-error';
 
 /**
  * COU-269 — CRUD de roles (S1–S17).
@@ -270,11 +271,14 @@ describe('Roles CRUD (e2e)', () => {
     it('rejects an empty body instead of wiping the role permissions (S13)', async () => {
       const role = await createRole({ name: uniqueRoleName('put-empty'), permissionIds: ['user:read'] });
 
-      // Rejected by the DTO before the service. This harness installs the stock Nest
-      // ValidationPipe, so the body code falls back to HTTP_400 instead of the
-      // UA-COM-005 the production pipe emits; the service array guard itself is
-      // pinned by role.service.spec.ts.
-      await auth(request(app.getHttpServer()).put(`/roles/${role._id}/permissions`)).send({}).expect(400);
+      // Rejected by the DTO before the service. The harness installs the production
+      // ValidationPipe (COU-339), so the body carries the real contract; the service
+      // array guard itself is pinned by role.service.spec.ts.
+      const response = await auth(request(app.getHttpServer()).put(`/roles/${role._id}/permissions`))
+        .send({})
+        .expect(400);
+
+      expectValidationError(response.body, 'permissionIds');
 
       // The destructive reading (undefined -> []) never reaches the database.
       const rolesRes = await auth(request(app.getHttpServer()).get('/roles')).expect(200);

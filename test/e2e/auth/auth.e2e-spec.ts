@@ -5,6 +5,7 @@ import { requestEmailChangeCode } from '../../helpers/email-change-code';
 import { getModelToken } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User } from '../../../src/user/entities/user.entity';
+import { expectValidationError } from '../../helpers/validation-error';
 
 describe('AuthController (e2e)', () => {
   let app: INestApplication;
@@ -74,29 +75,35 @@ describe('AuthController (e2e)', () => {
 
     // S1/S4: el handler debe validar contra un DTO; si vuelve a aceptar
     // propiedades desconocidas, este test falla.
-    // Only the status is asserted: this harness installs the stock Nest
-    // ValidationPipe (test/helpers/create-test-app.ts), so the body code falls back
-    // to HTTP_400 instead of the UA-COM-005 the production pipe emits. The code
-    // contract is asserted in test/hurl/auth.hurl, which runs against the real app.
+    // El harness instala el mismo ValidationPipe que producción
+    // (test/helpers/create-test-app.ts), así que estos casos afirman el contrato
+    // real de error: 400 con `code: UA-COM-005` y la propiedad rechazada en
+    // `details`.
     it('should reject login with an unknown property', async () => {
-      await request(app.getHttpServer())
+      const response = await request(app.getHttpServer())
         .post('/auth/login')
         .send({ email: testUser.email, password: testUser.password, lockedUntil: null })
         .expect(400);
+
+      expectValidationError(response.body, 'lockedUntil');
     });
 
     it('should reject login with a malformed email', async () => {
-      await request(app.getHttpServer())
+      const response = await request(app.getHttpServer())
         .post('/auth/login')
         .send({ email: 'no-es-email', password: testUser.password })
         .expect(400);
+
+      expectValidationError(response.body, 'email');
     });
 
     it('should reject login without password', async () => {
-      await request(app.getHttpServer())
+      const response = await request(app.getHttpServer())
         .post('/auth/login')
         .send({ email: testUser.email })
         .expect(400);
+
+      expectValidationError(response.body, 'password');
     });
   });
 

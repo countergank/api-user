@@ -1,8 +1,7 @@
 import { getModelToken } from '@nestjs/mongoose';
 import { Test, TestingModule } from '@nestjs/testing';
-import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { Connection, Model } from 'mongoose';
-import { clearMongoCollection, clearMongoConnection, createConnection } from '../../test-utils';
+import { clearMongoConnection, createConnection, TestMongo } from '../../test-utils';
 import { DomainError } from '../../common/errors/domain.error';
 import { EncodeService } from '../../encode/encode.service';
 import { HashMock } from '../../encode/mocks/hash.mock';
@@ -11,7 +10,7 @@ import { UserMock } from '../mocks/user.mock';
 import { UserRepository } from './user.repository';
 
 describe(UserRepository.name, () => {
-  let newMongod: MongoMemoryReplSet;
+  let newMongod: TestMongo['mongod'];
   let newMongoConnection: Connection;
   let userModel: Model<User>;
   let repository: UserRepository;
@@ -20,9 +19,11 @@ describe(UserRepository.name, () => {
   };
 
   beforeEach(async () => {
-    const { mongod, mongoConnection } = await createConnection();
+    const { mongod, mongoConnection } = await createConnection('user-repository');
     newMongod = mongod;
     newMongoConnection = mongoConnection;
+
+    userModel = newMongoConnection.model(User.name, UserSchema);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -38,16 +39,11 @@ describe(UserRepository.name, () => {
       .useValue(userModel)
       .compile();
 
-    userModel = newMongoConnection.model(User.name, UserSchema);
     repository = module.get<UserRepository>(UserRepository);
   });
 
-  afterAll(async () => {
-    await clearMongoConnection(newMongoConnection, newMongod);
-  });
-
   afterEach(async () => {
-    await clearMongoCollection(newMongoConnection);
+    await clearMongoConnection(newMongoConnection, newMongod);
   });
 
   it(`${UserRepository.name} should be defined`, () => {
