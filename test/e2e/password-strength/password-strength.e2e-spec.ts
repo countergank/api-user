@@ -1,19 +1,24 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { createTestApp } from '../../helpers/create-test-app';
-import { PASSWORD_ERROR_CODES } from '../../../src/common/interfaces/password-validation.interface';
+import { expectValidationError } from '../../helpers/validation-error';
 
 /**
- * Helper to check if any error message contains the expected code.
- * ValidationPipe returns `message` as an array of strings.
+ * Password policy enforcement over HTTP.
+ *
+ * These cases assert the contract the production global ValidationPipe publishes for a
+ * rejected body: `400` + `code: UA-COM-005` + `details` naming the offending property.
+ *
+ * They deliberately do NOT assert which rule (`PASSWORD_TOO_SHORT`, `PASSWORD_NO_UPPERCASE`,
+ * …) fired: the pipe's `exceptionFactory` publishes only the constraint *names*
+ * (`src/common/pipes/validation.pipe.ts`), so the rule-level codes never reach a client.
+ * Asserting them here would pin a contract production does not emit — that is what the
+ * harness did before COU-339, while it installed the stock Nest pipe. Per-rule coverage
+ * lives where the codes are produced, one case per rule:
+ *
+ * - `src/common/validators/password-strength.validator.spec.ts`
+ * - `src/user/dto/password-validation.integration.spec.ts`
  */
-function hasErrorCode(message: string | string[], code: string): boolean {
-  if (Array.isArray(message)) {
-    return message.some((m) => m.includes(code));
-  }
-  return message.includes(code);
-}
-
 describe('Password Strength Validation (e2e)', () => {
   let app: INestApplication;
 
@@ -54,7 +59,7 @@ describe('Password Strength Validation (e2e)', () => {
         })
         .expect(400);
 
-      expect(hasErrorCode(response.body.message, PASSWORD_ERROR_CODES.MIN_LENGTH)).toBe(true);
+      expectValidationError(response.body, 'password');
     });
 
     it('should reject password without uppercase', async () => {
@@ -68,7 +73,7 @@ describe('Password Strength Validation (e2e)', () => {
         })
         .expect(400);
 
-      expect(hasErrorCode(response.body.message, PASSWORD_ERROR_CODES.UPPERCASE)).toBe(true);
+      expectValidationError(response.body, 'password');
     });
 
     it('should reject password without lowercase', async () => {
@@ -82,7 +87,7 @@ describe('Password Strength Validation (e2e)', () => {
         })
         .expect(400);
 
-      expect(hasErrorCode(response.body.message, PASSWORD_ERROR_CODES.LOWERCASE)).toBe(true);
+      expectValidationError(response.body, 'password');
     });
 
     it('should reject password without number', async () => {
@@ -96,7 +101,7 @@ describe('Password Strength Validation (e2e)', () => {
         })
         .expect(400);
 
-      expect(hasErrorCode(response.body.message, PASSWORD_ERROR_CODES.NUMBER)).toBe(true);
+      expectValidationError(response.body, 'password');
     });
 
     it('should reject password without special character', async () => {
@@ -110,7 +115,7 @@ describe('Password Strength Validation (e2e)', () => {
         })
         .expect(400);
 
-      expect(hasErrorCode(response.body.message, PASSWORD_ERROR_CODES.SPECIAL_CHAR)).toBe(true);
+      expectValidationError(response.body, 'password');
     });
 
     it('should reject password with common sequence', async () => {
@@ -124,7 +129,7 @@ describe('Password Strength Validation (e2e)', () => {
         })
         .expect(400);
 
-      expect(hasErrorCode(response.body.message, PASSWORD_ERROR_CODES.SEQUENCE)).toBe(true);
+      expectValidationError(response.body, 'password');
     });
 
     it('should reject password with consecutive repeated chars', async () => {
@@ -138,7 +143,7 @@ describe('Password Strength Validation (e2e)', () => {
         })
         .expect(400);
 
-      expect(hasErrorCode(response.body.message, PASSWORD_ERROR_CODES.CONSECUTIVE)).toBe(true);
+      expectValidationError(response.body, 'password');
     });
 
     it('should reject password exceeding max length', async () => {
@@ -152,7 +157,7 @@ describe('Password Strength Validation (e2e)', () => {
         })
         .expect(400);
 
-      expect(hasErrorCode(response.body.message, PASSWORD_ERROR_CODES.MAX_LENGTH)).toBe(true);
+      expectValidationError(response.body, 'password');
     });
   });
 
@@ -208,7 +213,7 @@ describe('Password Strength Validation (e2e)', () => {
         })
         .expect(400);
 
-      expect(hasErrorCode(response.body.message, PASSWORD_ERROR_CODES.MIN_LENGTH)).toBe(true);
+      expectValidationError(response.body, 'newPassword');
     });
 
     it('should reject new password without uppercase', async () => {
@@ -221,7 +226,7 @@ describe('Password Strength Validation (e2e)', () => {
         })
         .expect(400);
 
-      expect(hasErrorCode(response.body.message, PASSWORD_ERROR_CODES.UPPERCASE)).toBe(true);
+      expectValidationError(response.body, 'newPassword');
     });
   });
 });
