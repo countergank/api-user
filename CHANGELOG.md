@@ -50,8 +50,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - `GET /admin/parameters`, `GET /admin/parameters/:group` and `GET /email/templates` used to answer
     a bare JSON array.
   - `GET /email/templates?active=` is now validated as a boolean: `true` returns the active templates,
-    `false` the inactive ones, and omitting it returns every template. A non-boolean value answers
-    `400` (it used to be silently ignored and return everything).
+    while omitting it — or sending `false` — returns every template, exactly as before COU-260. A
+    non-boolean value answers `400` (it used to be silently ignored).
+  - `page` and `limit` must be integers: a fractional value such as `page=1.5` now answers `400`
+    instead of slicing at a fractional offset.
   - All six accept `page` (1-indexed, default 1) and `limit` (1-100, default 20).
     `total` and `totalPages` describe the whole (or filtered) set, so a client that used to receive
     every item must now read `total`/`totalPages` (or send `limit=100`) to page through it — for

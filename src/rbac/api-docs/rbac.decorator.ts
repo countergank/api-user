@@ -25,7 +25,7 @@ export function ApplyFindAllRolesDoc() {
       summary: 'Listar todos los roles',
       description:
         'Retorna los roles disponibles en el envelope de colección `{ data, total, page, limit, totalPages }`. ' +
-        'Acepta `page` (1-indexed, default 1) y `limit` (1-100, default 20).',
+        'Acepta `page` (1-indexed, default 1) y `limit` (1-100, default 20). Un query param no declarado responde 400 (`forbidNonWhitelisted`).',
     }),
     ApiBearerAuth(),
     ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (1-indexed)', example: 1 }),

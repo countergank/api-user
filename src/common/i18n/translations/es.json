@@ -47,6 +47,8 @@
     "PAGE_MIN": "la página debe ser mayor o igual a 1",
     "LIMIT_MIN": "el límite debe ser mayor o igual a 1",
     "LIMIT_MAX": "el límite no debe ser mayor a 100",
+    "PAGINATION_INTEGER": "la página y el límite deben ser números enteros",
+    "ACTIVE_BOOLEAN": "el filtro active debe ser booleano (true o false)",
     "SORT_BY_INVALID": "el campo de ordenamiento no es válido",
     "SORT_ORDER_INVALID": "la dirección de ordenamiento debe ser 'asc' o 'desc'",
     "IS_ACTIVE_BOOLEAN": "isActive debe ser un valor booleano (true o false)"

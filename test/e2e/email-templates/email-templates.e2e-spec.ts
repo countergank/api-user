@@ -68,10 +68,7 @@ describe('Email Templates (e2e)', () => {
     adminToken = token;
 
     // Register regular user
-    const userReg = await request(app.getHttpServer())
-      .post('/auth/register')
-      .send(regularUser)
-      .expect(201);
+    const userReg = await request(app.getHttpServer()).post('/auth/register').send(regularUser).expect(201);
 
     // Verify email
     await request(app.getHttpServer())
@@ -91,35 +88,23 @@ describe('Email Templates (e2e)', () => {
 
   describe('ET-06: Admin auth required', () => {
     it('should return 401 without authentication — POST', async () => {
-      await request(app.getHttpServer())
-        .post('/email/templates')
-        .send(templateBody())
-        .expect(401);
+      await request(app.getHttpServer()).post('/email/templates').send(templateBody()).expect(401);
     });
 
     it('should return 401 without authentication — GET', async () => {
-      await request(app.getHttpServer())
-        .get('/email/templates')
-        .expect(401);
+      await request(app.getHttpServer()).get('/email/templates').expect(401);
     });
 
     it('should return 401 without authentication — GET :slug', async () => {
-      await request(app.getHttpServer())
-        .get('/email/templates/nonexistent')
-        .expect(401);
+      await request(app.getHttpServer()).get('/email/templates/nonexistent').expect(401);
     });
 
     it('should return 401 without authentication — PATCH', async () => {
-      await request(app.getHttpServer())
-        .patch('/email/templates/nonexistent')
-        .send({ subject: 'x' })
-        .expect(401);
+      await request(app.getHttpServer()).patch('/email/templates/nonexistent').send({ subject: 'x' }).expect(401);
     });
 
     it('should return 401 without authentication — DELETE', async () => {
-      await request(app.getHttpServer())
-        .delete('/email/templates/nonexistent')
-        .expect(401);
+      await request(app.getHttpServer()).delete('/email/templates/nonexistent').expect(401);
     });
 
     it('should return 403 for non-admin user — POST', async () => {
@@ -265,6 +250,41 @@ describe('Email Templates (e2e)', () => {
       res.body.data.forEach((template: { isActive: boolean }) => {
         expect(template.isActive).toBe(true);
       });
+    });
+
+    it('should treat ?active=false as no filter', async () => {
+      // Riesgo R1-active-false-filter: antes de COU-260 `active=false` no filtraba.
+      // Cambiar eso rompía consumidores, así que solo `true` filtra. El caso crea sus
+      // propios templates (uno inactivo) para no depender de otros tests de la suite.
+      const slug = makeSlug();
+      await request(app.getHttpServer())
+        .post('/email/templates')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(templateBody({ slug }))
+        .expect(201);
+      await request(app.getHttpServer())
+        .patch(`/email/templates/${slug}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ isActive: false })
+        .expect(200);
+
+      const all = await request(app.getHttpServer())
+        .get('/email/templates')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      const active = await request(app.getHttpServer())
+        .get('/email/templates?active=true')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      const notActiveFilter = await request(app.getHttpServer())
+        .get('/email/templates?active=false')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      expect(all.body.total).toBeGreaterThan(active.body.total);
+      expect(notActiveFilter.body.total).toBe(all.body.total);
     });
   });
 

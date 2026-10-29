@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsOptional, Max, Min } from 'class-validator';
+import { IsInt, IsOptional, Max, Min } from 'class-validator';
 
 /**
  * Parámetros de paginación para las colecciones que no tienen filtros propios
@@ -18,6 +18,7 @@ export class CollectionPaginationQueryDTO {
   })
   @IsOptional()
   @Type(() => Number)
+  @IsInt({ message: 'PAGINATION_INTEGER' })
   @Min(1, { message: 'PAGE_MIN' })
   page?: number = 1;
 
@@ -28,6 +29,7 @@ export class CollectionPaginationQueryDTO {
   })
   @IsOptional()
   @Type(() => Number)
+  @IsInt({ message: 'PAGINATION_INTEGER' })
   @Min(1, { message: 'LIMIT_MIN' })
   @Max(100, { message: 'LIMIT_MAX' })
   limit?: number = 20;

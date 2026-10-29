@@ -31,7 +31,6 @@ describe(ParameterAdminController.name, () => {
 
   const mockService = {
     getAll: jest.fn(),
-    getByGroup: jest.fn(),
     findPaginated: jest.fn(),
     update: jest.fn(),
   };

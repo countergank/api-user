@@ -62,11 +62,6 @@ export class ParameterService implements OnApplicationBootstrap {
     });
   }
 
-  async getByGroup(group: string): Promise<ParameterEntry[]> {
-    const all = await this.getAll();
-    return all.filter((e) => e.group === group);
-  }
-
   /**
    * Collection envelope for the admin endpoints (COU-260): the group filter is
    * applied before slicing, so `total` counts the filtered set.

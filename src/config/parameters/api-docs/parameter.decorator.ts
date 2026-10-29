@@ -17,7 +17,7 @@ import { ParameterEntryResponse } from './examples/parameter.examples';
 
 const PAGINATION_NOTE =
   'Devuelve el envelope de colección `{ data, total, page, limit, totalPages }`. ' +
-  'Acepta `page` (1-indexed, default 1) y `limit` (1-100, default 20).';
+  'Acepta `page` (1-indexed, default 1) y `limit` (1-100, default 20). Un query param no declarado responde 400 (`forbidNonWhitelisted`).';
 
 export function ApplyFindAllParametersDoc() {
   return applyDecorators(

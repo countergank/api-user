@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform, Type } from 'class-transformer';
 import { IsBoolean, IsOptional } from 'class-validator';
-import { Transform } from 'class-transformer';
 import { CollectionPaginationQueryDTO } from '../../common/dto/collection-pagination-query.dto';
 
 /**
@@ -19,11 +19,15 @@ export class ListTemplatesQueryDTO extends CollectionPaginationQueryDTO {
     description: 'Filtrar por estado activo; omitido devuelve todos los templates',
   })
   @IsOptional()
+  // @Type(String) is load-bearing: the global pipe runs `enableImplicitConversion`, which turns
+  // the raw 'false' into Boolean('false') === true BEFORE the transform sees it. Typing the
+  // source as string keeps the original token reachable (same trick as PaginationQueryDTO.isActive).
+  @Type(() => String)
   @Transform(({ value }) => {
     if (value === 'true') return true;
     if (value === 'false') return false;
     return value;
   })
-  @IsBoolean({ message: 'IS_ACTIVE_BOOLEAN' })
+  @IsBoolean({ message: 'ACTIVE_BOOLEAN' })
   active?: boolean;
 }

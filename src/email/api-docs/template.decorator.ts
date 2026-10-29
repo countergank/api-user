@@ -57,7 +57,7 @@ export function ApplyFindAllTemplatesDoc() {
       summary: 'Listar templates de email',
       description:
         'Retorna los templates en el envelope de colección `{ data, total, page, limit, totalPages }`. ' +
-        'Usar ?active=true para solo activos. Acepta `page` (1-indexed, default 1) y `limit` (1-100, default 20).',
+        'Usar ?active=true para solo activos. Acepta `page` (1-indexed, default 1) y `limit` (1-100, default 20). Un query param no declarado responde 400 (`forbidNonWhitelisted`).',
     }),
     ApiBearerAuth(),
     ApiQuery({

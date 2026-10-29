@@ -3,7 +3,10 @@ import { validate } from 'class-validator';
 import { ListTemplatesQueryDTO } from './list-templates-query.dto';
 
 describe(ListTemplatesQueryDTO.name, () => {
-  const parse = (query: Record<string, unknown>) => plainToInstance(ListTemplatesQueryDTO, query);
+  // Reproduce the global ValidationPipe options (enableImplicitConversion), which is what
+  // turns `?active=false` into Boolean('false') = true before any @Transform runs.
+  const parse = (query: Record<string, unknown>) =>
+    plainToInstance(ListTemplatesQueryDTO, query, { enableImplicitConversion: true });
 
   it('accepts active=true as a boolean and keeps the pagination defaults', async () => {
     const dto = parse({ active: 'true' });

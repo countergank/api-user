@@ -82,6 +82,19 @@ Sí son arrays planos: `GET /admin/parameters`, `GET /admin/parameters/:group`, 
 | T9 | Nota de migración: CHANGELOG + ENDPOINTS.md (+ openspec del endpoint de parámetros) | S5 | `CHANGELOG.md`, `test/hurl/ENDPOINTS.md`, `openspec/specs/parameter-admin-controller/spec.md` | este commit |
 | T10 | Suites Hurl reapuntadas y verificación completa (unit, e2e, tsc, hurl) | S1-S8 | `test/hurl/**` | sin commit (verificación) |
 
+## Tasks — ronda de hallazgos del review (L23)
+
+| ID | Tarea | Hallazgos | Ruta |
+|----|-------|-----------|------|
+| T11 | `?active=false` vuelve a significar "sin filtro" + e2e auto-contenido | R1-active-false-filter, R3-active-false-semantics | controller + e2e de templates |
+| T12 | `page`/`limit` enteros (`@IsInt`) en los dos query DTOs + clave `PAGINATION_INTEGER` + spec | R3-fractional-page | `src/common/dto`, `src/user/dto`, i18n |
+| T13 | `paginateRbacItems` compartido; los controllers dejan de hacer aritmética de páginas | R2-dup-pagination, R3-in-memory-paging-rbac | `src/common/i18n`, `src/rbac/controllers` |
+| T14 | `ParameterService.getByGroup` eliminado (código muerto) y sus tests | R2-group-filter-dup | `src/config/parameters` |
+| T15 | Clave i18n propia `ACTIVE_BOOLEAN` (es/en/pt) | R2-i18n-key | `src/common/i18n/translations` |
+| T16 | `PaginatedUserResponseMock` borrado: no tenía consumidores | R2-mock-name | `src/user/mocks` |
+| T17 | e2e de `limit=100` sin asumir catálogo acotado | R3-limit100-catalog-assumption | `test/e2e/rbac` |
+| T18 | 400 por query param desconocido: documentado en Swagger de los 4 endpoints + CHANGELOG | R1-nonwhitelisted-400, R3-unknown-query-400 | api-docs + CHANGELOG |
+
 ## Verificación
 
 - **S1/S6**: unit del `of()` (aritmética y página vacía) + unit por servicio paginado (skip/limit
@@ -175,6 +188,30 @@ Sí son arrays planos: `GET /admin/parameters`, `GET /admin/parameters/:group`, 
   `bd50319` paginación real de `/email/templates` + validación de `active`; `ae230b3` envelope `data` en
   `/roles` y `/permissions` + Swagger; `456a55d` fixture Hurl repetible; el commit de documentación
   (este archivo, CHANGELOG, ENDPOINTS.md y el spec de openspec) cierra la serie. Cada commit corrió el
-  hook del repo (unit completa) antes de entrar.
+  hook del repo (unit completa) antes de entrar.- **L23** (usuario, verbatim): “ok perfecto, arreglemos todos los hallazgos ahora nada de hacerlos
+  despues, nada de mas tickets para los hallazgos sino es interminable la cantidad de trabajo que se
+  pospone como deuda tecnica”.
+- **L24** (review nativa, lineage `review-ca777121bd46e336`): aprobada con 3/3 reviewers admitidos y
+  11 hallazgos `informational`. Antes falló 3 veces porque `review-readability` corría con
+  `nan/mimo-v2.6-flash`, que agotaba sus 32.768 tokens de salida en reasoning sin emitir artifact
+  (`stopReason: length`, `textChars: 0`). Se alineó el modelo en las dos capas
+  (`~/.pi/gentle-ai/profiles.json` y `~/.pi/agent/subagents.json`) y la corrida cerró. Autoridad
+  quemada con `acknowledge-approved`.
+- **L25** (ronda de hallazgos, T11-T18): cerrados los 11. Dos cierres son documentación y no código,
+  por razones explícitas: el `400` por query param desconocido es la política del `ValidationPipe`
+  global (`forbidNonWhitelisted`) y no tiene excepción por ruta; y la paginación de RBAC sigue
+  cortando en memoria porque el `CacheService` entrega el catálogo completo, así que bajarla a Mongo
+  duplicaría la fuente — lo que sí se eliminó es la aritmética en los controllers y la duplicación
+  entre `/roles` y `/permissions`.
+- **L26** (defecto propio encontrado al cerrar T11, y el más interesante): el primer fix de
+  `?active` no funcionó. Causa: el `ValidationPipe` global corre con `enableImplicitConversion: true`,
+  así que el token crudo `'false'` se convierte a `Boolean('false') === true` **antes** de que corra
+  el `@Transform`; el decorador nunca ve la cadena. Consecuencia real: `?active=false` filtraba como
+  `true` y `?active=now` se aceptaba en silencio como booleano válido. Fix: `@Type(() => String)`
+  antes del `@Transform` (el mismo patrón que ya usaba `PaginationQueryDTO.isActive`), y el spec del
+  DTO ahora instancia con `{ enableImplicitConversion: true }` para reproducir el pipe real: con las
+  opciones por defecto el spec pasaba y el runtime seguía roto. RED observado en el spec antes del
+  fix (`false`→`true`, `now` aceptado) y en el e2e (`all.total=10` vs `active=false`→9).
+
 - **Clasificación**: Task Size = **large** (6 endpoints, 2 clases de envelope a eliminar, Swagger,
   e2e ×4, Hurl ×5, nota de migración; no se puede retomar sólo desde el diff).

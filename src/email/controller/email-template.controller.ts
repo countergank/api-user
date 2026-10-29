@@ -40,7 +40,9 @@ export class EmailTemplateController {
   @ApplyFindAllTemplatesDoc()
   findAll(@Query() query: ListTemplatesQueryDTO): Promise<PaginatedResponseDTO<EmailTemplate>> {
     return this.templateService.findPaginated({
-      active: query.active,
+      // R1-active-false-filter: only `true` filters. `false` (and an omitted value) means
+      // "no filter", which is what the endpoint did before COU-260 added the envelope.
+      active: query.active === true ? true : undefined,
       page: query.page,
       limit: query.limit,
     });

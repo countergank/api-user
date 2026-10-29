@@ -8,10 +8,9 @@ import { RolesGuard } from '../../auth/guards/roles.guard';
 import { AuditAction } from '../../common/audit/audit.decorator';
 import { RequestLang } from '../../common/decorators/request-lang.decorator';
 import { CollectionPaginationQueryDTO } from '../../common/dto/collection-pagination-query.dto';
-import { PaginatedResponseDTO } from '../../common/dto/paginated-response.dto';
 import { DomainError } from '../../common/errors/domain.error';
 import { I18nService } from '../../common/i18n/i18n.service';
-import { translateRbacItems } from '../../common/i18n/rbac-translate.helper';
+import { paginateRbacItems, translateRbacItems } from '../../common/i18n/rbac-translate.helper';
 import { RoleService } from '../../rbac/services/role.service';
 import { UserRole } from '../../user/entities/user.entity';
 import {
@@ -47,14 +46,8 @@ export class RoleController {
   @RequirePermissions('role:read')
   @ApplyFindAllRolesDoc()
   async findAll(@RequestLang() lang: string | undefined, @Query() query: CollectionPaginationQueryDTO) {
-    // COU-260: page the raw roles first, then translate only the page that is returned.
     const roles = await this.roleService.findAll();
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
-    const start = (page - 1) * limit;
-
-    const data = await translateRbacItems(roles.slice(start, start + limit), this.i18n, lang);
-    return PaginatedResponseDTO.of(data, roles.length, page, limit);
+    return paginateRbacItems(roles, query.page ?? 1, query.limit ?? 20, this.i18n, lang);
   }
 
   @Post()

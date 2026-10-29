@@ -31,10 +31,7 @@ describe('RBAC (e2e)', () => {
     adminToken = t;
 
     // Register and verify regular user
-    const userRegRes = await request(app.getHttpServer())
-      .post('/auth/register')
-      .send(regularUser)
-      .expect(201);
+    const userRegRes = await request(app.getHttpServer()).post('/auth/register').send(regularUser).expect(201);
 
     await request(app.getHttpServer())
       .post('/auth/verify-email')
@@ -99,8 +96,8 @@ describe('RBAC (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      expect(response.body.data).toHaveLength(all.body.total);
-      expect(response.body.totalPages).toBe(1);
+      expect(response.body.data).toHaveLength(Math.min(all.body.total, 100));
+      expect(response.body.totalPages).toBe(Math.ceil(all.body.total / 100));
     });
 
     it('should include user:create permission', async () => {

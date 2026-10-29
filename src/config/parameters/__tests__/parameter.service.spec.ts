@@ -156,29 +156,6 @@ describe(ParameterService.name, () => {
     });
   });
 
-  describe(`${ParameterService.name}.getByGroup`, () => {
-    it('should return parameters filtered by group', async () => {
-      mockStore.getByKeys.mockResolvedValue(
-        new Map<string, string | number | boolean>([
-          ['EMAIL_PROVIDER', 'resend'],
-          ['MAX_LOGIN_ATTEMPTS', 5],
-        ]),
-      );
-
-      const result = await service.getByGroup('email');
-
-      expect(result).toHaveLength(1);
-      expect(result[0].key).toBe('EMAIL_PROVIDER');
-    });
-
-    it('should return empty array for nonexistent group', async () => {
-      mockStore.getByKeys.mockResolvedValue(new Map());
-
-      const result = await service.getByGroup('nonexistent');
-      expect(result).toEqual([]);
-    });
-  });
-
   describe(`${ParameterService.name}.has`, () => {
     it('should delegate to store', () => {
       mockStore.has.mockReturnValue(true);

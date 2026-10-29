@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsIn, IsOptional, IsString, Min, Max } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
+import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export const SORTABLE_FIELDS = ['name', 'lastName', 'email', 'userName', 'role', 'isActive', 'createdAt', 'updatedAt'];
 
@@ -25,6 +25,7 @@ export class PaginationQueryDTO {
   })
   @IsOptional()
   @Type(() => Number)
+  @IsInt({ message: 'PAGINATION_INTEGER' })
   @Min(1, { message: 'PAGE_MIN' })
   page?: number = 1;
 
@@ -35,6 +36,7 @@ export class PaginationQueryDTO {
   })
   @IsOptional()
   @Type(() => Number)
+  @IsInt({ message: 'PAGINATION_INTEGER' })
   @Min(1, { message: 'LIMIT_MIN' })
   @Max(100, { message: 'LIMIT_MAX' })
   limit?: number = 20;
