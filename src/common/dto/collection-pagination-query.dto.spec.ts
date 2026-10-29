@@ -3,7 +3,9 @@ import { validate } from 'class-validator';
 import { CollectionPaginationQueryDTO } from './collection-pagination-query.dto';
 
 describe(CollectionPaginationQueryDTO.name, () => {
-  const parse = (query: Record<string, unknown>) => plainToInstance(CollectionPaginationQueryDTO, query);
+  // Same options as the global ValidationPipe, so the spec cannot drift from the runtime.
+  const parse = (query: Record<string, unknown>) =>
+    plainToInstance(CollectionPaginationQueryDTO, query, { enableImplicitConversion: true });
 
   it('defaults to the first page of 20 items', async () => {
     const dto = parse({});

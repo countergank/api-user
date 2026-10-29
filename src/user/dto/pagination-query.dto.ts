@@ -25,7 +25,7 @@ export class PaginationQueryDTO {
   })
   @IsOptional()
   @Type(() => Number)
-  @IsInt({ message: 'PAGINATION_INTEGER' })
+  @IsInt({ message: 'PAGE_INTEGER' })
   @Min(1, { message: 'PAGE_MIN' })
   page?: number = 1;
 
@@ -36,7 +36,7 @@ export class PaginationQueryDTO {
   })
   @IsOptional()
   @Type(() => Number)
-  @IsInt({ message: 'PAGINATION_INTEGER' })
+  @IsInt({ message: 'LIMIT_INTEGER' })
   @Min(1, { message: 'LIMIT_MIN' })
   @Max(100, { message: 'LIMIT_MAX' })
   limit?: number = 20;

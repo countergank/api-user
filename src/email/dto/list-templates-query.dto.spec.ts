@@ -33,6 +33,13 @@ describe(ListTemplatesQueryDTO.name, () => {
     expect(await validate(dto)).toHaveLength(0);
   });
 
+  it('rejects an array of active values instead of picking one', async () => {
+    // R3-active-array-1: `?active=true&active=false` must be a 400, never a silent pick.
+    const dto = parse({ active: ['true', 'false'] });
+
+    expect(await validate(dto)).not.toHaveLength(0);
+  });
+
   it('rejects a non-boolean active value', async () => {
     const dto = parse({ active: 'now' });
 

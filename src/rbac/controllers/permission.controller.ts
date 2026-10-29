@@ -6,9 +6,9 @@ import { PermissionGuard } from '../../auth/guards/permissions.guard';
 import { RequestLang } from '../../common/decorators/request-lang.decorator';
 import { CollectionPaginationQueryDTO } from '../../common/dto/collection-pagination-query.dto';
 import { I18nService } from '../../common/i18n/i18n.service';
-import { paginateRbacItems } from '../../common/i18n/rbac-translate.helper';
 import { PermissionService } from '../../rbac/services/permission.service';
 import { ApplyFindAllPermissionsDoc } from '../api-docs';
+import { paginateRbacItems } from '../rbac-pagination';
 
 /**
  * Controller para gestión de permisos (RBAC).
@@ -30,6 +30,6 @@ export class PermissionController {
   @ApplyFindAllPermissionsDoc()
   async findAll(@RequestLang() lang: string | undefined, @Query() query: CollectionPaginationQueryDTO) {
     const permissions = await this.permissionService.findAll();
-    return paginateRbacItems(permissions, query.page ?? 1, query.limit ?? 20, this.i18n, lang);
+    return paginateRbacItems(permissions, query, this.i18n, lang);
   }
 }

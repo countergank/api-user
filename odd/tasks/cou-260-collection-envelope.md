@@ -188,7 +188,8 @@ Sí son arrays planos: `GET /admin/parameters`, `GET /admin/parameters/:group`, 
   `bd50319` paginación real de `/email/templates` + validación de `active`; `ae230b3` envelope `data` en
   `/roles` y `/permissions` + Swagger; `456a55d` fixture Hurl repetible; el commit de documentación
   (este archivo, CHANGELOG, ENDPOINTS.md y el spec de openspec) cierra la serie. Cada commit corrió el
-  hook del repo (unit completa) antes de entrar.- **L23** (usuario, verbatim): “ok perfecto, arreglemos todos los hallazgos ahora nada de hacerlos
+  hook del repo (unit completa) antes de entrar.
+- **L23** (usuario, verbatim): “ok perfecto, arreglemos todos los hallazgos ahora nada de hacerlos
   despues, nada de mas tickets para los hallazgos sino es interminable la cantidad de trabajo que se
   pospone como deuda tecnica”.
 - **L24** (review nativa, lineage `review-ca777121bd46e336`): aprobada con 3/3 reviewers admitidos y
@@ -212,6 +213,16 @@ Sí son arrays planos: `GET /admin/parameters`, `GET /admin/parameters/:group`, 
   DTO ahora instancia con `{ enableImplicitConversion: true }` para reproducir el pipe real: con las
   opciones por defecto el spec pasaba y el runtime seguía roto. RED observado en el spec antes del
   fix (`false`→`true`, `now` aceptado) y en el e2e (`all.total=10` vs `active=false`→9).
+- **L27** (segunda ronda de hallazgos, review nativa `review-c961dc0ef2645c89` sobre el delta
+  `25e5bca..HEAD`): aprobada con 3/3 reviewers y 6 hallazgos informativos, cerrados en el momento en
+  vez de diferirse. (a) `PAGINATION_INTEGER` se parte en `PAGE_INTEGER` / `LIMIT_INTEGER` para no dar
+  un mensaje genérico a dos campos distintos; (b) `paginateRbacItems` sale del helper de i18n a
+  `src/rbac/rbac-pagination.ts` y recibe el DTO entero, así ningún controller repite los defaults;
+  (c) el caso `?active=true&active=false` queda pinneado como `400` en el spec del DTO; (d) el spec de
+  `CollectionPaginationQueryDTO` instancia con `enableImplicitConversion`, igual que el pipe real;
+  (e) una línea pegada que introduje en este documento.
+- **L28** (evidencia de la ronda L27): unit **930/930** (79 suites), e2e de `rbac` + `email-templates`
+  **100/100**, `tsc` limpio.
 
 - **Clasificación**: Task Size = **large** (6 endpoints, 2 clases de envelope a eliminar, Swagger,
   e2e ×4, Hurl ×5, nota de migración; no se puede retomar sólo desde el diff).

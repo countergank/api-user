@@ -10,7 +10,7 @@ import { RequestLang } from '../../common/decorators/request-lang.decorator';
 import { CollectionPaginationQueryDTO } from '../../common/dto/collection-pagination-query.dto';
 import { DomainError } from '../../common/errors/domain.error';
 import { I18nService } from '../../common/i18n/i18n.service';
-import { paginateRbacItems, translateRbacItems } from '../../common/i18n/rbac-translate.helper';
+import { translateRbacItems } from '../../common/i18n/rbac-translate.helper';
 import { RoleService } from '../../rbac/services/role.service';
 import { UserRole } from '../../user/entities/user.entity';
 import {
@@ -23,6 +23,7 @@ import {
 import { CreateRoleDTO } from '../dto/create-role.dto';
 import { UpdateRolePermissionsDTO } from '../dto/update-role-permissions.dto';
 import { UpdateRoleDTO } from '../dto/update-role.dto';
+import { paginateRbacItems } from '../rbac-pagination';
 
 /** Shape returned by the read endpoints after i18n translation. */
 type TranslatedRole = Record<string, unknown> & { _id?: unknown; name?: string };
@@ -47,7 +48,7 @@ export class RoleController {
   @ApplyFindAllRolesDoc()
   async findAll(@RequestLang() lang: string | undefined, @Query() query: CollectionPaginationQueryDTO) {
     const roles = await this.roleService.findAll();
-    return paginateRbacItems(roles, query.page ?? 1, query.limit ?? 20, this.i18n, lang);
+    return paginateRbacItems(roles, query, this.i18n, lang);
   }
 
   @Post()
