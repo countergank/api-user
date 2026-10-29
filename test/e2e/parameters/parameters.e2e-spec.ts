@@ -104,16 +104,20 @@ describe('Parameters Admin (e2e)', () => {
   // --- S1: List all parameters ---
 
   describe('S1: List all parameters', () => {
-    it('should return 200 with array of parameter entries', async () => {
+    it('should return 200 with the paginated envelope of parameter entries', async () => {
       const res = await request(app.getHttpServer())
         .get('/admin/parameters')
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      expect(Array.isArray(res.body)).toBe(true);
-      expect(res.body.length).toBeGreaterThan(0);
+      expect(Array.isArray(res.body.data)).toBe(true);
+      expect(res.body.data.length).toBeGreaterThan(0);
+      expect(Number.isInteger(res.body.total)).toBe(true);
+      expect(res.body.page).toBe(1);
+      expect(res.body.limit).toBe(20);
+      expect(res.body.totalPages).toBe(res.body.total > 0 ? Math.ceil(res.body.total / 20) : 0);
 
-      const entry = res.body[0];
+      const entry = res.body.data[0];
       expect(entry).toHaveProperty('key');
       expect(entry).toHaveProperty('type');
       expect(entry).toHaveProperty('value');
@@ -122,13 +126,25 @@ describe('Parameters Admin (e2e)', () => {
       expect(entry).toHaveProperty('isOverridden');
     });
 
+    it('should paginate with page and limit query params', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/admin/parameters?page=1&limit=1')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      expect(res.body.data).toHaveLength(1);
+      expect(res.body.limit).toBe(1);
+      expect(res.body.total).toBeGreaterThan(1);
+      expect(res.body.totalPages).toBe(res.body.total);
+    });
+
     it('should include known parameter keys', async () => {
       const res = await request(app.getHttpServer())
         .get('/admin/parameters')
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      const keys = res.body.map((p: { key: string }) => p.key);
+      const keys = res.body.data.map((p: { key: string }) => p.key);
       expect(keys).toContain('THROTTLE_LIMIT');
       expect(keys).toContain('EMAIL_FROM');
     });
@@ -143,10 +159,14 @@ describe('Parameters Admin (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      expect(Array.isArray(res.body)).toBe(true);
-      expect(res.body.length).toBeGreaterThan(0);
+      expect(Array.isArray(res.body.data)).toBe(true);
+      expect(res.body.data.length).toBeGreaterThan(0);
+      expect(res.body.total).toBeGreaterThanOrEqual(res.body.data.length);
+      expect(res.body.page).toBe(1);
+      expect(res.body.limit).toBe(20);
+      expect(res.body.totalPages).toBe(Math.ceil(res.body.total / 20));
 
-      res.body.forEach((entry: { group: string }) => {
+      res.body.data.forEach((entry: { group: string }) => {
         expect(entry.group).toBe('email');
       });
     });
@@ -157,21 +177,23 @@ describe('Parameters Admin (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      expect(Array.isArray(res.body)).toBe(true);
-      res.body.forEach((entry: { group: string }) => {
+      expect(Array.isArray(res.body.data)).toBe(true);
+      res.body.data.forEach((entry: { group: string }) => {
         expect(entry.group).toBe('throttle');
       });
     });
 
     // S11: Empty group
-    it('should return 200 with empty array for unknown group', async () => {
+    it('should return 200 with an empty page for unknown group', async () => {
       const res = await request(app.getHttpServer())
         .get('/admin/parameters/nonexistent-group')
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      expect(Array.isArray(res.body)).toBe(true);
-      expect(res.body).toHaveLength(0);
+      expect(Array.isArray(res.body.data)).toBe(true);
+      expect(res.body.data).toHaveLength(0);
+      expect(res.body.total).toBe(0);
+      expect(res.body.totalPages).toBe(0);
     });
   });
 

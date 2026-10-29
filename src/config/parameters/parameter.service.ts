@@ -1,7 +1,8 @@
 import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
+import { PaginatedResponseDTO } from '../../common/dto/paginated-response.dto';
 import { DomainError } from '../../common/errors/domain.error';
-import { ParameterStore } from './parameter.store';
 import { ParameterRegistry } from './parameter-registry';
+import { ParameterStore } from './parameter.store';
 import { ParameterEntry } from './parameter.types';
 
 @Injectable()
@@ -64,6 +65,25 @@ export class ParameterService implements OnApplicationBootstrap {
   async getByGroup(group: string): Promise<ParameterEntry[]> {
     const all = await this.getAll();
     return all.filter((e) => e.group === group);
+  }
+
+  /**
+   * Collection envelope for the admin endpoints (COU-260): the group filter is
+   * applied before slicing, so `total` counts the filtered set.
+   */
+  async findPaginated(filters: {
+    group?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<PaginatedResponseDTO<ParameterEntry>> {
+    const page = filters.page ?? 1;
+    const limit = filters.limit ?? 20;
+
+    const all = await this.getAll();
+    const scoped = filters.group ? all.filter((e) => e.group === filters.group) : all;
+    const start = (page - 1) * limit;
+
+    return PaginatedResponseDTO.of(scoped.slice(start, start + limit), scoped.length, page, limit);
   }
 
   has(key: string): boolean {

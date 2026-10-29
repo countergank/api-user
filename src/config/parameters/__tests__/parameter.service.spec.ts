@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { DomainError } from '../../../common/errors/domain.error';
+import { ParameterRegistry } from '../parameter-registry';
 import { ParameterService } from '../parameter.service';
 import { ParameterStore } from '../parameter.store';
-import { ParameterRegistry } from '../parameter-registry';
 import { ParameterDefinition, ParameterEntry } from '../parameter.types';
 
 /**
@@ -319,6 +319,46 @@ describe(ParameterService.name, () => {
       );
 
       await expect(service.onApplicationBootstrap()).rejects.toThrow(/invalid number override/);
+    });
+  });
+
+  describe(`${ParameterService.name}.findPaginated`, () => {
+    const fiveDefs: ParameterDefinition[] = [
+      { key: 'A', type: 'string', default: 'a', group: 'email', ttl: 300 },
+      { key: 'B', type: 'string', default: 'b', group: 'email', ttl: 300 },
+      { key: 'C', type: 'string', default: 'c', group: 'email', ttl: 300 },
+      { key: 'D', type: 'number', default: 4, group: 'auth', ttl: 300 },
+      { key: 'E', type: 'number', default: 5, group: 'auth', ttl: 300 },
+    ];
+
+    beforeEach(() => {
+      mockRegistry.getAll.mockReturnValue(fiveDefs);
+      mockStore.getByKeys.mockResolvedValue(new Map());
+    });
+
+    it('returns the requested page plus the total of the whole set', async () => {
+      const result = await service.findPaginated({ page: 2, limit: 2 });
+
+      expect(result.data.map((entry) => entry.key)).toEqual(['C', 'D']);
+      expect(result.total).toBe(5);
+      expect(result.page).toBe(2);
+      expect(result.limit).toBe(2);
+      expect(result.totalPages).toBe(3);
+    });
+
+    it('counts the filtered set, not the whole set, when a group is requested', async () => {
+      const result = await service.findPaginated({ group: 'auth', page: 1, limit: 1 });
+
+      expect(result.data.map((entry) => entry.key)).toEqual(['D']);
+      expect(result.total).toBe(2);
+      expect(result.totalPages).toBe(2);
+    });
+
+    it('returns an empty page with the full total when the page is past the end', async () => {
+      const result = await service.findPaginated({ page: 9, limit: 2 });
+
+      expect(result.data).toEqual([]);
+      expect(result.total).toBe(5);
     });
   });
 });
