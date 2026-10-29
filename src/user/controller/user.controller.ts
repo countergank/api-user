@@ -31,7 +31,7 @@ import { CreateUserDTO } from '../dto/create-user.dto';
 import { PaginationQueryDTO } from '../dto/pagination-query.dto';
 import { PaginatedUserResponseDTO } from '../dto/paginated-user-response.dto';
 import { UpdateUserDTO } from '../dto/update-user.dto';
-import { UserDTO } from '../dto/user.dto';
+import { AdminUserDTO } from '../dto/admin-user.dto';
 import { User } from '../entities/user.entity';
 import { UserService } from '../service/user.service';
 import { I18nService } from '../../common/i18n/i18n.service';
@@ -78,11 +78,11 @@ export class UserController {
   @FindAllUserDoc()
   @RequirePermissions('user:read')
   @Get()
-  async findAll(@Query() query?: PaginationQueryDTO): Promise<UserDTO[] | PaginatedUserResponseDTO<UserDTO>> {
+  async findAll(@Query() query?: PaginationQueryDTO): Promise<AdminUserDTO[] | PaginatedUserResponseDTO<AdminUserDTO>> {
     // Backward compat: if no page param, return plain array
     if (!query || query.page === undefined) {
       const users: User[] = await this.userService.findAll();
-      return users.map((user) => UserDTO.of(user));
+      return users.map((user) => AdminUserDTO.of(user));
     }
 
     // Paginated response
@@ -92,9 +92,9 @@ export class UserController {
   @FindByIdUserDoc()
   @RequirePermissions('user:read')
   @Get(':id')
-  async findById(@Param('id') id: string): Promise<UserDTO> {
+  async findById(@Param('id') id: string): Promise<AdminUserDTO> {
     const user: User = await this.userService.findById(id);
-    return UserDTO.of(user);
+    return AdminUserDTO.of(user);
   }
 
   @UnlockUserDoc()
@@ -113,7 +113,7 @@ export class UserController {
     getResourceId: (_result: unknown, args: unknown[]) => args[0] as string, // id from @Param('id')
   })
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() dto: UpdateUserDTO): Promise<UserDTO> {
+  async update(@Param('id') id: string, @Body() dto: UpdateUserDTO): Promise<AdminUserDTO> {
     // S1/S3: the same catalog rule the create path enforces (COU-268). Validation
     // runs before updateUser, so a rejected name never reaches the transaction.
     const permissions = dto.permissions
@@ -121,7 +121,7 @@ export class UserController {
       : undefined;
 
     const user: User = await this.userService.updateUser(id, { ...dto, permissions } as UpdateUserDTO);
-    return UserDTO.of(user);
+    return AdminUserDTO.of(user);
   }
 
   @DeleteUserDoc()
@@ -145,8 +145,8 @@ export class UserController {
     getResourceId: (_result: unknown, args: unknown[]) => args[0] as string,
   })
   @Patch(':id/active')
-  async toggleActive(@Param('id') id: string): Promise<UserDTO> {
+  async toggleActive(@Param('id') id: string): Promise<AdminUserDTO> {
     const user: User = await this.userService.toggleActiveUser(id);
-    return UserDTO.of(user);
+    return AdminUserDTO.of(user);
   }
 }

@@ -1,11 +1,11 @@
 import { PaginatedUserResponseDTO } from './paginated-user-response.dto';
-import { UserDTO } from './user.dto';
+import { AdminUserDTO } from './admin-user.dto';
 import { UserMock } from '../mocks/user.mock';
 
 describe(PaginatedUserResponseDTO.name, () => {
   it('should create paginated response with correct shape', () => {
     const user = new UserMock();
-    const data = [UserDTO.of(user)];
+    const data = [AdminUserDTO.of(user)];
     const total = 1;
     const page = 1;
     const limit = 20;
@@ -20,7 +20,7 @@ describe(PaginatedUserResponseDTO.name, () => {
   });
 
   it('should calculate totalPages correctly for multiple pages', () => {
-    const data: UserDTO[] = [];
+    const data: AdminUserDTO[] = [];
     const total = 50;
     const page = 1;
     const limit = 10;
@@ -31,7 +31,7 @@ describe(PaginatedUserResponseDTO.name, () => {
   });
 
   it('should return totalPages=0 when total is 0', () => {
-    const data: UserDTO[] = [];
+    const data: AdminUserDTO[] = [];
     const total = 0;
     const page = 1;
     const limit = 20;
@@ -45,7 +45,7 @@ describe(PaginatedUserResponseDTO.name, () => {
 
   it('should handle last page with fewer items', () => {
     const user = new UserMock();
-    const data = [UserDTO.of(user)];
+    const data = [AdminUserDTO.of(user)];
     const total = 25;
     const page = 3;
     const limit = 10;
@@ -61,10 +61,10 @@ describe(PaginatedUserResponseDTO.name, () => {
 
   it('should use generic type parameter correctly', () => {
     const user = new UserMock();
-    const data = [UserDTO.of(user)];
+    const data = [AdminUserDTO.of(user)];
 
-    const result = PaginatedUserResponseDTO.of<UserDTO>(data, 1, 1, 20);
+    const result = PaginatedUserResponseDTO.of<AdminUserDTO>(data, 1, 1, 20);
 
-    expect(result.data[0]).toBeInstanceOf(UserDTO);
+    expect(result.data[0]).toBeInstanceOf(AdminUserDTO);
   });
 });

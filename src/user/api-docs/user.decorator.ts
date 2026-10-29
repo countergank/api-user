@@ -17,7 +17,6 @@ import { CreateUserDTO } from '../dto/create-user.dto';
 import { PaginationQueryDTO } from '../dto/pagination-query.dto';
 import { PaginatedUserResponseDTO } from '../dto/paginated-user-response.dto';
 import { UpdateUserDTO } from '../dto/update-user.dto';
-import { UserDTO } from '../dto/user.dto';
 import { CREATE_USER_SWAGGER } from './create-user.api-body';
 import { UserResponse, UserListResponse, PaginatedUserResponse } from './examples/user.examples';
 
@@ -74,7 +73,7 @@ export function FindAllUserDoc() {
     ApiOperation({
       summary: 'Listar todos los usuarios (Admin)',
       description:
-        'Retorna lista de todos los usuarios. Solo accesible por administradores.\n\n**Pagination**: Include `page` query param to enable paginated response. Without `page`, returns plain `UserDTO[]`.\n\n**i18n Support**: Use `Accept-Language` header (es, en, pt) to receive messages in your preferred language.',
+        'Retorna lista de todos los usuarios. Solo accesible por administradores.\n\n**Pagination**: Include `page` query param to enable paginated response. Without `page`, returns plain `AdminUserDTO[]`.\n\n**i18n Support**: Use `Accept-Language` header (es, en, pt) to receive messages in your preferred language.',
     }),
     ApiExtraModels(UserListResponse, PaginatedUserResponse),
     ApiResponse({

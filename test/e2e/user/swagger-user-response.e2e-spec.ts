@@ -16,13 +16,15 @@ type SchemaLike = {
 
 /**
  * COU-319: the UserResponse schema in Swagger must derive its metadata from
- * UserDTO (single source of truth), so a description change in the DTO reaches
- * Swagger without editing src/user/api-docs/examples/user.examples.ts.
+ * AdminUserDTO (single source of truth), so a description change in the DTO
+ * reaches Swagger without editing src/user/api-docs/examples/user.examples.ts.
+ * COU-346: UserResponse now derives from AdminUserDTO — the lock-state fields
+ * live there, not on the base UserDTO.
  *
  * The lockedUntil description is the copy that diverged in COU-261: before the
  * fix, user.examples.ts carried the short text without the trailing period.
  */
-const USER_DTO_LOCKED_UNTIL_DESCRIPTION =
+const ADMIN_USER_DTO_LOCKED_UNTIL_DESCRIPTION =
   'Fecha y hora en la que la cuenta se desbloquea sola; null si no está bloqueada. Solo lectura.';
 
 const EXPECTED_USER_RESPONSE_PROPERTIES = [
@@ -58,9 +60,9 @@ describe('UserResponse OpenAPI schema (e2e)', () => {
     await app.close();
   });
 
-  it('derives the lockedUntil description from UserDTO, not from the examples copy (S1)', () => {
+  it('derives the lockedUntil description from AdminUserDTO, not from the examples copy (S1)', () => {
     const schema = userResponseSchema(document);
-    expect(schema.properties?.lockedUntil?.description).toBe(USER_DTO_LOCKED_UNTIL_DESCRIPTION);
+    expect(schema.properties?.lockedUntil?.description).toBe(ADMIN_USER_DTO_LOCKED_UNTIL_DESCRIPTION);
   });
 
   it('documents exactly the same property set as today (S2)', () => {
