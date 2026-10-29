@@ -3,7 +3,7 @@ import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
 import { Mock } from '../../test-utils';
 import { Permission } from '../../rbac/entities/permission.entity';
 import { CreateUserResponseDTO } from '../dto/create-user-response.dto';
-import { UserDTO } from '../dto/user.dto';
+import { AdminUserDTO } from '../dto/admin-user.dto';
 import { UpdateUserDTO } from '../dto/update-user.dto';
 import { PaginationQueryDTO } from '../dto/pagination-query.dto';
 import { PaginatedUserResponseDTO } from '../dto/paginated-user-response.dto';
@@ -83,19 +83,19 @@ describe(UserController.name, () => {
     const user = new UserMock();
     it(`should be return a ${User.name}`, async () => {
       jest.spyOn(userService, 'findById').mockResolvedValue(user);
-      await expect(controller.findById(user.id)).resolves.toBeInstanceOf(UserDTO);
+      await expect(controller.findById(user.id)).resolves.toBeInstanceOf(AdminUserDTO);
     });
   });
 
   describe(`${UserController.name}.${UserController.prototype.findAll.name}`, () => {
     it(`should be return a ${User.name}`, async () => {
       jest.spyOn(userService, 'findAll').mockResolvedValue([new UserMock()]);
-      await expect(controller.findAll()).resolves.toBeInstanceOf(Array<UserDTO>);
+      await expect(controller.findAll()).resolves.toBeInstanceOf(Array<AdminUserDTO>);
     });
 
     it('should return paginated envelope when page param is present', async () => {
       const user = new UserMock();
-      const paginatedResponse = PaginatedUserResponseDTO.of([UserDTO.of(user)], 1, 1, 20);
+      const paginatedResponse = PaginatedUserResponseDTO.of([AdminUserDTO.of(user)], 1, 1, 20);
       const filters: PaginationQueryDTO = { page: 1, limit: 20, sortBy: 'createdAt', sortOrder: 'desc' };
 
       jest.spyOn(userService, 'findPaginated').mockResolvedValue(paginatedResponse);
@@ -103,13 +103,13 @@ describe(UserController.name, () => {
       const result = await controller.findAll(filters);
 
       expect(result).toBeInstanceOf(PaginatedUserResponseDTO);
-      expect((result as PaginatedUserResponseDTO<UserDTO>).data).toHaveLength(1);
-      expect((result as PaginatedUserResponseDTO<UserDTO>).total).toBe(1);
-      expect((result as PaginatedUserResponseDTO<UserDTO>).totalPages).toBe(1);
+      expect((result as PaginatedUserResponseDTO<AdminUserDTO>).data).toHaveLength(1);
+      expect((result as PaginatedUserResponseDTO<AdminUserDTO>).total).toBe(1);
+      expect((result as PaginatedUserResponseDTO<AdminUserDTO>).totalPages).toBe(1);
     });
 
     it('should return paginated envelope with custom page and limit', async () => {
-      const users = Array.from({ length: 10 }, () => UserDTO.of(new UserMock().randomize()));
+      const users = Array.from({ length: 10 }, () => AdminUserDTO.of(new UserMock().randomize()));
       const paginatedResponse = PaginatedUserResponseDTO.of(users, 50, 2, 10);
       const filters: PaginationQueryDTO = { page: 2, limit: 10, sortBy: 'name', sortOrder: 'asc' };
 
@@ -118,11 +118,11 @@ describe(UserController.name, () => {
       const result = await controller.findAll(filters);
 
       expect(result).toBeInstanceOf(PaginatedUserResponseDTO);
-      expect((result as PaginatedUserResponseDTO<UserDTO>).data).toHaveLength(10);
-      expect((result as PaginatedUserResponseDTO<UserDTO>).total).toBe(50);
-      expect((result as PaginatedUserResponseDTO<UserDTO>).page).toBe(2);
-      expect((result as PaginatedUserResponseDTO<UserDTO>).limit).toBe(10);
-      expect((result as PaginatedUserResponseDTO<UserDTO>).totalPages).toBe(5);
+      expect((result as PaginatedUserResponseDTO<AdminUserDTO>).data).toHaveLength(10);
+      expect((result as PaginatedUserResponseDTO<AdminUserDTO>).total).toBe(50);
+      expect((result as PaginatedUserResponseDTO<AdminUserDTO>).page).toBe(2);
+      expect((result as PaginatedUserResponseDTO<AdminUserDTO>).limit).toBe(10);
+      expect((result as PaginatedUserResponseDTO<AdminUserDTO>).totalPages).toBe(5);
     });
 
     it('should pass filters to service findPaginated', async () => {
@@ -165,10 +165,10 @@ describe(UserController.name, () => {
       jest.restoreAllMocks();
     });
 
-    it(`should update a ${User.name} and return ${UserDTO.name}`, async () => {
+    it(`should update a ${User.name} and return ${AdminUserDTO.name}`, async () => {
       jest.spyOn(userService, 'assertPermissionsAssignable').mockResolvedValue([]);
       jest.spyOn(userService, 'updateUser').mockResolvedValue(user);
-      await expect(controller.update(user.id, updateDto)).resolves.toBeInstanceOf(UserDTO);
+      await expect(controller.update(user.id, updateDto)).resolves.toBeInstanceOf(AdminUserDTO);
     });
 
     it('validates the permissions before updating the user (S1, S3)', async () => {
@@ -233,10 +233,10 @@ describe(UserController.name, () => {
       jest.restoreAllMocks();
     });
 
-    it(`should toggle user active status and return ${UserDTO.name}`, async () => {
+    it(`should toggle user active status and return ${AdminUserDTO.name}`, async () => {
       const toggledUser = { ...user, isActive: false };
       jest.spyOn(userService, 'toggleActiveUser').mockResolvedValue(toggledUser);
-      await expect(controller.toggleActive(user.id)).resolves.toBeInstanceOf(UserDTO);
+      await expect(controller.toggleActive(user.id)).resolves.toBeInstanceOf(AdminUserDTO);
     });
   });
 });

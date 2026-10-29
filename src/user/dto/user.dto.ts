@@ -12,9 +12,7 @@ import { User, UserRole } from '../entities/user.entity';
  *   userName: 'juanperez',
  *   role: 'user',
  *   createdAt: '2024-01-01T00:00:00.000Z',
- *   updatedAt: '2024-01-01T00:00:00.000Z',
- *   lockedUntil: null,
- *   failedLoginAttempts: 0
+ *   updatedAt: '2024-01-01T00:00:00.000Z'
  * }
  */
 export class UserDTO {
@@ -74,22 +72,6 @@ export class UserDTO {
   })
   isActive: boolean;
 
-  @ApiProperty({
-    example: null,
-    nullable: true,
-    type: String,
-    format: 'date-time',
-    description:
-      'Fecha y hora en la que la cuenta se desbloquea sola; null si no está bloqueada. Solo lectura.',
-  })
-  lockedUntil: string | null;
-
-  @ApiProperty({
-    example: 0,
-    description: 'Intentos de login fallidos acumulados desde el último acceso exitoso. Solo lectura.',
-  })
-  failedLoginAttempts: number;
-
   constructor(user: User) {
     this.id = user.id;
     this.name = user.name;
@@ -100,8 +82,6 @@ export class UserDTO {
     this.createdAt = user.createdAt;
     this.updatedAt = user.updatedAt;
     this.isActive = user.isActive;
-    this.lockedUntil = user.lockedUntil ? user.lockedUntil.toISOString() : null;
-    this.failedLoginAttempts = user.failedLoginAttempts ?? 0;
   }
 
   static of(user: User): UserDTO {

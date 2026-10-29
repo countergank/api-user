@@ -8,7 +8,7 @@ import { CreateUserDTO } from '../dto/create-user.dto';
 import { UpdateUserDTO } from '../dto/update-user.dto';
 import { PaginationQueryDTO } from '../dto/pagination-query.dto';
 import { PaginatedUserResponseDTO } from '../dto/paginated-user-response.dto';
-import { UserDTO } from '../dto/user.dto';
+import { AdminUserDTO } from '../dto/admin-user.dto';
 import { EncodeService } from '../../encode/encode.service';
 import { User, UserRole } from '../entities/user.entity';
 import { DomainError } from '../../common/errors/domain.error';
@@ -484,7 +484,7 @@ export class UserService {
     return updated;
   }
 
-  async findPaginated(filters: PaginationQueryDTO): Promise<PaginatedUserResponseDTO<UserDTO>> {
+  async findPaginated(filters: PaginationQueryDTO): Promise<PaginatedUserResponseDTO<AdminUserDTO>> {
     const { users, total } = await this.userRepository.findPaginated({
       page: filters.page,
       limit: filters.limit,
@@ -495,7 +495,7 @@ export class UserService {
       search: filters.search,
     });
 
-    const data = users.map((user) => UserDTO.of(user));
+    const data = users.map((user) => AdminUserDTO.of(user));
     return PaginatedUserResponseDTO.of(data, total, filters.page, filters.limit);
   }
 }
