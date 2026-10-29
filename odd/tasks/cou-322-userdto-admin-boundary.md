@@ -62,14 +62,18 @@ entidad (`src/user/entities/user.entity.ts:117,120`), la lógica de lockout
 | `src/user/dto/user.dto.ts` | se le quitan los dos campos y su serialización |
 | `src/user/controller/user.controller.ts:81,85,97,150,157` | los handlers de admin pasan a `AdminUserDTO` |
 | `src/user/service/user.service.ts:487,498` | `findPaginated` mapea a `AdminUserDTO` |
-| `src/user/api-docs/examples/user.examples.ts` | **`UserResponse` (COU-319) debe derivar de `AdminUserDTO`**, no de `UserDTO`, o el Swagger del admin pierde justo los dos campos |
+| `src/user/api-docs/examples/user.examples.ts` | **`UserResponse` debe derivar de `AdminUserDTO`**, no de `UserDTO`, o el Swagger del admin pierde justo los dos campos (ver dependencia con COU-319) |
 | `src/user/dto/user.dto.spec.ts` | los 3 casos de lock state se mudan al spec del DTO nuevo |
 | `src/user/dto/paginated-user-response.dto.spec.ts`, `src/user/controller/user.controller.spec.ts`, `src/user/mocks/paginated-user-response.mock.ts` | retipear los genéricos y fixtures |
-| `test/e2e/user/swagger-user-response.e2e-spec.ts` | el schema esperado pasa a `AdminUserDTO` |
+| `test/e2e/user/swagger-user-response.e2e-spec.ts` | el schema esperado pasa a `AdminUserDTO`. **Sólo existe cuando COU-319 (#448) esté mergeado** |
 
-**Interacción con COU-319, explícita**: ese ticket acaba de dejar `UserResponse extends UserDTO` como
-única fuente de la metadata de Swagger del admin. Si la migración no reapunta ese `UserResponse`, el
-cambio deja el Swagger del admin sin los dos campos que precisamente documenta.
+**Dependencia con COU-319 (#448), explícita**: ese ticket propone dejar `UserResponse extends UserDTO`
+como única fuente de la metadata de Swagger del admin, y **al escribir esta decisión todavía está en
+review, sin mergear**. Si la implementación de acá arranca después de que #448 entre, tiene que
+reapuntar ese `UserResponse` a `AdminUserDTO`; si arranca antes, el archivo
+`src/user/api-docs/examples/user.examples.ts` todavía declara sus propios campos y el retargeting se
+hace igual, en el mismo cambio. En los dos casos el olvido tiene el mismo efecto: el Swagger del admin
+deja de documentar los dos campos de bloqueo.
 
 ## Cómo se detecta una violación futura (S2)
 
@@ -81,8 +85,10 @@ cambio deja el Swagger del admin sin los dos campos que precisamente documenta.
    `lockedUntil` en el body (`:179-194`); `GET /users/profile` **no** los incluye (`:199-206`);
    `POST /auth/register` **no** los incluye (`:209-215`). Más `test/e2e/auth/auth-me.e2e-spec.ts:126-127`
    para `/me`.
-3. **Schema de Swagger** (`test/e2e/user/swagger-user-response.e2e-spec.ts`): reapuntado a
-   `AdminUserDTO`, sigue afirmando la lista de propiedades documentadas.
+3. **Schema de Swagger**: el spec de COU-319 (`test/e2e/user/swagger-user-response.e2e-spec.ts`,
+   disponible en cuanto #448 se mergee) reapuntado a `AdminUserDTO`, sigue afirmando la lista de
+   propiedades documentadas. Si la implementación de acá va antes que #448, ese spec todavía no existe
+   y el caso equivalente se escribe junto con la migración.
 
 ## Tasks
 
