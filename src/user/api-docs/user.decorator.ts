@@ -13,12 +13,13 @@ import {
 } from '@nestjs/swagger';
 import { BadRequestDTO } from '../../common/dto/bad-request.dto';
 import { InternalErrorDTO } from '../../common/dto/internal-error.dto';
+import { PaginatedResponseDTO } from '../../common/dto/paginated-response.dto';
+import { paginatedSchema } from '../../common/dto/paginated-response.schema';
 import { CreateUserDTO } from '../dto/create-user.dto';
 import { PaginationQueryDTO } from '../dto/pagination-query.dto';
-import { PaginatedUserResponseDTO } from '../dto/paginated-user-response.dto';
 import { UpdateUserDTO } from '../dto/update-user.dto';
 import { CREATE_USER_SWAGGER } from './create-user.api-body';
-import { UserResponse, UserListResponse, PaginatedUserResponse } from './examples/user.examples';
+import { UserResponse } from './examples/user.examples';
 
 export function CreateUserDoc() {
   return applyDecorators(
@@ -73,18 +74,13 @@ export function FindAllUserDoc() {
     ApiOperation({
       summary: 'Listar todos los usuarios (Admin)',
       description:
-        'Retorna lista de todos los usuarios. Solo accesible por administradores.\n\n**Pagination**: Include `page` query param to enable paginated response. Without `page`, returns plain `AdminUserDTO[]`.\n\n**i18n Support**: Use `Accept-Language` header (es, en, pt) to receive messages in your preferred language.',
+        'Retorna lista de todos los usuarios. Solo accesible por administradores.\n\n**Pagination**: `page` (1-indexed, default 1) and `limit` (1-100, default 20). The response is always the collection envelope `{ data, total, page, limit, totalPages }`.\n\n**i18n Support**: Use `Accept-Language` header (es, en, pt) to receive messages in your preferred language.',
     }),
-    ApiExtraModels(UserListResponse, PaginatedUserResponse),
+    ApiExtraModels(PaginatedResponseDTO, UserResponse),
     ApiResponse({
       status: 200,
-      description: 'Lista de usuarios (plain array without page param, or paginated envelope with page param)',
-      schema: {
-        oneOf: [
-          { $ref: getSchemaPath(UserListResponse) },
-          { $ref: getSchemaPath(PaginatedUserResponse) },
-        ],
-      },
+      description: 'Página de usuarios envuelta en el envelope de colección',
+      schema: paginatedSchema(UserResponse),
     }),
     ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (1-indexed)', example: 1 }),
     ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (1-100)', example: 20 }),

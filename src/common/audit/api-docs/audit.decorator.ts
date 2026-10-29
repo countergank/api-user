@@ -8,12 +8,12 @@ import {
   ApiQuery,
   ApiResponse,
   ApiTags,
-  getSchemaPath,
 } from '@nestjs/swagger';
 import { BadRequestDTO } from '../../../common/dto/bad-request.dto';
 import { InternalErrorDTO } from '../../../common/dto/internal-error.dto';
+import { PaginatedResponseDTO } from '../../dto/paginated-response.dto';
+import { paginatedSchema } from '../../dto/paginated-response.schema';
 import { AuditLogResponseDTO } from '../dto/audit-log-response.dto';
-import { PaginatedAuditLogResponseDTO } from '../dto/paginated-audit-log-response.dto';
 
 /**
  * API documentation for the admin audit logs query endpoint.
@@ -30,13 +30,11 @@ export function ApplyAuditLogsDoc() {
         '**Pagination**: page (1-indexed), limit (1-100, default 20)\n\n' +
         '**i18n Support**: Use `Accept-Language` header (es, en, pt) for localized error messages.',
     }),
-    ApiExtraModels(AuditLogResponseDTO, PaginatedAuditLogResponseDTO),
+    ApiExtraModels(AuditLogResponseDTO, PaginatedResponseDTO),
     ApiResponse({
       status: 200,
       description: 'Paginated audit logs retrieved successfully',
-      schema: {
-        $ref: getSchemaPath(PaginatedAuditLogResponseDTO),
-      },
+      schema: paginatedSchema(AuditLogResponseDTO),
     }),
     ApiQuery({
       name: 'userId',

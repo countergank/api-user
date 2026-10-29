@@ -1,11 +1,11 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException } from '@nestjs/common';
+import { Test, TestingModule } from '@nestjs/testing';
+import { I18nService } from '../../common/i18n/i18n.service';
+import { Mock } from '../../test-utils';
+import { PaginatedResponseDTO } from '../dto/paginated-response.dto';
 import { AuditController } from './audit.controller';
 import { AuditService } from './audit.service';
-import { I18nService } from '../../common/i18n/i18n.service';
 import { AuditLogFilterDTO } from './dto/audit-log-filter.dto';
-import { PaginatedAuditLogResponseDTO } from './dto/paginated-audit-log-response.dto';
-import { Mock } from '../../test-utils';
 
 describe(AuditController.name, () => {
   let controller: AuditController;
@@ -70,7 +70,7 @@ describe(AuditController.name, () => {
         limit: 20,
       });
 
-      expect(result).toBeInstanceOf(PaginatedAuditLogResponseDTO);
+      expect(result).toBeInstanceOf(PaginatedResponseDTO);
       expect(result.data).toHaveLength(1);
       expect(result.total).toBe(1);
       expect(result.page).toBe(1);

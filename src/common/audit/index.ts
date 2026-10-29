@@ -8,4 +8,4 @@ export { AuditAction, AUDIT_ACTION_KEY } from './audit.decorator';
 export { AuditEvents } from './constants/audit.events';
 export { AuditActionConfig, AuditEventPayload } from './interfaces';
 export { AuditController } from './audit.controller';
-export { AuditLogFilterDTO, AuditLogResponseDTO, PaginatedAuditLogResponseDTO } from './dto';
+export { AuditLogFilterDTO, AuditLogResponseDTO } from './dto';

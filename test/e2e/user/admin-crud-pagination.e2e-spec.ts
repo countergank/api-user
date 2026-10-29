@@ -316,6 +316,7 @@ describe('Admin Users CRUD (e2e)', () => {
     expect(res.body).toHaveProperty('total');
     expect(res.body).toHaveProperty('page', 1);
     expect(res.body).toHaveProperty('limit', 20);
+    expect(res.body).toHaveProperty('totalPages', Math.ceil(res.body.total / 20));
     expect(Array.isArray(res.body.data)).toBe(true);
   });
 

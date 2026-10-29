@@ -1,9 +1,9 @@
 import { faker } from '@faker-js/faker';
-import { PaginatedUserResponseDTO } from '../dto/paginated-user-response.dto';
+import { PaginatedResponseDTO } from '../../common/dto/paginated-response.dto';
 import { AdminUserDTO } from '../dto/admin-user.dto';
 import { UserMock } from './user.mock';
 
-export class PaginatedUserResponseMock extends PaginatedUserResponseDTO<AdminUserDTO> {
+export class PaginatedUserResponseMock extends PaginatedResponseDTO<AdminUserDTO> {
   constructor() {
     super();
     const user = new UserMock();

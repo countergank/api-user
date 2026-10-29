@@ -1,21 +1,13 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Inject,
-  Param,
-  Patch,
-  Post,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, Inject, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { RequirePermissions } from '../../auth/decorators/permissions.decorator';
+import { Roles } from '../../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionGuard } from '../../auth/guards/permissions.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
-import { RequirePermissions } from '../../auth/decorators/permissions.decorator';
-import { UserRole } from '../entities/user.entity';
+import { AuditAction } from '../../common/audit/audit.decorator';
+import { RequestLang } from '../../common/decorators/request-lang.decorator';
+import { PaginatedResponseDTO } from '../../common/dto/paginated-response.dto';
+import { I18nService } from '../../common/i18n/i18n.service';
 import {
   CreateUserDoc,
   DeleteUserDoc,
@@ -25,17 +17,14 @@ import {
   UnlockUserDoc,
   UpdateUserDoc,
 } from '../api-docs/user.decorator';
-import { AuditAction } from '../../common/audit/audit.decorator';
+import { AdminUserDTO } from '../dto/admin-user.dto';
 import { CreateUserResponseDTO } from '../dto/create-user-response.dto';
 import { CreateUserDTO } from '../dto/create-user.dto';
 import { PaginationQueryDTO } from '../dto/pagination-query.dto';
-import { PaginatedUserResponseDTO } from '../dto/paginated-user-response.dto';
 import { UpdateUserDTO } from '../dto/update-user.dto';
-import { AdminUserDTO } from '../dto/admin-user.dto';
+import { UserRole } from '../entities/user.entity';
 import { User } from '../entities/user.entity';
 import { UserService } from '../service/user.service';
-import { I18nService } from '../../common/i18n/i18n.service';
-import { RequestLang } from '../../common/decorators/request-lang.decorator';
 
 /**
  * Controller para gestión de usuarios (ADMIN).
@@ -78,14 +67,7 @@ export class UserController {
   @FindAllUserDoc()
   @RequirePermissions('user:read')
   @Get()
-  async findAll(@Query() query?: PaginationQueryDTO): Promise<AdminUserDTO[] | PaginatedUserResponseDTO<AdminUserDTO>> {
-    // Backward compat: if no page param, return plain array
-    if (!query || query.page === undefined) {
-      const users: User[] = await this.userService.findAll();
-      return users.map((user) => AdminUserDTO.of(user));
-    }
-
-    // Paginated response
+  async findAll(@Query() query: PaginationQueryDTO): Promise<PaginatedResponseDTO<AdminUserDTO>> {
     return this.userService.findPaginated(query);
   }
 
@@ -100,7 +82,10 @@ export class UserController {
   @UnlockUserDoc()
   @RequirePermissions('user:unlock')
   @Patch(':id/unlock')
-  async unlock(@Param('id') id: string, @RequestLang() lang: string | undefined): Promise<{ message: string; userId: string }> {
+  async unlock(
+    @Param('id') id: string,
+    @RequestLang() lang: string | undefined,
+  ): Promise<{ message: string; userId: string }> {
     await this.userService.unlockUser(id);
     return { message: await this.t('messages.account_unlocked', lang), userId: id };
   }
@@ -132,7 +117,10 @@ export class UserController {
     getResourceId: (_result: unknown, args: unknown[]) => args[0] as string,
   })
   @Delete(':id')
-  async delete(@Param('id') id: string, @RequestLang() lang: string | undefined): Promise<{ message: string; userId: string }> {
+  async delete(
+    @Param('id') id: string,
+    @RequestLang() lang: string | undefined,
+  ): Promise<{ message: string; userId: string }> {
     const result = await this.userService.deleteUser(id);
     return { message: await this.t('messages.user_deleted', lang), userId: result.userId };
   }
