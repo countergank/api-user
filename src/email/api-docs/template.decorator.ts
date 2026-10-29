@@ -19,6 +19,8 @@ import {
 } from '@nestjs/swagger';
 import { BadRequestDTO } from '../../common/dto/bad-request.dto';
 import { InternalErrorDTO } from '../../common/dto/internal-error.dto';
+import { PaginatedResponseDTO } from '../../common/dto/paginated-response.dto';
+import { paginatedSchema } from '../../common/dto/paginated-response.schema';
 import { CreateTemplateRequest, TemplateResponse, UpdateTemplateRequest } from './examples/template.examples';
 
 export function ApplyCreateTemplateDoc() {
@@ -53,25 +55,24 @@ export function ApplyFindAllTemplatesDoc() {
   return applyDecorators(
     ApiOperation({
       summary: 'Listar templates de email',
-      description: 'Retorna todos los templates. Usar ?active=true para solo activos.',
+      description:
+        'Retorna los templates en el envelope de colección `{ data, total, page, limit, totalPages }`. ' +
+        'Usar ?active=true para solo activos. Acepta `page` (1-indexed, default 1) y `limit` (1-100, default 20).',
     }),
     ApiBearerAuth(),
     ApiQuery({
       name: 'active',
       required: false,
       type: Boolean,
-      description: 'Filtrar solo templates activos',
+      description: 'Filtrar solo templates activos; `false` devuelve solo los inactivos y omitirlo devuelve todos',
     }),
-    ApiExtraModels(TemplateResponse),
+    ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (1-indexed)', example: 1 }),
+    ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (1-100)', example: 20 }),
+    ApiExtraModels(TemplateResponse, PaginatedResponseDTO),
     ApiResponse({
       status: 200,
-      description: 'Lista de templates',
-      schema: {
-        type: 'array',
-        items: {
-          $ref: getSchemaPath(TemplateResponse),
-        },
-      },
+      description: 'Página de templates envuelta en el envelope de colección',
+      schema: paginatedSchema(TemplateResponse),
     }),
     ApiUnauthorizedResponse({ description: 'No autenticado' }),
     ApiForbiddenResponse({ description: 'Acceso denegado. Se requiere rol admin.' }),

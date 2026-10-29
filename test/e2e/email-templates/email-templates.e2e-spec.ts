@@ -211,15 +211,48 @@ describe('Email Templates (e2e)', () => {
   // ── ET-02: List email templates ──
 
   describe('ET-02: List email templates', () => {
-    it('should return 200 with an array of templates', async () => {
+    it('should return 200 with the paginated envelope of templates', async () => {
       const res = await request(app.getHttpServer())
         .get('/email/templates')
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      expect(Array.isArray(res.body)).toBe(true);
+      expect(Array.isArray(res.body.data)).toBe(true);
       // Should include seeded defaults + any created in this suite
-      expect(res.body.length).toBeGreaterThanOrEqual(1);
+      expect(res.body.data.length).toBeGreaterThanOrEqual(1);
+      expect(Number.isInteger(res.body.total)).toBe(true);
+      expect(res.body.total).toBeGreaterThanOrEqual(res.body.data.length);
+      expect(res.body.page).toBe(1);
+      expect(res.body.limit).toBe(20);
+      expect(res.body.totalPages).toBe(Math.ceil(res.body.total / 20));
+    });
+
+    it('should page with limit and keep total on the whole set', async () => {
+      const all = await request(app.getHttpServer())
+        .get('/email/templates')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      const firstPage = await request(app.getHttpServer())
+        .get('/email/templates?limit=1')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      expect(firstPage.body.data).toHaveLength(1);
+      expect(firstPage.body.limit).toBe(1);
+      expect(firstPage.body.total).toBe(all.body.total);
+      expect(firstPage.body.totalPages).toBe(all.body.total);
+
+      if (all.body.total > 1) {
+        const secondPage = await request(app.getHttpServer())
+          .get('/email/templates?page=2&limit=1')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .expect(200);
+
+        expect(secondPage.body.data).toHaveLength(1);
+        expect(secondPage.body.page).toBe(2);
+        expect(secondPage.body.data[0].slug).not.toBe(firstPage.body.data[0].slug);
+      }
     });
 
     it('should support ?active=true filter', async () => {
@@ -228,7 +261,10 @@ describe('Email Templates (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      expect(Array.isArray(res.body)).toBe(true);
+      expect(Array.isArray(res.body.data)).toBe(true);
+      res.body.data.forEach((template: { isActive: boolean }) => {
+        expect(template.isActive).toBe(true);
+      });
     });
   });
 

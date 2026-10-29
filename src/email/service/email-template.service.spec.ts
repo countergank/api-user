@@ -1,12 +1,12 @@
+import * as fs from 'node:fs';
 import { Test, TestingModule } from '@nestjs/testing';
-import { EmailTemplateService } from './email-template.service';
-import { EmailTemplateRepository } from '../repository/email-template.repository';
-import { I18nService } from '../../common/i18n/i18n.service';
 import { DomainError } from '../../common/errors/domain.error';
+import { I18nService } from '../../common/i18n/i18n.service';
 import { CreateTemplateDto } from '../dto/create-template.dto';
 import { UpdateTemplateDto } from '../dto/update-template.dto';
 import { EmailTemplate } from '../entities/email-template.entity';
-import * as fs from 'node:fs';
+import { EmailTemplateRepository } from '../repository/email-template.repository';
+import { EmailTemplateService } from './email-template.service';
 
 jest.mock('node:fs');
 
@@ -37,8 +37,7 @@ describe(EmailTemplateService.name, () => {
     create: jest.fn(),
     updateBySlug: jest.fn(),
     deleteBySlug: jest.fn(),
-    findAll: jest.fn(),
-    findActive: jest.fn(),
+    findPage: jest.fn(),
   };
 
   const mockI18nService = {
@@ -123,23 +122,34 @@ describe(EmailTemplateService.name, () => {
     });
   });
 
-  describe('findAll', () => {
-    it('should return all templates from the repository', async () => {
-      const templates = [{ id: 'a' }, { id: 'b' }];
-      mockRepository.findAll.mockResolvedValue(templates);
+  describe('findPaginated', () => {
+    it('wraps the repository page in the collection envelope', async () => {
+      const templates = [{ id: 'a' }];
+      mockRepository.findPage.mockResolvedValue({ templates, total: 7 });
 
-      await expect(service.findAll()).resolves.toBe(templates);
-      expect(mockRepository.findAll).toHaveBeenCalledTimes(1);
+      const result = await service.findPaginated({ page: 2, limit: 3 });
+
+      expect(result.data).toBe(templates);
+      expect(result.total).toBe(7);
+      expect(result.page).toBe(2);
+      expect(result.limit).toBe(3);
+      expect(result.totalPages).toBe(3);
     });
-  });
 
-  describe('findActive', () => {
-    it('should return active templates from the repository', async () => {
-      const templates = [{ id: 'active-1' }];
-      mockRepository.findActive.mockResolvedValue(templates);
+    it('passes the active filter through to the repository', async () => {
+      mockRepository.findPage.mockResolvedValue({ templates: [], total: 0 });
 
-      await expect(service.findActive()).resolves.toBe(templates);
-      expect(mockRepository.findActive).toHaveBeenCalledTimes(1);
+      await service.findPaginated({ active: true, page: 1, limit: 20 });
+
+      expect(mockRepository.findPage).toHaveBeenCalledWith({ active: true, page: 1, limit: 20 });
+    });
+
+    it('defaults to the first page of 20 items', async () => {
+      mockRepository.findPage.mockResolvedValue({ templates: [], total: 0 });
+
+      await service.findPaginated({});
+
+      expect(mockRepository.findPage).toHaveBeenCalledWith({ active: undefined, page: 1, limit: 20 });
     });
   });
 
