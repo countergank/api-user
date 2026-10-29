@@ -42,6 +42,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
   `POST /auth/register` keeps answering `201 Created` — it does create a user. Swagger already
   documented `200` for the four endpoints, so the implementation now matches the published contract.
+- **Every collection endpoint now returns the same envelope** `{ data, total, page, limit, totalPages }`
+  (COU-260): `GET /admin/users`, `GET /roles`, `GET /permissions`, `GET /admin/parameters`,
+  `GET /admin/parameters/:group` and `GET /email/templates`.
+  - `GET /roles` and `GET /permissions` used to answer `{ "roles": [...] }` and
+    `{ "permissions": [...] }`; the collection key is now `data`.
+  - `GET /admin/parameters`, `GET /admin/parameters/:group` and `GET /email/templates` used to answer
+    a bare JSON array.
+  - `GET /email/templates?active=` is now validated as a boolean: `true` returns the active templates,
+    `false` the inactive ones, and omitting it returns every template. A non-boolean value answers
+    `400` (it used to be silently ignored and return everything).
+  - All six accept `page` (1-indexed, default 1) and `limit` (1-100, default 20).
+    `total` and `totalPages` describe the whole (or filtered) set, so a client that used to receive
+    every item must now read `total`/`totalPages` (or send `limit=100`) to page through it — for
+    example `GET /permissions` answers the first 20 of the catalog by default.
+  - Because those four endpoints now validate a query DTO and the global pipe runs
+    `forbidNonWhitelisted`, an unknown query parameter answers `400` instead of being ignored.
+  - The unreachable "plain array" branch of `GET /admin/users` was deleted: the `ValidationPipe`
+    already defaulted `page` to 1, so that endpoint always answered the envelope.
 
 ### Security
 
@@ -57,6 +75,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 | 423 | Account locked — message: `errors.ACCOUNT_LOCKED` (i18n translatable) |
 
 ### Backward Compatibility
+
+- **Migration (COU-260)**: read every collection from the `data` field of the response. Clients that
+  used `response.roles` or `response.permissions` must switch to `response.data`; clients that read
+  `GET /admin/parameters` or `GET /email/templates` as a root array must read `response.data` and can
+  use `total` / `page` / `limit` / `totalPages`. `GET /admin/users` already answered an envelope, so
+  only the removal of the impossible array branch affects its consumers (none over HTTP).
+  Single-resource endpoints (`GET /admin/users/:id`, `GET /roles/:id` style responses,
+  `GET /email/templates/:slug`) are unchanged.
 
 - No database migration required — new User fields are optional with safe defaults
 - Existing users automatically get `failedLoginAttempts: 0` and no `lockedUntil`
