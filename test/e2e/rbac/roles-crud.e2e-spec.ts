@@ -109,7 +109,7 @@ describe('Roles CRUD (e2e)', () => {
       expect(response.body).toMatchObject({ code: 'UA-COM-005', statusCode: 400 });
 
       const rolesRes = await auth(request(app.getHttpServer()).get('/roles')).expect(200);
-      expect(rolesRes.body.roles.map((role: any) => role.name)).not.toContain(name);
+      expect(rolesRes.body.data.map((role: any) => role.name)).not.toContain(name);
     });
 
     it('does not accept `isSystem` from the client (S4)', async () => {
@@ -148,7 +148,7 @@ describe('Roles CRUD (e2e)', () => {
 
     it('refuses to rename a system role with 403 UA-SEC-002 (S4, S9)', async () => {
       const rolesRes = await auth(request(app.getHttpServer()).get('/roles')).expect(200);
-      const adminRole = rolesRes.body.roles.find((role: any) => role.name === 'admin');
+      const adminRole = rolesRes.body.data.find((role: any) => role.name === 'admin');
 
       const response = await auth(request(app.getHttpServer()).patch(`/roles/${adminRole._id}`))
         .send({ name: 'superadmin' })
@@ -188,12 +188,12 @@ describe('Roles CRUD (e2e)', () => {
       expect(typeof response.body.message).toBe('string');
 
       const rolesRes = await auth(request(app.getHttpServer()).get('/roles')).expect(200);
-      expect(rolesRes.body.roles.map((item: any) => item._id)).not.toContain(role._id);
+      expect(rolesRes.body.data.map((item: any) => item._id)).not.toContain(role._id);
     });
 
     it('refuses to delete a system role with 403 UA-SEC-002 (S4, S9)', async () => {
       const rolesRes = await auth(request(app.getHttpServer()).get('/roles')).expect(200);
-      const viewerRole = rolesRes.body.roles.find((role: any) => role.name === 'viewer');
+      const viewerRole = rolesRes.body.data.find((role: any) => role.name === 'viewer');
 
       const response = await auth(request(app.getHttpServer()).delete(`/roles/${viewerRole._id}`)).expect(403);
 
@@ -226,9 +226,10 @@ describe('Roles CRUD (e2e)', () => {
 
       expect(response.body).toMatchObject({ code: 'UA-RBAC-001', statusCode: 409 });
 
-      // The role survives the rejected delete.
-      const rolesRes = await auth(request(app.getHttpServer()).get('/roles')).expect(200);
-      expect(rolesRes.body.roles.map((item: any) => item._id)).toContain(role._id);
+      // The role survives the rejected delete. Checked against the model: since
+      // COU-260 the listing pages by 20, so the role may be past page 1.
+      const survivor = await roleModel.findById(role._id).exec();
+      expect(survivor).not.toBeNull();
     });
 
     it('returns 404 for an unknown role id', async () => {
@@ -262,10 +263,11 @@ describe('Roles CRUD (e2e)', () => {
 
       expect(response.body).toMatchObject({ code: 'UA-COM-005', statusCode: 400 });
 
-      // Nothing was written: the previous permissions are intact.
-      const rolesRes = await auth(request(app.getHttpServer()).get('/roles')).expect(200);
-      const unchanged = rolesRes.body.roles.find((item: any) => item._id === role._id);
-      expect(unchanged.permissionIds).toEqual(['user:read']);
+      // Nothing was written: the previous permissions are intact. Checked
+      // against the model: since COU-260 the listing pages by 20, so the role
+      // may be past page 1.
+      const unchanged = await roleModel.findById(role._id).exec();
+      expect(unchanged?.permissionIds).toEqual(['user:read']);
     });
 
     it('rejects an empty body instead of wiping the role permissions (S13)', async () => {
@@ -281,9 +283,10 @@ describe('Roles CRUD (e2e)', () => {
       expectValidationError(response.body, 'permissionIds');
 
       // The destructive reading (undefined -> []) never reaches the database.
-      const rolesRes = await auth(request(app.getHttpServer()).get('/roles')).expect(200);
-      const unchanged = rolesRes.body.roles.find((item: any) => item._id === role._id);
-      expect(unchanged.permissionIds).toEqual(['user:read']);
+      // Checked against the model: since COU-260 the listing pages by 20, so
+      // the role may be past page 1.
+      const unchanged = await roleModel.findById(role._id).exec();
+      expect(unchanged?.permissionIds).toEqual(['user:read']);
     });
 
     it('returns 401 without a token', async () => {

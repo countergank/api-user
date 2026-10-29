@@ -1,15 +1,19 @@
-import { Controller, Get, Put, Post, Patch, Delete, Param, Body, UseGuards, Inject } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { Body, Controller, Delete, Get, Inject, Param, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { RequirePermissions } from '../../auth/decorators/permissions.decorator';
+import { Roles } from '../../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionGuard } from '../../auth/guards/permissions.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
-import { RequirePermissions } from '../../auth/decorators/permissions.decorator';
-import { UserRole } from '../../user/entities/user.entity';
-import { RoleService } from '../../rbac/services/role.service';
+import { AuditAction } from '../../common/audit/audit.decorator';
+import { RequestLang } from '../../common/decorators/request-lang.decorator';
+import { CollectionPaginationQueryDTO } from '../../common/dto/collection-pagination-query.dto';
+import { PaginatedResponseDTO } from '../../common/dto/paginated-response.dto';
+import { DomainError } from '../../common/errors/domain.error';
 import { I18nService } from '../../common/i18n/i18n.service';
 import { translateRbacItems } from '../../common/i18n/rbac-translate.helper';
-import { RequestLang } from '../../common/decorators/request-lang.decorator';
+import { RoleService } from '../../rbac/services/role.service';
+import { UserRole } from '../../user/entities/user.entity';
 import {
   ApplyCreateRoleDoc,
   ApplyDeleteRoleDoc,
@@ -17,8 +21,6 @@ import {
   ApplyUpdateRoleDoc,
   ApplyUpdateRolePermissionsDoc,
 } from '../api-docs';
-import { DomainError } from '../../common/errors/domain.error';
-import { AuditAction } from '../../common/audit/audit.decorator';
 import { CreateRoleDTO } from '../dto/create-role.dto';
 import { UpdateRolePermissionsDTO } from '../dto/update-role-permissions.dto';
 import { UpdateRoleDTO } from '../dto/update-role.dto';
@@ -44,9 +46,15 @@ export class RoleController {
   @Get()
   @RequirePermissions('role:read')
   @ApplyFindAllRolesDoc()
-  async findAll(@RequestLang() lang: string | undefined) {
+  async findAll(@RequestLang() lang: string | undefined, @Query() query: CollectionPaginationQueryDTO) {
+    // COU-260: page the raw roles first, then translate only the page that is returned.
     const roles = await this.roleService.findAll();
-    return { roles: await translateRbacItems(roles, this.i18n, lang) };
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const start = (page - 1) * limit;
+
+    const data = await translateRbacItems(roles.slice(start, start + limit), this.i18n, lang);
+    return PaginatedResponseDTO.of(data, roles.length, page, limit);
   }
 
   @Post()
@@ -86,11 +94,7 @@ export class RoleController {
     },
   })
   @ApplyUpdateRoleDoc()
-  async update(
-    @Param('id') id: string,
-    @Body() dto: UpdateRoleDTO,
-    @RequestLang() lang: string | undefined,
-  ) {
+  async update(@Param('id') id: string, @Body() dto: UpdateRoleDTO, @RequestLang() lang: string | undefined) {
     const role = await this.roleService.update(id, dto);
     return { role: (await translateRbacItems([role], this.i18n, lang))[0] };
   }

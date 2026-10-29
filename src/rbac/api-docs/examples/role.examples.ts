@@ -1,10 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export class FindAllRolesResponse {
-  @ApiProperty({ example: ['role_admin', 'role_user', 'role_guest'], description: 'Lista de roles' })
-  roles: string[];
-}
-
 export class UpdateRolePermissionsRequest {
   @ApiProperty({
     type: [String],

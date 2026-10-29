@@ -15,9 +15,11 @@ GET {{baseUrl}}/permissions
 Authorization: Bearer {{token}}
 HTTP 200
 [Asserts]
-jsonpath "$.permissions" isList
-jsonpath "$.permissions[0].name" isString
-jsonpath "$.permissions[0].category" isString
+jsonpath "$.data" isList
+jsonpath "$.total" isInteger
+jsonpath "$.page" == 1
+jsonpath "$.data[0].name" isString
+jsonpath "$.data[0].category" isString
 
 # --- negativos ------------------------------------------------------------
 GET {{baseUrl}}/permissions

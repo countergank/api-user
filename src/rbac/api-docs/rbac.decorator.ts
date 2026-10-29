@@ -6,35 +6,35 @@ import {
   ApiExtraModels,
   ApiInternalServerErrorResponse,
   ApiOperation,
-  ApiResponse,
   ApiParam,
+  ApiQuery,
+  ApiResponse,
   getSchemaPath,
 } from '@nestjs/swagger';
 import { BadRequestDTO } from '../../common/dto/bad-request.dto';
 import { InternalErrorDTO } from '../../common/dto/internal-error.dto';
-import { FindAllRolesResponse, UpdateRolePermissionsRequest } from './examples/role.examples';
-import {
-  CreateRoleRequest,
-  DeleteRoleResponse,
-  RoleResponse,
-  UpdateRoleRequest,
-} from './examples/role.examples';
-import { FindAllPermissionsResponse } from './examples/permission.examples';
+import { PaginatedResponseDTO } from '../../common/dto/paginated-response.dto';
+import { paginatedSchema } from '../../common/dto/paginated-response.schema';
+import { PermissionResponse } from './examples/permission.examples';
+import { RoleExample, RoleResponse, UpdateRolePermissionsRequest } from './examples/role.examples';
+import { CreateRoleRequest, DeleteRoleResponse, UpdateRoleRequest } from './examples/role.examples';
 
 export function ApplyFindAllRolesDoc() {
   return applyDecorators(
     ApiOperation({
       summary: 'Listar todos los roles',
-      description: 'Retorna lista de todos los roles disponibles en el sistema.',
+      description:
+        'Retorna los roles disponibles en el envelope de colección `{ data, total, page, limit, totalPages }`. ' +
+        'Acepta `page` (1-indexed, default 1) y `limit` (1-100, default 20).',
     }),
     ApiBearerAuth(),
-    ApiExtraModels(FindAllRolesResponse),
+    ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (1-indexed)', example: 1 }),
+    ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (1-100)', example: 20 }),
+    ApiExtraModels(PaginatedResponseDTO, RoleExample),
     ApiResponse({
       status: 200,
-      description: 'Lista de roles',
-      schema: {
-        $ref: getSchemaPath(FindAllRolesResponse),
-      },
+      description: 'Página de roles envuelta en el envelope de colección',
+      schema: paginatedSchema(RoleExample),
     }),
     ApiBadRequestResponse({ description: 'Bad Request', type: BadRequestDTO }),
     ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
@@ -53,7 +53,7 @@ export function ApplyUpdateRolePermissionsDoc() {
       description: 'ID del rol',
       example: 'role_admin',
     }),
-    ApiExtraModels(UpdateRolePermissionsRequest, FindAllRolesResponse),
+    ApiExtraModels(UpdateRolePermissionsRequest, RoleResponse),
     ApiBody({
       schema: {
         $ref: getSchemaPath(UpdateRolePermissionsRequest),
@@ -63,7 +63,7 @@ export function ApplyUpdateRolePermissionsDoc() {
       status: 200,
       description: 'Rol actualizado',
       schema: {
-        $ref: getSchemaPath(FindAllRolesResponse),
+        $ref: getSchemaPath(RoleResponse),
       },
     }),
     ApiBadRequestResponse({ description: 'Bad Request', type: BadRequestDTO }),
@@ -152,16 +152,18 @@ export function ApplyFindAllPermissionsDoc() {
   return applyDecorators(
     ApiOperation({
       summary: 'Listar todos los permisos',
-      description: 'Retorna lista de todos los permisos disponibles en el sistema. Formato: recurso:acción',
+      description:
+        'Retorna los permisos disponibles en el envelope de colección `{ data, total, page, limit, totalPages }`. ' +
+        'Formato: recurso:acción. Acepta `page` (1-indexed, default 1) y `limit` (1-100, default 20).',
     }),
     ApiBearerAuth(),
-    ApiExtraModels(FindAllPermissionsResponse),
+    ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (1-indexed)', example: 1 }),
+    ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (1-100)', example: 20 }),
+    ApiExtraModels(PaginatedResponseDTO, PermissionResponse),
     ApiResponse({
       status: 200,
-      description: 'Lista de permisos',
-      schema: {
-        $ref: getSchemaPath(FindAllPermissionsResponse),
-      },
+      description: 'Página de permisos envuelta en el envelope de colección',
+      schema: paginatedSchema(PermissionResponse),
     }),
     ApiBadRequestResponse({ description: 'Bad Request', type: BadRequestDTO }),
     ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
