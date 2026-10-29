@@ -35,7 +35,7 @@ export class UserResponse {
     format: 'date-time',
     description: 'Fecha en la que la cuenta se desbloquea sola; null si no está bloqueada. Solo lectura',
   })
-  lockedUntil: Date | null;
+  lockedUntil: string | null;
 
   @ApiProperty({ example: 0, description: 'Intentos de login fallidos acumulados. Solo lectura' })
   failedLoginAttempts: number;

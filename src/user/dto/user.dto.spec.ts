@@ -14,7 +14,7 @@ describe(UserDTO.name, () => {
       const dto = UserDTO.of(user);
 
       expect(dto.failedLoginAttempts).toBe(5);
-      expect(dto.lockedUntil).toEqual(lockedUntil);
+      expect(dto.lockedUntil).toBe(lockedUntil.toISOString());
     });
 
     it('reports a never-locked account as lockedUntil=null and failedLoginAttempts=0', () => {
