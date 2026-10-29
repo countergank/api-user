@@ -1,45 +1,15 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { UserDTO } from '../../dto/user.dto';
 
-export class UserResponse {
-  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000', description: 'ID del usuario' })
-  id: string;
-
-  @ApiProperty({ example: 'Juan', description: 'Nombre del usuario' })
-  name: string;
-
-  @ApiProperty({ example: 'Pérez', description: 'Apellido del usuario' })
-  lastName: string;
-
-  @ApiProperty({ example: 'juan@example.com', description: 'Email del usuario' })
-  email: string;
-
-  @ApiProperty({ example: 'juanperez', description: 'Nombre de usuario' })
-  userName: string;
-
-  @ApiProperty({ example: 'user', enum: ['admin', 'user', 'viewer'], description: 'Rol del usuario' })
-  role: string;
-
-  @ApiProperty({ example: true, description: 'Usuario activo' })
-  isActive: boolean;
-
-  @ApiProperty({ example: '2024-01-01T00:00:00.000Z', description: 'Fecha de creación' })
-  createdAt: string;
-
-  @ApiProperty({ example: '2024-01-01T00:00:00.000Z', description: 'Fecha de actualización' })
-  updatedAt: string;
-
-  @ApiProperty({
-    example: null,
-    nullable: true,
-    type: String,
-    format: 'date-time',
-    description: 'Fecha en la que la cuenta se desbloquea sola; null si no está bloqueada. Solo lectura',
-  })
-  lockedUntil: string | null;
-
-  @ApiProperty({ example: 0, description: 'Intentos de login fallidos acumulados. Solo lectura' })
-  failedLoginAttempts: number;
-}
+/**
+ * Swagger-facing view of an admin user response.
+ *
+ * It deliberately declares no properties of its own: the metadata comes from
+ * `UserDTO`, so a description or example change in the DTO reaches the generated
+ * document without editing this file (COU-319). Redeclaring them here is how the
+ * two texts drifted apart in COU-261.
+ */
+export class UserResponse extends UserDTO {}
 
 export class UserListResponse {
   @ApiProperty({ type: [UserResponse], description: 'Lista de usuarios' })
