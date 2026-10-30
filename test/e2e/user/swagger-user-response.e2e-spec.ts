@@ -77,3 +77,65 @@ describe('UserResponse OpenAPI schema (e2e)', () => {
     expect(lockedUntil.format).toBe('date-time');
   });
 });
+
+/**
+ * COU-260: the collection endpoints document the shared envelope. The generic DTO
+ * alone cannot type its `data` items, so each endpoint merges `paginatedSchema(item)`
+ * through `allOf`; this test reads the emitted document to prove that merge keeps
+ * both the envelope fields and the item reference.
+ */
+describe('Collection envelope OpenAPI schema (e2e)', () => {
+  let app: INestApplication;
+  let document: OpenAPIObject;
+
+  beforeAll(async () => {
+    app = await createTestApp();
+    document = SwaggerModule.createDocument(app, new DocumentBuilder().build());
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  type ResponseSchema = {
+    allOf?: Array<{ $ref?: string; properties?: Record<string, SchemaLike> }>;
+  };
+
+  function listSchema(path: string): ResponseSchema {
+    const paths = document.paths as unknown as Record<string, Record<string, unknown>>;
+    const operation = paths[path]?.get as { responses?: Record<string, unknown> } | undefined;
+    const response = operation?.responses?.['200'] as
+      | { content?: Record<string, { schema?: ResponseSchema }> }
+      | undefined;
+    const schema = response?.content?.['application/json']?.schema;
+    expect(schema).toBeDefined();
+    return schema as ResponseSchema;
+  }
+
+  const ENVELOPE_PROPERTIES = ['data', 'total', 'page', 'limit', 'totalPages'];
+
+  it('registers PaginatedResponseDTO with the five envelope fields', () => {
+    const schema = (document.components?.schemas as Record<string, SchemaLike>)?.PaginatedResponseDTO;
+    expect(schema).toBeDefined();
+    expect(Object.keys(schema?.properties ?? {}).sort()).toEqual([...ENVELOPE_PROPERTIES].sort());
+  });
+
+  it.each([
+    ['/admin/users', 'UserResponse'],
+    ['/admin/parameters', 'ParameterEntryResponse'],
+    ['/admin/parameters/{group}', 'ParameterEntryResponse'],
+    ['/email/templates', 'TemplateResponse'],
+    ['/roles', 'RoleExample'],
+    ['/permissions', 'PermissionResponse'],
+  ])('documents %s as the envelope with typed %s items', (path, itemSchema) => {
+    const schema = listSchema(path);
+    expect(schema.allOf).toHaveLength(2);
+    expect(schema.allOf?.[0]?.$ref).toContain('PaginatedResponseDTO');
+    const data = schema.allOf?.[1]?.properties?.data as unknown as {
+      type?: string;
+      items?: { $ref?: string };
+    };
+    expect(data?.type).toBe('array');
+    expect(data?.items?.$ref).toContain(itemSchema);
+  });
+});

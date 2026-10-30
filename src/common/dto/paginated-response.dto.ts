@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 /**
- * Envelope de respuesta paginada genérico.
+ * Envelope único de respuestas de colección (COU-260).
  * @example
  * {
  *   data: [...],
@@ -11,11 +11,11 @@ import { ApiProperty } from '@nestjs/swagger';
  *   totalPages: 5
  * }
  */
-export class PaginatedUserResponseDTO<T = unknown> {
-  @ApiProperty({ description: 'Array de resultados' })
+export class PaginatedResponseDTO<T = unknown> {
+  @ApiProperty({ description: 'Array de resultados', isArray: true })
   data: T[];
 
-  @ApiProperty({ example: 100, description: 'Total de registros' })
+  @ApiProperty({ example: 100, description: 'Total de registros del conjunto completo, no de la página' })
   total: number;
 
   @ApiProperty({ example: 1, description: 'Página actual' })
@@ -27,8 +27,8 @@ export class PaginatedUserResponseDTO<T = unknown> {
   @ApiProperty({ example: 5, description: 'Total de páginas' })
   totalPages: number;
 
-  static of<T>(data: T[], total: number, page: number, limit: number): PaginatedUserResponseDTO<T> {
-    const dto = new PaginatedUserResponseDTO<T>();
+  static of<T>(data: T[], total: number, page: number, limit: number): PaginatedResponseDTO<T> {
+    const dto = new PaginatedResponseDTO<T>();
     dto.data = data;
     dto.total = total;
     dto.page = page;

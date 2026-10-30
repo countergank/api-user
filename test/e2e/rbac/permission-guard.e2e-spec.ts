@@ -169,7 +169,7 @@ describe('Permission guard enforcement (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      expect(response.body.roles).toBeInstanceOf(Array);
+      expect(response.body.data).toBeInstanceOf(Array);
     });
 
     it('allows GET /permissions', async () => {
@@ -178,7 +178,7 @@ describe('Permission guard enforcement (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      expect(response.body.permissions).toBeInstanceOf(Array);
+      expect(response.body.data).toBeInstanceOf(Array);
     });
 
     it('allows PUT /roles/:id/permissions', async () => {
@@ -235,7 +235,7 @@ describe('Permission guard enforcement (e2e)', () => {
         .set('Authorization', `Bearer ${wildcardUser.token}`)
         .expect(200);
 
-      expect(response.body.roles).toBeInstanceOf(Array);
+      expect(response.body.data).toBeInstanceOf(Array);
     });
 
     it('allows GET /roles for a user holding role:*', async () => {
@@ -244,7 +244,7 @@ describe('Permission guard enforcement (e2e)', () => {
         .set('Authorization', `Bearer ${resourceWildcardUser.token}`)
         .expect(200);
 
-      expect(response.body.roles).toBeInstanceOf(Array);
+      expect(response.body.data).toBeInstanceOf(Array);
     });
   });
 

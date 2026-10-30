@@ -53,7 +53,12 @@ lo que crea lo borra, y lo que muta lo restaura. Total: **45 endpoints en 11 arc
 
 ## Notas de comportamiento verificadas
 
-- `GET /admin/users` **sin** `page` devuelve el envelope, no un array: el `ValidationPipe` instancia el DTO de paginación y aplica `page=1` (la rama "array plano" es inalcanzable por HTTP, COU-260).
+- Toda colección devuelve el envelope `{ data, total, page, limit, totalPages }` (COU-260): `/admin/users`,
+  `/roles`, `/permissions`, `/admin/parameters`, `/admin/parameters/:group` y `/email/templates`. Todas
+  aceptan `page` (1-indexed, default 1) y `limit` (1-100, default 20). **No** existe una rama de array
+  plano: el `ValidationPipe` instancia el DTO de paginación y aplica `page=1`.
+- `/roles` y `/permissions` envolvían la lista en una clave con el nombre del recurso (`roles`,
+  `permissions`); ahora usan `data` como el resto de las colecciones (COU-260).
 - `DELETE /admin/users/:id` es **borrado lógico**: después del 200, `GET` sigue devolviendo 200 con `isActive: false`.
 - `PUT /roles/:id/permissions` recibe **nombres** de permiso (`user:read`), no `_id`.
 - `PUT /admin/parameters/:key` sobre un parámetro con `isOverridden: true` responde **409 `UA-PAR-002`**: el entorno manda.

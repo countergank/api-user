@@ -31,10 +31,7 @@ describe('RBAC (e2e)', () => {
     adminToken = t;
 
     // Register and verify regular user
-    const userRegRes = await request(app.getHttpServer())
-      .post('/auth/register')
-      .send(regularUser)
-      .expect(201);
+    const userRegRes = await request(app.getHttpServer()).post('/auth/register').send(regularUser).expect(201);
 
     await request(app.getHttpServer())
       .post('/auth/verify-email')
@@ -71,14 +68,36 @@ describe('RBAC (e2e)', () => {
   });
 
   describe('/permissions (GET)', () => {
-    it('should list all permissions', async () => {
+    it('should list all permissions in the collection envelope', async () => {
       const response = await request(app.getHttpServer())
         .get('/permissions')
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      expect(response.body.permissions).toBeInstanceOf(Array);
-      expect(response.body.permissions.length).toBeGreaterThan(0);
+      expect(response.body.data).toBeInstanceOf(Array);
+      expect(response.body.data.length).toBeGreaterThan(0);
+      expect(response.body.page).toBe(1);
+      expect(response.body.limit).toBe(20);
+      expect(response.body.total).toBeGreaterThanOrEqual(response.body.data.length);
+      expect(response.body.totalPages).toBe(Math.ceil(response.body.total / 20));
+      // First page is exactly min(total, limit): the default page never hides items silently,
+      // it hides them behind `total` / `totalPages` (COU-260).
+      expect(response.body.data).toHaveLength(Math.min(response.body.total, 20));
+    });
+
+    it('should expose the whole catalog with limit=100', async () => {
+      const all = await request(app.getHttpServer())
+        .get('/permissions')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      const response = await request(app.getHttpServer())
+        .get('/permissions?limit=100')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      expect(response.body.data).toHaveLength(Math.min(all.body.total, 100));
+      expect(response.body.totalPages).toBe(Math.ceil(all.body.total / 100));
     });
 
     it('should include user:create permission', async () => {
@@ -87,20 +106,36 @@ describe('RBAC (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      const permissionNames = response.body.permissions.map((p: any) => p.name);
+      const permissionNames = response.body.data.map((p: any) => p.name);
       expect(permissionNames).toContain('user:create');
     });
   });
 
   describe('/roles (GET)', () => {
-    it('should list all roles', async () => {
+    it('should list all roles in the collection envelope', async () => {
       const response = await request(app.getHttpServer())
         .get('/roles')
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      expect(response.body.roles).toBeInstanceOf(Array);
-      expect(response.body.roles.length).toBeGreaterThan(0);
+      expect(response.body.data).toBeInstanceOf(Array);
+      expect(response.body.data.length).toBeGreaterThan(0);
+      expect(response.body.page).toBe(1);
+      expect(response.body.limit).toBe(20);
+      expect(response.body.total).toBeGreaterThanOrEqual(response.body.data.length);
+      expect(response.body.totalPages).toBe(Math.ceil(response.body.total / 20));
+    });
+
+    it('should paginate roles with page and limit', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/roles?page=1&limit=1')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      expect(response.body.data).toHaveLength(1);
+      expect(response.body.limit).toBe(1);
+      expect(response.body.total).toBeGreaterThan(1);
+      expect(response.body.totalPages).toBe(response.body.total);
     });
 
     it('should include admin, user, viewer roles', async () => {
@@ -109,7 +144,7 @@ describe('RBAC (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      const roleNames = response.body.roles.map((r: any) => r.name);
+      const roleNames = response.body.data.map((r: any) => r.name);
       expect(roleNames).toContain('admin');
       expect(roleNames).toContain('user');
       expect(roleNames).toContain('viewer');
@@ -125,7 +160,7 @@ describe('RBAC (e2e)', () => {
         .get('/roles')
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
-      roleId = rolesRes.body.roles.find((r: any) => r.name === 'user')._id;
+      roleId = rolesRes.body.data.find((r: any) => r.name === 'user')._id;
     });
 
     it('should update role permissions as admin (200)', async () => {

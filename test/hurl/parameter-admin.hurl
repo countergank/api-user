@@ -17,18 +17,18 @@ GET {{baseUrl}}/admin/parameters
 Authorization: Bearer {{token}}
 HTTP 200
 [Captures]
-currentEmailFrom: jsonpath "$[?(@.key=='EMAIL_FROM')].value"
+currentEmailFrom: jsonpath "$.data[?(@.key=='EMAIL_FROM')].value"
 [Asserts]
-jsonpath "$" isList
-jsonpath "$[?(@.key=='EMAIL_FROM')].key" exists
+jsonpath "$.data" isList
+jsonpath "$.data[?(@.key=='EMAIL_FROM')].key" exists
 
 # --- GET /admin/parameters/:group ----------------------------------------
 GET {{baseUrl}}/admin/parameters/email
 Authorization: Bearer {{token}}
 HTTP 200
 [Asserts]
-jsonpath "$" isList
-jsonpath "$[0].group" == "email"
+jsonpath "$.data" isList
+jsonpath "$.data[0].group" == "email"
 
 # --- PUT /admin/parameters/:key (parámetro NO overrideado, mismo valor) ------
 # Se lee el valor actual y se reescribe igual: ejercita el endpoint sin cambiar nada.
@@ -36,7 +36,7 @@ GET {{baseUrl}}/admin/parameters/throttle
 Authorization: Bearer {{token}}
 HTTP 200
 [Captures]
-currentThrottleTtl: jsonpath "$[?(@.key=='THROTTLE_TTL')].value"
+currentThrottleTtl: jsonpath "$.data[?(@.key=='THROTTLE_TTL')].value"
 
 PUT {{baseUrl}}/admin/parameters/THROTTLE_TTL
 Authorization: Bearer {{token}}
@@ -52,7 +52,8 @@ GET {{baseUrl}}/admin/parameters
 Authorization: Bearer {{token}}
 HTTP 200
 [Asserts]
-jsonpath "$[?(@.key=='THROTTLE_TTL')].value" == "{{currentThrottleTtl}}"
+# Sin comillas: el valor de THROTTLE_TTL es un número y `{{...}}` entrecomillado lo compara como string.
+jsonpath "$.data[?(@.key=='THROTTLE_TTL')].value" == {{currentThrottleTtl}}
 
 # Un parámetro sobrescrito por el entorno no se puede cambiar en runtime (409).
 PUT {{baseUrl}}/admin/parameters/EMAIL_FROM

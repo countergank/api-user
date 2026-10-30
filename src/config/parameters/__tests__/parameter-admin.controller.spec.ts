@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { PaginatedResponseDTO } from '../../../common/dto/paginated-response.dto';
 import { DomainError } from '../../../common/errors/domain.error';
 import { ParameterAdminController } from '../parameter-admin.controller';
 import { ParameterService } from '../parameter.service';
@@ -30,7 +31,7 @@ describe(ParameterAdminController.name, () => {
 
   const mockService = {
     getAll: jest.fn(),
-    getByGroup: jest.fn(),
+    findPaginated: jest.fn(),
     update: jest.fn(),
   };
 
@@ -50,41 +51,45 @@ describe(ParameterAdminController.name, () => {
   });
 
   describe('findAll', () => {
-    it('should return all parameter entries', async () => {
-      mockService.getAll.mockResolvedValue(mockEntries);
+    it('returns the collection envelope for the requested page', async () => {
+      mockService.findPaginated.mockResolvedValue(PaginatedResponseDTO.of(mockEntries, 2, 1, 20));
 
-      const result = await controller.findAll();
+      const result = await controller.findAll({ page: 1, limit: 20 });
 
-      expect(result).toEqual(mockEntries);
-      expect(mockService.getAll).toHaveBeenCalled();
+      expect(result).toBeInstanceOf(PaginatedResponseDTO);
+      expect(result.data).toEqual(mockEntries);
+      expect(result.total).toBe(2);
+      expect(mockService.findPaginated).toHaveBeenCalledWith({ page: 1, limit: 20 });
     });
 
-    it('should return empty array when no parameters exist', async () => {
-      mockService.getAll.mockResolvedValue([]);
+    it('returns an empty envelope when no parameters exist', async () => {
+      mockService.findPaginated.mockResolvedValue(PaginatedResponseDTO.of([], 0, 1, 20));
 
-      const result = await controller.findAll();
+      const result = await controller.findAll({ page: 1, limit: 20 });
 
-      expect(result).toEqual([]);
+      expect(result.data).toEqual([]);
+      expect(result.totalPages).toBe(0);
     });
   });
 
   describe('findByGroup', () => {
-    it('should return parameters for the given group', async () => {
-      mockService.getByGroup.mockResolvedValue([mockEntries[0]]);
+    it('scopes the envelope to the requested group', async () => {
+      mockService.findPaginated.mockResolvedValue(PaginatedResponseDTO.of([mockEntries[0]], 1, 1, 20));
 
-      const result = await controller.findByGroup('email');
+      const result = await controller.findByGroup('email', { page: 1, limit: 20 });
 
-      expect(result).toHaveLength(1);
-      expect(result[0].key).toBe('EMAIL_PROVIDER');
-      expect(mockService.getByGroup).toHaveBeenCalledWith('email');
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].key).toBe('EMAIL_PROVIDER');
+      expect(mockService.findPaginated).toHaveBeenCalledWith({ group: 'email', page: 1, limit: 20 });
     });
 
-    it('should return empty array for non-existent group', async () => {
-      mockService.getByGroup.mockResolvedValue([]);
+    it('returns an empty envelope for a non-existent group', async () => {
+      mockService.findPaginated.mockResolvedValue(PaginatedResponseDTO.of([], 0, 1, 20));
 
-      const result = await controller.findByGroup('nonexistent');
+      const result = await controller.findByGroup('nonexistent', { page: 1, limit: 20 });
 
-      expect(result).toEqual([]);
+      expect(result.data).toEqual([]);
+      expect(result.total).toBe(0);
     });
   });
 

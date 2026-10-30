@@ -19,16 +19,17 @@ GET {{baseUrl}}/roles
 Authorization: Bearer {{token}}
 HTTP 200
 [Asserts]
-jsonpath "$.roles" isList
+jsonpath "$.data" isList
+jsonpath "$.total" isInteger
 
 # --- GET /permissions (insumo para asignar un permiso real) ---------------
 GET {{baseUrl}}/permissions
 Authorization: Bearer {{token}}
 HTTP 200
 [Captures]
-firstPermissionName: jsonpath "$.permissions[0].name"
+firstPermissionName: jsonpath "$.data[0].name"
 [Asserts]
-jsonpath "$.permissions" isList
+jsonpath "$.data" isList
 
 # --- POST /roles ----------------------------------------------------------
 POST {{baseUrl}}/roles
@@ -64,11 +65,12 @@ Content-Type: application/json
 HTTP 200
 
 # --- GET /roles (el rol temporal aparece) ---------------------------------
-GET {{baseUrl}}/roles
+# limit=100: el rol recién creado puede quedar fuera de la página por defecto (20).
+GET {{baseUrl}}/roles?limit=100
 Authorization: Bearer {{token}}
 HTTP 200
 [Asserts]
-jsonpath "$.roles[?(@.name=='hurl-role-temp')]" exists
+jsonpath "$.data[?(@.name=='hurl-role-temp')]" exists
 
 # --- DELETE /roles/:id ----------------------------------------------------
 DELETE {{baseUrl}}/roles/{{roleId}}

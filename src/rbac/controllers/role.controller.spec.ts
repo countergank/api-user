@@ -1,7 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { AUDIT_ACTION_KEY } from '../../common/audit/audit.decorator';
 import { PERMISSIONS_KEY } from '../../auth/decorators/permissions.decorator';
 import { ROLES_KEY } from '../../auth/decorators/roles.decorator';
+import { AUDIT_ACTION_KEY } from '../../common/audit/audit.decorator';
+import { PaginatedResponseDTO } from '../../common/dto/paginated-response.dto';
 import { DomainError } from '../../common/errors/domain.error';
 import { I18nService } from '../../common/i18n/i18n.service';
 import { UserRole } from '../../user/entities/user.entity';
@@ -77,23 +78,34 @@ describe(RoleController.name, () => {
       }
     });
 
-    it.each(['create', 'update', 'remove', 'updatePermissions'])(
-      'restricts %s to the admin role (S12)',
-      (handler) => {
-        const target = controller[handler as keyof RoleController] as unknown as object;
+    it.each(['create', 'update', 'remove', 'updatePermissions'])('restricts %s to the admin role (S12)', (handler) => {
+      const target = controller[handler as keyof RoleController] as unknown as object;
 
-        expect(Reflect.getMetadata(ROLES_KEY, target)).toEqual([UserRole.ADMIN]);
-      },
-    );
+      expect(Reflect.getMetadata(ROLES_KEY, target)).toEqual([UserRole.ADMIN]);
+    });
   });
 
   describe(`${RoleController.name}.findAll`, () => {
-    it('keeps returning the role list', async () => {
+    it('returns the collection envelope with the translated roles', async () => {
       mockRoleService.findAll.mockResolvedValue([mockRole()]);
 
-      await expect(controller.findAll('en')).resolves.toEqual({
-        roles: [expect.objectContaining({ name: 'moderator' })],
-      });
+      const result = await controller.findAll('en', { page: 1, limit: 20 });
+
+      expect(result).toBeInstanceOf(PaginatedResponseDTO);
+      expect(result.data[0]).toEqual(expect.objectContaining({ name: 'moderator' }));
+      expect(result.total).toBe(1);
+      expect(result.totalPages).toBe(1);
+    });
+
+    it('pages the roles and counts the whole set', async () => {
+      mockRoleService.findAll.mockResolvedValue([mockRole(), mockRole(), mockRole()]);
+
+      const result = await controller.findAll('en', { page: 2, limit: 2 });
+
+      expect(result.data).toHaveLength(1);
+      expect(result.total).toBe(3);
+      expect(result.page).toBe(2);
+      expect(result.totalPages).toBe(2);
     });
   });
 
@@ -178,9 +190,7 @@ describe(RoleController.name, () => {
     it('answers 404 when the role does not exist', async () => {
       mockRoleService.updatePermissions.mockResolvedValue(null);
 
-      await expect(
-        controller.updatePermissions('missing', { permissionIds: ['user:read'] }, 'en'),
-      ).rejects.toEqual(
+      await expect(controller.updatePermissions('missing', { permissionIds: ['user:read'] }, 'en')).rejects.toEqual(
         expect.objectContaining({ kind: expect.objectContaining({ kind: 'ENTITY_NOT_FOUND', statusCode: 404 }) }),
       );
     });

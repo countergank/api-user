@@ -1,21 +1,21 @@
+import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
-import { ClientSession, Connection, Model } from 'mongoose';
-import { randomUUID } from 'node:crypto';
 import { plainToInstance } from 'class-transformer';
-import { Permission } from '../../rbac/entities/permission.entity';
-import { CreateUserDTO } from '../dto/create-user.dto';
-import { UpdateUserDTO } from '../dto/update-user.dto';
-import { PaginationQueryDTO } from '../dto/pagination-query.dto';
-import { PaginatedUserResponseDTO } from '../dto/paginated-user-response.dto';
-import { AdminUserDTO } from '../dto/admin-user.dto';
-import { EncodeService } from '../../encode/encode.service';
-import { User, UserRole } from '../entities/user.entity';
-import { DomainError } from '../../common/errors/domain.error';
-import { UserRepository } from '../repository/user.repository';
+import { ClientSession, Connection, Model } from 'mongoose';
 import { AuditAction } from '../../common/audit/audit.decorator';
+import { PaginatedResponseDTO } from '../../common/dto/paginated-response.dto';
+import { DomainError } from '../../common/errors/domain.error';
 import { runInTransaction } from '../../common/utils/transaction';
 import { CacheService } from '../../config/cache';
+import { EncodeService } from '../../encode/encode.service';
+import { Permission } from '../../rbac/entities/permission.entity';
+import { AdminUserDTO } from '../dto/admin-user.dto';
+import { CreateUserDTO } from '../dto/create-user.dto';
+import { PaginationQueryDTO } from '../dto/pagination-query.dto';
+import { UpdateUserDTO } from '../dto/update-user.dto';
+import { User, UserRole } from '../entities/user.entity';
+import { UserRepository } from '../repository/user.repository';
 
 import {
   EMAIL_CHANGE_CODE_MAX_ATTEMPTS,
@@ -484,10 +484,15 @@ export class UserService {
     return updated;
   }
 
-  async findPaginated(filters: PaginationQueryDTO): Promise<PaginatedUserResponseDTO<AdminUserDTO>> {
+  async findPaginated(filters: PaginationQueryDTO): Promise<PaginatedResponseDTO<AdminUserDTO>> {
+    // The HTTP layer always hands a DTO with defaults, but the service is also a
+    // public seam: without these fallbacks a partial filter turns totalPages into NaN.
+    const page = filters.page ?? 1;
+    const limit = filters.limit ?? 20;
+
     const { users, total } = await this.userRepository.findPaginated({
-      page: filters.page,
-      limit: filters.limit,
+      page,
+      limit,
       sortBy: filters.sortBy,
       sortOrder: filters.sortOrder,
       role: filters.role,
@@ -496,6 +501,6 @@ export class UserService {
     });
 
     const data = users.map((user) => AdminUserDTO.of(user));
-    return PaginatedUserResponseDTO.of(data, total, filters.page, filters.limit);
+    return PaginatedResponseDTO.of(data, total, page, limit);
   }
 }

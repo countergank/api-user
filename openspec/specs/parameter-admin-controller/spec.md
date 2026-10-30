@@ -11,15 +11,15 @@ Define admin parameter endpoints: GET /admin/parameters, GET /admin/parameters/:
 The system SHALL expose three admin parameter endpoints:
 
 #### R1.1 GET /admin/parameters
-- **Contract**: Returns all parameters with current runtime values
-- **Response**: `ParameterResponseDto[]` (200 OK)
+- **Contract**: Returns all parameters with current runtime values, paginated by `page` (1-indexed, default 1) and `limit` (1-100, default 20)
+- **Response**: collection envelope `{ data: ParameterResponseDto[], total, page, limit, totalPages }` (200 OK)
 - **Guards**: `JwtAuthGuard`, `RolesGuard(@Roles(UserRole.ADMIN))`
 - **Rate limit**: THROTTLE_ADMIN_DEFAULT (30/min)
 - **Audit**: No audit log entry
 
 #### R1.2 GET /admin/parameters/:group
-- **Contract**: Returns parameters filtered by group name
-- **Response**: `ParameterResponseDto[]` (200 OK)
+- **Contract**: Returns parameters filtered by group name, paginated by `page` and `limit`; `total` counts the filtered set
+- **Response**: collection envelope `{ data: ParameterResponseDto[], total, page, limit, totalPages }` (200 OK)
 - **Guards**: `JwtAuthGuard`, `RolesGuard(@Roles(UserRole.ADMIN))`
 - **Rate limit**: THROTTLE_ADMIN_DEFAULT (30/min)
 - **Audit**: No audit log entry
@@ -99,7 +99,8 @@ Only PUT /admin/parameters/:key creates audit log entries with:
 **And** system has registered parameters (`EMAIL_PROVIDER`, `MAX_LOGIN_ATTEMPTS`, etc.)
 **When** admin sends `GET /admin/parameters`
 **Then** response status is 200 OK
-**And** response body is array of `ParameterResponseDto[]`
+**And** response body is the collection envelope `{ data, total, page, limit, totalPages }`
+**And** `data` is an array of `ParameterResponseDto`; `page` defaults to 1 and `limit` to 20, and `total` counts every registered parameter
 **And** each dto contains key, value, type, group, ttl, default, isOverridden flags
 **And** parameters with env overrides have `isOverridden: true`
 **And** no audit log is created
@@ -109,7 +110,7 @@ Only PUT /admin/parameters/:key creates audit log entries with:
 **And** parameters registered in groups `email`, `auth`, `rate-limit`
 **When** admin sends `GET /admin/parameters/email`
 **Then** response status is 200 OK
-**And** response body is array of `ParameterResponseDto[]`
+**And** response body is the collection envelope with `data` scoped to the group; `total` counts the filtered set
 **And** all returned parameters have `group: "email"`
 **And** `isOverridden` flags reflect env overrides for email group
 **And** no audit log is created
@@ -187,12 +188,12 @@ Only PUT /admin/parameters/:key creates audit log entries with:
 **And** response body contains error: "Too many requests"
 **And** PUT rate limit resets separately from GET rate limits
 
-### Scenario 11: Empty group returns empty array
+### Scenario 11: Empty group returns an empty page
 **Given** admin user with valid JWT token and ADMIN role
 **And** no parameters registered with group "empty-group"
 **When** admin sends `GET /admin/parameters/empty-group`
 **Then** response status is 200 OK
-**And** response body is empty array `[]`
+**And** response body is the collection envelope with `data: []`, `total: 0` and `totalPages: 0`
 **And** no error is generated
 **And** no audit log is created
 

@@ -68,10 +68,7 @@ describe('Email Templates (e2e)', () => {
     adminToken = token;
 
     // Register regular user
-    const userReg = await request(app.getHttpServer())
-      .post('/auth/register')
-      .send(regularUser)
-      .expect(201);
+    const userReg = await request(app.getHttpServer()).post('/auth/register').send(regularUser).expect(201);
 
     // Verify email
     await request(app.getHttpServer())
@@ -91,35 +88,23 @@ describe('Email Templates (e2e)', () => {
 
   describe('ET-06: Admin auth required', () => {
     it('should return 401 without authentication — POST', async () => {
-      await request(app.getHttpServer())
-        .post('/email/templates')
-        .send(templateBody())
-        .expect(401);
+      await request(app.getHttpServer()).post('/email/templates').send(templateBody()).expect(401);
     });
 
     it('should return 401 without authentication — GET', async () => {
-      await request(app.getHttpServer())
-        .get('/email/templates')
-        .expect(401);
+      await request(app.getHttpServer()).get('/email/templates').expect(401);
     });
 
     it('should return 401 without authentication — GET :slug', async () => {
-      await request(app.getHttpServer())
-        .get('/email/templates/nonexistent')
-        .expect(401);
+      await request(app.getHttpServer()).get('/email/templates/nonexistent').expect(401);
     });
 
     it('should return 401 without authentication — PATCH', async () => {
-      await request(app.getHttpServer())
-        .patch('/email/templates/nonexistent')
-        .send({ subject: 'x' })
-        .expect(401);
+      await request(app.getHttpServer()).patch('/email/templates/nonexistent').send({ subject: 'x' }).expect(401);
     });
 
     it('should return 401 without authentication — DELETE', async () => {
-      await request(app.getHttpServer())
-        .delete('/email/templates/nonexistent')
-        .expect(401);
+      await request(app.getHttpServer()).delete('/email/templates/nonexistent').expect(401);
     });
 
     it('should return 403 for non-admin user — POST', async () => {
@@ -211,15 +196,48 @@ describe('Email Templates (e2e)', () => {
   // ── ET-02: List email templates ──
 
   describe('ET-02: List email templates', () => {
-    it('should return 200 with an array of templates', async () => {
+    it('should return 200 with the paginated envelope of templates', async () => {
       const res = await request(app.getHttpServer())
         .get('/email/templates')
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      expect(Array.isArray(res.body)).toBe(true);
+      expect(Array.isArray(res.body.data)).toBe(true);
       // Should include seeded defaults + any created in this suite
-      expect(res.body.length).toBeGreaterThanOrEqual(1);
+      expect(res.body.data.length).toBeGreaterThanOrEqual(1);
+      expect(Number.isInteger(res.body.total)).toBe(true);
+      expect(res.body.total).toBeGreaterThanOrEqual(res.body.data.length);
+      expect(res.body.page).toBe(1);
+      expect(res.body.limit).toBe(20);
+      expect(res.body.totalPages).toBe(Math.ceil(res.body.total / 20));
+    });
+
+    it('should page with limit and keep total on the whole set', async () => {
+      const all = await request(app.getHttpServer())
+        .get('/email/templates')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      const firstPage = await request(app.getHttpServer())
+        .get('/email/templates?limit=1')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      expect(firstPage.body.data).toHaveLength(1);
+      expect(firstPage.body.limit).toBe(1);
+      expect(firstPage.body.total).toBe(all.body.total);
+      expect(firstPage.body.totalPages).toBe(all.body.total);
+
+      if (all.body.total > 1) {
+        const secondPage = await request(app.getHttpServer())
+          .get('/email/templates?page=2&limit=1')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .expect(200);
+
+        expect(secondPage.body.data).toHaveLength(1);
+        expect(secondPage.body.page).toBe(2);
+        expect(secondPage.body.data[0].slug).not.toBe(firstPage.body.data[0].slug);
+      }
     });
 
     it('should support ?active=true filter', async () => {
@@ -228,7 +246,45 @@ describe('Email Templates (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      expect(Array.isArray(res.body)).toBe(true);
+      expect(Array.isArray(res.body.data)).toBe(true);
+      res.body.data.forEach((template: { isActive: boolean }) => {
+        expect(template.isActive).toBe(true);
+      });
+    });
+
+    it('should treat ?active=false as no filter', async () => {
+      // Riesgo R1-active-false-filter: antes de COU-260 `active=false` no filtraba.
+      // Cambiar eso rompía consumidores, así que solo `true` filtra. El caso crea sus
+      // propios templates (uno inactivo) para no depender de otros tests de la suite.
+      const slug = makeSlug();
+      await request(app.getHttpServer())
+        .post('/email/templates')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(templateBody({ slug }))
+        .expect(201);
+      await request(app.getHttpServer())
+        .patch(`/email/templates/${slug}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ isActive: false })
+        .expect(200);
+
+      const all = await request(app.getHttpServer())
+        .get('/email/templates')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      const active = await request(app.getHttpServer())
+        .get('/email/templates?active=true')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      const notActiveFilter = await request(app.getHttpServer())
+        .get('/email/templates?active=false')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      expect(all.body.total).toBeGreaterThan(active.body.total);
+      expect(notActiveFilter.body.total).toBe(all.body.total);
     });
   });
 

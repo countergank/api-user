@@ -1,13 +1,14 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { Injectable, Logger, Inject } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { PaginatedResponseDTO } from '../../common/dto/paginated-response.dto';
+import { DomainError } from '../../common/errors/domain.error';
+import { I18nService } from '../../common/i18n/i18n.service';
+import { DEFAULT_LANGUAGE, SupportedLanguage } from '../../common/i18n/interfaces/i18n.interface';
 import { CreateTemplateDto } from '../dto/create-template.dto';
 import { UpdateTemplateDto } from '../dto/update-template.dto';
 import { EmailTemplate } from '../entities/email-template.entity';
 import { EmailTemplateRepository } from '../repository/email-template.repository';
-import { I18nService } from '../../common/i18n/i18n.service';
-import { SupportedLanguage, DEFAULT_LANGUAGE } from '../../common/i18n/interfaces/i18n.interface';
-import { DomainError } from '../../common/errors/domain.error';
 
 interface DefaultTemplate {
   slug: string;
@@ -95,12 +96,20 @@ export class EmailTemplateService {
     });
   }
 
-  async findAll(): Promise<EmailTemplate[]> {
-    return this.repository.findAll();
-  }
+  async findPaginated(filters: {
+    active?: boolean;
+    page?: number;
+    limit?: number;
+  }): Promise<PaginatedResponseDTO<EmailTemplate>> {
+    const page = filters.page ?? 1;
+    const limit = filters.limit ?? 20;
+    const { templates, total } = await this.repository.findPage({
+      active: filters.active,
+      page,
+      limit,
+    });
 
-  async findActive(): Promise<EmailTemplate[]> {
-    return this.repository.findActive();
+    return PaginatedResponseDTO.of(templates, total, page, limit);
   }
 
   async findBySlug(slug: string): Promise<EmailTemplate> {

@@ -16,7 +16,9 @@ GET {{baseUrl}}/email/templates
 Authorization: Bearer {{token}}
 HTTP 200
 [Asserts]
-jsonpath "$" isList
+jsonpath "$.data" isList
+jsonpath "$.total" isInteger
+jsonpath "$.page" == 1
 
 # --- POST /email/templates ------------------------------------------------
 POST {{baseUrl}}/email/templates

@@ -1,16 +1,16 @@
 import { Controller, Get, Inject, Query, UseGuards } from '@nestjs/common';
+import { RequirePermissions } from '../../auth/decorators/permissions.decorator';
+import { Roles } from '../../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionGuard } from '../../auth/guards/permissions.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
-import { RequirePermissions } from '../../auth/decorators/permissions.decorator';
+import { I18nService } from '../../common/i18n/i18n.service';
 import { UserRole } from '../../user/entities/user.entity';
+import { PaginatedResponseDTO } from '../dto/paginated-response.dto';
+import { ApplyAuditLogsDoc } from './api-docs/audit.decorator';
 import { AuditService } from './audit.service';
 import { AuditLogFilterDTO } from './dto/audit-log-filter.dto';
-import { PaginatedAuditLogResponseDTO } from './dto/paginated-audit-log-response.dto';
 import { AuditLogResponseDTO } from './dto/audit-log-response.dto';
-import { I18nService } from '../../common/i18n/i18n.service';
-import { ApplyAuditLogsDoc } from './api-docs/audit.decorator';
 
 /**
  * Admin controller for querying audit logs.
@@ -29,9 +29,7 @@ export class AuditController {
   @ApplyAuditLogsDoc()
   @RequirePermissions('audit:read')
   @Get()
-  async findAuditLogs(
-    @Query() filters: AuditLogFilterDTO,
-  ): Promise<PaginatedAuditLogResponseDTO> {
+  async findAuditLogs(@Query() filters: AuditLogFilterDTO): Promise<PaginatedResponseDTO<AuditLogResponseDTO>> {
     const result = await this.auditService.findPaginated({
       userId: filters.userId,
       action: filters.action,
@@ -63,6 +61,6 @@ export class AuditController {
       return dto;
     });
 
-    return PaginatedAuditLogResponseDTO.of(data, result.total, filters.page ?? 1, filters.limit ?? 20);
+    return PaginatedResponseDTO.of(data, result.total, filters.page ?? 1, filters.limit ?? 20);
   }
 }

@@ -1,21 +1,24 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { RequirePermissions } from '../../auth/decorators/permissions.decorator';
+import { Roles } from '../../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionGuard } from '../../auth/guards/permissions.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
-import { RequirePermissions } from '../../auth/decorators/permissions.decorator';
+import { PaginatedResponseDTO } from '../../common/dto/paginated-response.dto';
 import { UserRole } from '../../user/entities/user.entity';
-import { CreateTemplateDto } from '../dto/create-template.dto';
-import { UpdateTemplateDto } from '../dto/update-template.dto';
-import { EmailTemplateService } from '../service/email-template.service';
 import {
   ApplyCreateTemplateDoc,
+  ApplyDeleteTemplateDoc,
   ApplyFindAllTemplatesDoc,
   ApplyFindTemplateBySlugDoc,
   ApplyUpdateTemplateDoc,
-  ApplyDeleteTemplateDoc,
 } from '../api-docs';
+import { CreateTemplateDto } from '../dto/create-template.dto';
+import { ListTemplatesQueryDTO } from '../dto/list-templates-query.dto';
+import { UpdateTemplateDto } from '../dto/update-template.dto';
+import { EmailTemplate } from '../entities/email-template.entity';
+import { EmailTemplateService } from '../service/email-template.service';
 
 @ApiTags('email-templates')
 @ApiBearerAuth()
@@ -35,11 +38,14 @@ export class EmailTemplateController {
   @Get()
   @RequirePermissions('email:read')
   @ApplyFindAllTemplatesDoc()
-  findAll(@Query('active') active?: string) {
-    if (active === 'true') {
-      return this.templateService.findActive();
-    }
-    return this.templateService.findAll();
+  findAll(@Query() query: ListTemplatesQueryDTO): Promise<PaginatedResponseDTO<EmailTemplate>> {
+    return this.templateService.findPaginated({
+      // R1-active-false-filter: only `true` filters. `false` (and an omitted value) means
+      // "no filter", which is what the endpoint did before COU-260 added the envelope.
+      active: query.active === true ? true : undefined,
+      page: query.page,
+      limit: query.limit,
+    });
   }
 
   @Get(':slug')

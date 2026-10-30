@@ -58,9 +58,29 @@ export const HURL_ROLE_NAMES = ['hurl-role-temp'] as const;
  */
 export const HURL_TEMPLATE_SLUGS = ['hurl-template-temp'] as const;
 
-/** Emails que la suite siembra: los de `HURL_USERS` más la dirección libre del flujo 04. */
+/**
+ * Direcciones que los endpoints de la suite crean durante la corrida (register, admin CRUD,
+ * change-password). `DELETE /admin/users/:id` es borrado LOGICO, así que el documento y su
+ * índice único de email sobreviven y la corrida siguiente recibe 409 al crear el mismo email.
+ * Mismo criterio que HURL_ROLE_NAMES: la lista es explícita, no un patrón (COU-341).
+ */
+export const HURL_CREATED_EMAILS = [
+  'hurl-ep-register@test.com',
+  'hurl-ep-debil@test.com',
+  'hurl-ep-password@test.com',
+  'hurl-ep-create@test.com',
+  'hurl-ep-byid@test.com',
+  'hurl-ep-delete@test.com',
+  'hurl-ep-toggle@test.com',
+  'hurl-ep-unlock@test.com',
+  'hurl-ep-update@test.com',
+  'hurl-ep-viewer-create@test.com',
+] as const;
+
+/** Emails que la suite siembra y que también purga: los de `HURL_USERS`, la dirección libre
+ * del flujo 04 y las que crean los endpoints, para que la suite se pueda correr dos veces. */
 export function hurlUserEmails(): string[] {
-  return [...Object.values(HURL_USERS).map((u) => u.email), HURL_FREE_EMAIL];
+  return [...Object.values(HURL_USERS).map((u) => u.email), HURL_FREE_EMAIL, ...HURL_CREATED_EMAILS];
 }
 
 /**

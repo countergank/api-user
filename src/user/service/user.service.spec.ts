@@ -1,19 +1,19 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
-import { Mock } from '../../test-utils';
-import { Permission } from '../../rbac/entities/permission.entity';
-import { User, UserRole } from '../entities/user.entity';
+import { Test, TestingModule } from '@nestjs/testing';
+import { PaginatedResponseDTO } from '../../common/dto/paginated-response.dto';
 import { DomainError } from '../../common/errors/domain.error';
+import { CacheService } from '../../config/cache';
+import { EncodeService } from '../../encode/encode.service';
+import { Permission } from '../../rbac/entities/permission.entity';
+import { Mock } from '../../test-utils';
+import { PaginationQueryDTO } from '../dto/pagination-query.dto';
+import { User, UserRole } from '../entities/user.entity';
 import { CreateUserDTOMock } from '../mocks/create-user-dto.mock';
 import { UpdateUserDTOMock } from '../mocks/update-user-dto.mock';
 import { UserMock } from '../mocks/user.mock';
 import { UserRepository } from '../repository/user.repository';
-import { UserService } from './user.service';
-import { PaginationQueryDTO } from '../dto/pagination-query.dto';
-import { PaginatedUserResponseDTO } from '../dto/paginated-user-response.dto';
-import { CacheService } from '../../config/cache';
-import { EncodeService } from '../../encode/encode.service';
 import { hashEmailChangeCode } from './email-change-code';
+import { UserService } from './user.service';
 
 describe(UserService.name, () => {
   let service: UserService;
@@ -256,7 +256,7 @@ describe(UserService.name, () => {
       const result = await service.findPaginated(filters);
 
       expect(userRepository.findPaginated).toHaveBeenCalledWith(filters);
-      expect(result).toBeInstanceOf(PaginatedUserResponseDTO);
+      expect(result).toBeInstanceOf(PaginatedResponseDTO);
       expect(result.data).toHaveLength(1);
       expect(result.total).toBe(1);
       expect(result.page).toBe(1);
@@ -274,6 +274,17 @@ describe(UserService.name, () => {
       expect(result.totalPages).toBe(5);
       expect(result.page).toBe(2);
       expect(result.limit).toBe(10);
+    });
+
+    it('defaults page and limit when the filter omits them', async () => {
+      jest.spyOn(userRepository, 'findPaginated').mockResolvedValue({ users: [], total: 41 });
+
+      const result = await service.findPaginated({});
+
+      expect(result.page).toBe(1);
+      expect(result.limit).toBe(20);
+      expect(result.totalPages).toBe(3);
+      expect(Number.isNaN(result.totalPages)).toBe(false);
     });
 
     it('should handle empty results', async () => {
@@ -336,9 +347,9 @@ describe(UserService.name, () => {
       const code = await issueCode();
       const unsetSpy = jest.spyOn(userRepository, 'unsetFields').mockResolvedValue(user);
 
-      await expect(
-        service.requestEmailChange(user.id, { email: user.email, code }),
-      ).rejects.toMatchObject({ kind: expect.objectContaining({ kind: 'VALIDATION_ERROR' }) });
+      await expect(service.requestEmailChange(user.id, { email: user.email, code })).rejects.toMatchObject({
+        kind: expect.objectContaining({ kind: 'VALIDATION_ERROR' }),
+      });
 
       expect(unsetSpy).not.toHaveBeenCalled();
     });
