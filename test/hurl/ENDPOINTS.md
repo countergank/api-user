@@ -59,6 +59,10 @@ lo que crea lo borra, y lo que muta lo restaura. Total: **45 endpoints en 11 arc
   plano: el `ValidationPipe` instancia el DTO de paginación y aplica `page=1`.
 - `/roles` y `/permissions` envolvían la lista en una clave con el nombre del recurso (`roles`,
   `permissions`); ahora usan `data` como el resto de las colecciones (COU-260).
+- `GET /admin/users?search=` matchea nombre, apellido, email y userName, case-insensitive y con
+  paginado; un término con prefijo `@` **además** se busca como userName sin el `@` (`@juan` → `juan`),
+  sin dejar de matchear los otros campos (`@example.com` sigue encontrando emails). Los caracteres de
+  regex se tratan literales (COU-347).
 - `DELETE /admin/users/:id` es **borrado lógico**: después del 200, `GET` sigue devolviendo 200 con `isActive: false`.
 - `PUT /roles/:id/permissions` recibe **nombres** de permiso (`user:read`), no `_id`.
 - `PUT /admin/parameters/:key` sobre un parámetro con `isOverridden: true` responde **409 `UA-PAR-002`**: el entorno manda.

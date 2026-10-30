@@ -1,11 +1,11 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { ClientSession, Model } from 'mongoose';
+import { DomainError } from '../../common/errors/domain.error';
 import { escapeRegExp, isLocal } from '../../common/utils';
 import { EncodeService } from '../../encode/encode.service';
-import { User, UserRole } from '../entities/user.entity';
-import { DomainError } from '../../common/errors/domain.error';
 import { SORTABLE_FIELDS } from '../dto/pagination-query.dto';
+import { User, UserRole } from '../entities/user.entity';
 
 @Injectable()
 export class UserRepository implements OnApplicationBootstrap {
@@ -167,9 +167,7 @@ export class UserRepository implements OnApplicationBootstrap {
     // Filter out undefined values — Mongoose findByIdAndUpdate ignores them,
     // which is the correct behavior: undefined means "don't touch this field."
     // Callers that need to explicitly remove fields should use unsetFields().
-    const defined = Object.fromEntries(
-      Object.entries(data).filter(([, v]) => v !== undefined),
-    );
+    const defined = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined));
 
     return this.userModel.findByIdAndUpdate(id, defined, { new: true, session }).exec();
   }
@@ -223,10 +221,20 @@ export class UserRepository implements OnApplicationBootstrap {
       mongoFilter.deletedAt = { $exists: false };
     }
     if (filters.search) {
-      const searchRegex = new RegExp(escapeRegExp(filters.search), 'i');
-      andConditions.push({
-        $or: [{ name: searchRegex }, { lastName: searchRegex }, { email: searchRegex }, { userName: searchRegex }],
-      });
+      // COU-347: the console topbar sends `@userName`. The `@` ADDS a userName lookup with the `@`
+      // stripped; it never narrows the four-field search, because a term starting with `@` is also
+      // a piece of an email (`@example.com`) and that has to keep matching.
+      const term = filters.search.trim();
+      const fields = ['name', 'lastName', 'email', 'userName'] as const;
+      const or: Record<string, unknown>[] = fields.map((field) => ({
+        [field]: new RegExp(escapeRegExp(term), 'i'),
+      }));
+
+      if (term.startsWith('@') && term.length > 1) {
+        or.push({ userName: new RegExp(escapeRegExp(term.slice(1)), 'i') });
+      }
+
+      andConditions.push({ $or: or });
     }
 
     if (andConditions.length > 0) {
