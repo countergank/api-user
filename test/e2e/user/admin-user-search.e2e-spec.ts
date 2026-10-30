@@ -135,6 +135,17 @@ describe('Admin user search (e2e)', () => {
       expect(res.data.map((u) => u.userName)).toEqual([expect.stringContaining('usr-ana')]);
     });
 
+    it('keeps matching an @-prefixed email fragment', async () => {
+      // A term starting with @ is also a piece of an email. The @ form must ADD a userName
+      // lookup, never replace the four-field search.
+      const res = await search(`@example.com`);
+
+      // The admin account created in beforeAll also carries an @example.com email.
+      expect(runScopedUserNames(res.data).sort()).toEqual(
+        [`usr-ana-${run}`, `usr-bob-${run}`, `usr-regex-${run}`, `admin-${run}`].sort(),
+      );
+    });
+
     it('does not treat @userName as a substring of the email', async () => {
       // "mailana" only exists in the email, so a @userName search must not find Ana.
       const res = await search('@mailana');

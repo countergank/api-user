@@ -100,8 +100,9 @@ export function FindAllUserDoc() {
       required: false,
       type: String,
       description:
-        'Text search across name, lastName, email and userName. A term starting with `@` searches only' +
-        ' userName (the console topbar syntax: `@juan` finds `juan`).',
+        'Text search across name, lastName, email and userName. A leading `@` also looks the term up' +
+        ' as a userName without the `@` (console topbar: `@juan` finds `juan`), without narrowing the' +
+        ' other fields, so `@example.com` still matches emails.',
       example: 'juan',
     }),
     ApiBadRequestResponse({ description: 'Bad Request', type: BadRequestDTO }),

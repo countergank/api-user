@@ -221,17 +221,20 @@ export class UserRepository implements OnApplicationBootstrap {
       mongoFilter.deletedAt = { $exists: false };
     }
     if (filters.search) {
-      // COU-347: the console topbar sends `@userName`; the `@` is syntax, not part of the value,
-      // and a userName search must not fall back to the other three fields.
+      // COU-347: the console topbar sends `@userName`. The `@` ADDS a userName lookup with the `@`
+      // stripped; it never narrows the four-field search, because a term starting with `@` is also
+      // a piece of an email (`@example.com`) and that has to keep matching.
       const term = filters.search.trim();
-      const byUserName = term.startsWith('@') && term.length > 1;
-      const searchRegex = new RegExp(escapeRegExp(byUserName ? term.slice(1) : term), 'i');
+      const fields = ['name', 'lastName', 'email', 'userName'] as const;
+      const or: Record<string, unknown>[] = fields.map((field) => ({
+        [field]: new RegExp(escapeRegExp(term), 'i'),
+      }));
 
-      andConditions.push({
-        $or: byUserName
-          ? [{ userName: searchRegex }]
-          : [{ name: searchRegex }, { lastName: searchRegex }, { email: searchRegex }, { userName: searchRegex }],
-      });
+      if (term.startsWith('@') && term.length > 1) {
+        or.push({ userName: new RegExp(escapeRegExp(term.slice(1)), 'i') });
+      }
+
+      andConditions.push({ $or: or });
     }
 
     if (andConditions.length > 0) {
