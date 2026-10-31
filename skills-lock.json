@@ -1,17 +1,23 @@
 {
   "version": 1,
   "skills": {
+    "code-comments": {
+      "source": "countergank/skills",
+      "sourceType": "github",
+      "skillPath": "skills/code-comments/SKILL.md",
+      "computedHash": "bb61031876152e425da641caff6a11a582545cf8fe8401966870575957f5eacd"
+    },
     "git-environment-flow": {
       "source": "countergank/skills",
       "sourceType": "github",
       "skillPath": "skills/git-environment-flow/SKILL.md",
-      "computedHash": "fced24409b32fd8faea233e1664c1d9569d876732d9480900a8086806e473810"
+      "computedHash": "40b493d9fe938fda9c27498a8d3cdb2a67abc6cb1db5a65edadd37cf673ab608"
     },
     "github-conventions": {
       "source": "countergank/skills",
       "sourceType": "github",
       "skillPath": "skills/github-conventions/SKILL.md",
-      "computedHash": "eb7c1b59f6781fb890795a76435fc412b4f0c02c494ec6e85ea04ba5ea5b00b4"
+      "computedHash": "adbc9f48c8d04803a2c3e2c84324bb3bfd8d32d65f4e0b5ab5a153209501f324"
     },
     "kickoff": {
       "source": "countergank/skills",
@@ -23,13 +29,13 @@
       "source": "countergank/skills",
       "sourceType": "github",
       "skillPath": "skills/linear-tickets/SKILL.md",
-      "computedHash": "44c4fe4a35b79db53b979a737b4f7a74bf4fddcf3b975ec349256cb5b757ab25"
+      "computedHash": "09fa0520a4bf9579fcd1f5116ab979936eb82ef4df17f8f24e5bafe149872865"
     },
     "nestjs-backend": {
       "source": "countergank/skills",
       "sourceType": "github",
       "skillPath": "skills/nestjs-backend/SKILL.md",
-      "computedHash": "85c46e8d6d7d3ffb948215c5d211db11ed368aba34d9bfd2f257bfc65150cabb"
+      "computedHash": "efaf3620fa4fcbfca16c33fd83a3248aa4cf571dd5ffeff02145aa4b66584a90"
     }
   }
 }
