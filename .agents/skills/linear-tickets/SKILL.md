@@ -1,63 +1,33 @@
 ---
 name: linear-tickets
-description: "Trigger: linear, tickets, issues, alta de tickets, crear ticket, tarea, ticket Linear. Estándar organizacional para crear y vincular tickets de Linear: título, descripción, labels, y los campos obligatorios proyecto, estimación y asignado."
+description: "Trigger: linear, tickets, issues, alta de tickets, crear ticket, tarea, ticket Linear, estimación, labels de ticket. Organizational standard for authoring and linking Linear tickets: title, description, labels, and the mandatory project, estimate and assignee fields. Úsala siempre que crees, edites o revises un ticket de Linear, cuando nombres la rama de un ticket `COU-###` o cuando escribas el `fixes COU-###` de un pull request; léela antes de tocar el board para que el ticket se pueda entregar sin preguntas."
 license: MIT
 metadata:
   author: countergank
-  version: "1.1.0"
+  version: "2.0.0"
 ---
 
-## When to Apply
+Linear ticket standard for agents and humans. Five domain files; each rule states one decision with one ✅/❌ pair. Read the one that matches what you are about to write.
 
-Actívalo al crear, editar o revisar tickets de Linear, al nombrar ramas vinculadas a un ticket (`COU-###`), o al escribir la descripción de un PR que cierra un ticket con `fixes COU-###`. Cubre el estándar lineal para agentes y personas.
+| File | Read it when | Why |
+|------|--------------|-----|
+| `rules/title.md` | Writing a title | `[Verb] [What] [Context]`, verb first, unique at a glance |
+| `rules/description.md` | Writing a description | Context → Scope → Acceptance criteria, verifiable bullets |
+| `rules/labels.md` | Labelling a ticket | One type and one component, singular, in English |
+| `rules/language.md` | Choosing a field's language | Content in the team language, tooling in English |
+| `rules/integration.md` | Naming the branch, linking the PR | `branchName` verbatim, `fixes COU-###`; the single source |
+| `assets/templates/` | Starting a ticket | One template per ticket type, listed in the gates below |
+| `references/` | Checking the method | The Linear method summary and five sample tickets |
 
-Todo ticket sobre el que se va a implementar necesita, además del contenido: **proyecto**, **estimación** y **asignado**. `kickoff` los verifica antes de tocar código.
+## Decision gates
 
-## Rule Categories by Priority
+| Situation | Template | Label |
+|-----------|----------|-------|
+| Bug | `assets/templates/bug.md` — steps, expected vs actual, impact, environment | `bug` |
+| Feature | `assets/templates/feature.md` — goal, non-goals, criteria, links | `feature` |
+| Investigation | `assets/templates/spike.md` — the deliverable to investigate | `spike` |
+| Maintenance | `assets/templates/chore.md` — what is maintained | `chore` |
 
-| Priority | Category | Key Rules |
-|----------|----------|-----------|
-| P0 | Title | `[Verbo] [Qué] [Contexto]` en español |
-| P0 | Description | Contexto → Scope → Criterios de aceptación |
-| P0 | Fields | Proyecto, estimación y asignado completos |
-| P0 | Config | Extensión `platform`/`structure` (contrato) |
-| P0 | Labels | Set de tipos + componentes (inglés) |
-| P1 | Templates | Cuándo usar cada plantilla por tipo |
-| P1 | Language | Contenido ES / tooling EN |
-| P1 | Integration | `branchName` de Linear en la rama y `fixes COU-###` en PR |
+Pick the template by the kind of work. The bug template carries reproduction steps because a bug without them cannot be reproduced; a spike and a chore are minimal on purpose, and ceremony there costs more than it buys.
 
-## Ticket Conventions (config)
-
-```text
-platform:  linear
-structure: nativa
-```
-
-## Decision Gates
-
-| Situación | Acción |
-|-----------|--------|
-| Bug | Plantilla `bug.md` + label `bug` |
-| Feature | Plantilla `feature.md` + label `feature` |
-| Investigación | Plantilla `spike.md` + label `spike` |
-| Mantenimiento | Plantilla `chore.md` + label `chore` |
-
-## Execution Steps
-
-1. Carga `rules/<category>/pX-*.md` según la prioridad (P0 siempre, P1 según contexto).
-2. Usa la plantilla de `assets/templates/<tipo>.md` para el ticket.
-3. Completa los campos obligatorios por API: `projectId`, `estimate` (con la escala de `issueEstimationType`) y `assigneeId`.
-4. Lee la rama del campo `branchName` del ticket y usa `fixes COU-###` en el PR.
-
-## Output Contract
-
-Devuelve un ticket Linear con título `[Verbo] [Qué] [Contexto]` scaneable, descripción completa en español (Contexto → Scope → Criterios), labels en inglés, proyecto, estimación y asignado completos, y enlace `COU-###`/`fixes COU-###` único.
-
-## References
-
-- `references/linear-method.md` — resumen local del método Linear (task plana).
-
-## Compatibility
-
-- `linear-tickets` — fuente única del contrato `COU-###`/`fixes`; `github-conventions` lo referencia.
-- `kickoff` — verifica los campos obligatorios y crea la rama desde `branchName`.
+Every ticket that will be implemented also carries **project**, **estimate** and **assignee** as Linear fields: `kickoff` verifies them before touching code, and the description never repeats them in prose.

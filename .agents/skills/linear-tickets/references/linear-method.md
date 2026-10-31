@@ -11,11 +11,11 @@ Resumen del enfoque por defecto de Linear para tareas "planas": tickets pequeño
 
 ## En la práctica
 
-- Título scaneable `[Verbo] [Qué] [Contexto]` (ver `rules/title/p0-title-format.md`).
-- Descripción Contexto → Scope → Criterios (ver `rules/description/p0-description-structure.md`).
-- Plantillas por tipo en `assets/templates/` (ver `rules/templates/p1-per-type-templates.md`).
-- La rama sale del campo `branchName`; `kickoff` la crea y mueve el ticket de estado.
-- Contenido en español, tooling en inglés (ver `rules/language/p1-language-split.md`).
+- Título scaneable `[Verbo] [Qué] [Contexto]` (ver `rules/title.md`).
+- Descripción Contexto → Scope → Criterios (ver `rules/description.md`).
+- Plantillas por tipo en `assets/templates/`, elegidas en las puertas de decisión del `SKILL.md`.
+- La rama sale del campo `branchName`; `kickoff` la crea y mueve el ticket de estado (ver `rules/integration.md`).
+- Contenido en español, tooling en inglés (ver `rules/language.md`).
 
 ## Fuente
 

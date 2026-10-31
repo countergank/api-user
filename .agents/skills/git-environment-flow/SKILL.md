@@ -1,49 +1,27 @@
 ---
 name: git-environment-flow
-description: "Trigger: environment, branch flow, staging, release branch, hotfix, promotion, deploy tracking, environment branches, develop, backmerge. Org-wide Git environment branch model, promotion flow, release lifecycle, and deployment tracking."
+description: "Trigger: environment, branch flow, staging, release branch, hotfix, promotion, deploy tracking, environment branches, develop, backmerge, rama de release, promover a producción, hotfix en producción. Org-wide Git environment model for agents and humans: the three permanent branches and their protection, the promotion chain from develop to staging to main, the hotfix path that skips curation but never review, and the release branch and tag lifecycle driven by assets/release.sh. Úsala siempre que decidas a qué rama apunta un cambio, cortes un release, apliques un hotfix o promuevas código entre entornos; léela antes de la primera acción de git que cruce un entorno."
 license: MIT
 metadata:
   author: countergank
-  version: "1.0.0"
+  version: "2.0.0"
 ---
 
-## When to Apply
+Org-wide environment model for this organization. Four domain files; each rule states one decision with one ✅/❌ pair. Read the file that matches the decision you are about to take.
 
-Activate when deciding which branch to target, cutting a release, applying a hotfix, curating staging, or tracking deployments across environments. Complements `github-conventions` — use both together for a complete Git workflow.
+| File | Read it when | Why |
+|------|--------------|-----|
+| `rules/environment.md` | Creating a repository or configuring protection | The three permanent branches, `develop` as default, and the protection matrix that keeps each one honest |
+| `rules/promotion.md` | Deciding which branch a change targets | Left-to-right promotion, the release branch as the only path to production, and the mandatory backmerge |
+| `rules/hotfix.md` | Production is broken and cannot wait | Hotfix from `main`, annotated patch tag, backmerge, and the single owner of what a hotfix skips |
+| `rules/release.md` | Bumping the version or cutting a release | `assets/release.sh` as the whole procedure, plus the `release/x.y.z` and `vX.Y.Z(-rcN)` lifecycle |
 
-## Rule Categories by Priority
+## Release automation
 
-| Priority | Category | Count | Key Rules |
-|----------|----------|-------|-----------|
-| P0 | Environment | 1 | Permanent branches: develop, staging, main |
-| P0 | Promotion | 1 | Left-to-right merge flow, backmerge |
-| P1 | Hotfix | 1 | Main-first fix, backmerge to develop only |
-| P0 | Release | 1 | Automate version bump from commit history, generate changelog, create annotated tag |
-| P1 | Release | 1 | release/x.y.z lifecycle, annotated tags, cleanup |
-| P2 | Tracking | 1 | GitHub Environments mapping, tag-based rollback |
+`assets/release.sh` ships the version bump, the changelog section and the annotated tag. Run it; `rules/release.md` states the contract and the flags.
 
-## Quick Reference
+## Boundaries
 
-| Concept | Rule |
-|---------|------|
-| Environment branches | `develop` (default, integration), `staging` (pre-prod mirror), `main` (production, protected) |
-| Merge direction | `feature → develop`; then the same `release/x.y.z` merges to `staging` (tag `vX.Y.Z-rcN`) **and** to `main` (tag `vX.Y.Z`), then `main → develop` (backmerge). `staging` never merges into `main`. Detail: `rules/promotion/p0-promotion-flow.md` |
-| Protection | `develop`: 1 reviewer, CI required, admin bypass allowed. `staging`: 1 reviewer, CI required, admin bypass allowed. `main`: 1 reviewer (increase to 2 when team grows), CI required, admin bypass allowed. All: force push blocked, stale reviews dismissed, last push approval required. |
-| Tag format | `vX.Y.Z` (main, annotated), `vX.Y.Z-rcN` (staging, release candidates) |
-| Hotfix flow | `hotfix/*` from main → merge to main (patch tag) → backmerge to develop only |
-
-## Compatibility
-
-This skill extends the Git workflow beyond what `github-conventions` covers:
-- **Use `github-conventions` for**: branch naming when there is no ticket (`feat/*`, `fix/*`, `hotfix/*`), commit format (Conventional Commits), PR template and review checklist.
-- **Ticket branches belong to Linear**: the name is the `branchName` field of the ticket, created by `kickoff` on top of `develop`.
-- **This skill adds**: environment branch purposes, promotion/merge direction, release lifecycle, hotfix flow, and deployment tracking.
-
-Load `github-conventions` first for naming conventions; load this skill when you need to know *which branch to target* or *how code flows between environments*.
-
-## How to Use
-
-1. **Agent loads this SKILL.md first** — the priority table tells the agent which rules matter most.
-2. **Navigate `rules/<category>/` by priority** — start with `p0-*.md` files (always load), then `p1-*.md` (context-dependent), then `p2-*.md` (deploy scenarios).
-3. **Each rule file is self-contained** — read it, apply the pattern, move on. No need to load all 6 files.
-4. **Use `assets/release.sh` for release automation** — shipped implementation of `rules/release/p0-release-automation.md`.
+- Branch naming without a ticket (`feat/`, `fix/`, `hotfix/`), commit format and the pull request template belong to `github-conventions`; this skill decides which branch to target and how code crosses environments.
+- Ticket branches belong to Linear: the name is the ticket's `branchName`, and the `COU-###` contract is owned by `linear-tickets`. `kickoff` creates the branch on top of `develop`.
+- A hotfix still needs review: skipping the staging curation path is not skipping the approval on `main`.
