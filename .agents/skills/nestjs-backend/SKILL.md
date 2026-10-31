@@ -1,67 +1,40 @@
 ---
 name: nestjs-backend
-description: "Trigger: NestJS, nest, backend, Nest module, Nest controller, TypeORM, Prisma, NestJS API. Develop production-ready NestJS backend applications."
+description: "Trigger: NestJS, nest, backend, Nest module, Nest controller, NestJS API, API REST, TypeORM, Prisma, guard, ValidationPipe, DTO, JWT, Passport, Swagger, OpenAPI, health check, Fastify. Use this skill whenever an agent builds or modifies a NestJS backend — modules, controllers, DTOs, validation, guards, JWT auth, TypeORM or Prisma queries, migrations, error shapes, pagination, Swagger, configuration, logging, or health checks. Load it before writing backend code and open the domain files that match the task; skipping it misses the project's security, data-access and API-contract rules. Úsala siempre que se construya o modifique un backend con NestJS — módulos, controllers, DTOs, validación, guards, autenticación JWT, consultas TypeORM o Prisma, migraciones, formato de errores, paginación, Swagger, configuración, logging o health checks; léela antes de escribir código de backend y abre los archivos de dominio que apliquen."
 license: MIT
+permissions:
+  - read-files
+  - write-files
 metadata:
   author: countergank
-  version: "1.0.0"
+  version: "2.0.0"
 ---
 
-## When to Apply
+Production NestJS backend standard. Six domain files; each rule states one decision with one ✅/❌ pair. Read the domains that match the task — the priority heading inside each file says how blocking its rules are.
 
-Activate when writing NestJS code: scaffolding modules, controllers, services, or DTOs; configuring dependency injection; adding guards, pipes, interceptors, or filters; integrating TypeORM or Prisma; implementing JWT/Passport auth; exposing OpenAPI/Swagger docs; writing Jest tests; or containerizing with Docker.
+| File | Read it when | Why |
+|------|--------------|-----|
+| `rules/controllers.md` | Adding or changing routes | Static-before-param ordering, composed decorators, response serialization |
+| `rules/security.md` | Accepting request bodies or configuring bootstrap | Global ValidationPipe, Helmet/CORS allowlist, rate limits |
+| `rules/data.md` | Writing entities, queries, migrations or transactions | Explicit relations, single-query fetching, migrations, atomic writes |
+| `rules/auth.md` | Protecting routes or issuing tokens | Guards, guard order, Passport JWT strategy |
+| `rules/api.md` | Shaping responses or documenting endpoints | OpenAPI decorators, error shape, pagination |
+| `rules/operations.md` | Wiring config, logging, health or the HTTP platform | Validated config, structured logs, health checks, Fastify plugins |
 
-## Rule Categories by Priority
+## Decision reference
 
-| Priority | Category | Count | Key Rules |
-|----------|----------|-------|-----------|
-| P0 | Architecture | 3 | Modules, Providers, Dependency Injection |
-| P0 | Controllers | 2 | Decorators, Route organization |
-| P0 | Security | 3 | Guards, ValidationPipe, Helmet/CORS |
-| P0 | Data | 4 | TypeORM entities, Repositories, N+1 query prevention, Eager/lazy loading |
-| P1 | Architecture | 3 | Custom providers, Dynamic modules, Module organization |
-| P1 | Controllers | 5 | DTO validation, Serialization, Response types, Custom param decorators, Decorator composition |
-| P1 | Security | 4 | Rate limiting, CSRF, Input sanitization, File uploads |
-| P1 | Data | 5 | Prisma setup, Migrations, Transactions, Select columns, Batch operations |
-| P1 | Auth | 3 | JWT, Passport strategies, Guard composition |
-| P1 | API | 2 | OpenAPI/Swagger, Error formats |
-| P1 | Testing | 3 | Unit tests, E2E, Test.createTestingModule |
-| P1 | Operations | 4 | Config module, Logging, Docker, Fastify adapter |
-| P2 | Architecture | 1 | Lazy loading |
-| P2 | Controllers | 4 | Versioning, Sub-domain routing, Endpoint decorator files, Controller file structure |
-| P2 | Security | 2 | Encryption, Audit logging |
-| P2 | Data | 2 | Read replicas, Multiple databases |
-| P2 | Auth | 2 | OAuth2, API keys |
-| P2 | API | 2 | Pagination, GraphQL |
-| P2 | Testing | 2 | Contract tests, Coverage targets |
-| P2 | Operations | 4 | Caching, Health checks, Metrics, Fastify plugins |
-| P3 | Architecture | 1 | Circular dependency resolution |
-| P3 | Controllers | 1 | Redirects |
-| P3 | Security | 1 | IP filtering |
-| P3 | Data | 1 | Seed factories |
-| P3 | Auth | 1 | MFA |
-| P3 | API | 1 | HATEOAS |
-| P3 | Testing | 1 | Load testing |
-| P3 | Operations | 1 | Distributed tracing |
+| Decision | Option A | Option B | Choose |
+|----------|----------|----------|--------|
+| ORM | TypeORM | Prisma | TypeORM for mature projects, Prisma for greenfield |
+| Auth | JWT + Passport | Sessions | JWT for APIs and services, sessions for server-rendered |
+| API style | REST | GraphQL | REST by default, GraphQL for complex data graphs |
+| Validation | class-validator | Zod | class-validator with DTOs, Zod for runtime schemas |
+| HTTP platform | Fastify | Express | Fastify for new projects (2-3x throughput), Express for existing middleware |
+| Caching | CacheModule | Redis | CacheModule for a single instance, Redis when distributed |
+| Tests | Jest | Vitest | Jest is the NestJS default, Vitest when the monorepo already uses it |
 
-## Quick Reference
+## Assets
 
-Rule IDs follow the pattern `{category}-{priority}{number}` for quick lookup in the `rules/` directory.
-
-| ID | Decision | Option A | Option B | When to choose |
-|----|----------|----------|----------|----------------|
-| `data-001` | ORM | TypeORM | Prisma | TypeORM for mature projects, Prisma for new/greenfield |
-| `auth-001` | Auth | JWT + Passport | Sessions | JWT for APIs/microservices, sessions for server-rendered |
-| `api-001` | API style | REST | GraphQL | REST by default, GraphQL for complex data graphs |
-| `test-001` | Testing | Jest | Vitest | Jest (NestJS official), Vitest if already in monorepo |
-| `sec-001` | Validation | class-validator | Zod | class-validator with DTOs (standard), Zod for runtime schemas |
-| `ops-001` | HTTP platform | Fastify | Express | Fastify for new projects (2-3x faster), Express for compatibility with existing middleware |
-| `ops-002` | Caching | CacheModule | Redis | CacheModule for simple, Redis for distributed |
-
-## How to Use
-
-1. **Agent loads this SKILL.md first** — the priority table tells the agent which rules matter most.
-2. **Navigate `rules/<category>/` by priority** — start with `p0-*.md` files, then `p1-*.md` as context grows.
-3. **Each rule file is self-contained** — read it, apply the pattern, move on. No need to load all 68 files.
-4. **Compose decorators** — use `applyDecorators()` from `controllers/p1-decorator-composition.md` before writing controller logic.
-5. **Reference the Quick Reference table** for technology decisions before scaffolding.
+- `assets/jest.config.js` — Jest coverage thresholds and the collection scope; copy it into the project so `coverageThreshold` runs in CI.
+- `assets/controller-template.ts` — controller with composed decorators, response DTOs and no route-level pipe.
+- `assets/module-template.ts` — feature module skeleton.
