@@ -23,5 +23,5 @@ Org-wide environment model for this organization. Four domain files; each rule s
 ## Boundaries
 
 - Branch naming without a ticket (`feat/`, `fix/`, `hotfix/`), commit format and the pull request template belong to `github-conventions`; this skill decides which branch to target and how code crosses environments.
-- Ticket branches belong to Linear: the name is the ticket's `branchName`, and the `COU-###` contract is owned by `linear-tickets`. `kickoff` creates the branch on top of `develop`.
+- Ticket branches belong to the `github-tickets` convention: `feature/<number>-<slug>`, closed with `fixes #<number>`; `kickoff` creates the branch on top of `develop`.
 - A hotfix still needs review: skipping the staging curation path is not skipping the approval on `main`.

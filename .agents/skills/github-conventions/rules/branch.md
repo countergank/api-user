@@ -2,14 +2,14 @@
 
 Read this file when you create a branch, integrate changes from `develop`, or clean up after a merge.
 
-## P0 — Take the ticket branch name from Linear verbatim
+## P0 — Take the ticket branch name from the convention
 
-When the work has a Linear ticket, the branch name is the ticket's `branchName` field exactly as Linear returned it: never compose it, never extend it, never shorten it. Linear truncates `branchName` at its maximum length, so a longer or "improved" name is a different name and the git automation behind `start`, `review`, and `merge` stops matching the ticket. When the work has no ticket, name the branch `type/description` in lowercase kebab-case, 3-5 words, with `type` from the table. Branch names carry no personal prefixes, no date prefixes, no uppercase letters, and no underscores; git history and PR metadata track the author. Without a ticket, do not invent a ticket slug: `feat/add-oauth` beats a fabricated `COU-###`. The `kickoff` skill captures `branchName` and creates the branch.
+When the work has an issue, the branch name is `feature/<issue-number>-<short-slug>` — 3–5 words from the issue title, kebab-case, lowercase, ASCII only, with the number first. The convention is owned by the `github-tickets` skill; never change the number, never invent a different prefix, so the branch and the PR's `fixes #<number>` stay traceable. When the work has no ticket, name the branch `type/description` in lowercase kebab-case, 3-5 words, with `type` from the table. Branch names carry no personal prefixes, no date prefixes, no uppercase letters, and no underscores; git history and PR metadata track the author. Without a ticket, do not invent a ticket slug: `feat/add-oauth` beats a fabricated `#<number>`. The `kickoff` skill composes the branch name and creates the branch.
 
 | Type | Purpose | Example |
 |------|---------|---------|
 | `feat` | New feature or capability | `feat/oauth2-login` |
-| `feature` | Same as `feat`; Linear's default prefix for ticket branches | `feature/cou-240-arreglar-scroll` |
+| `feature` | Same as `feat`; the ticket-branch prefix from the convention | `feature/240-arreglar-scroll` |
 | `fix` | Bug fix | `fix/null-preferences-500` |
 | `docs` | Documentation changes | `docs/quickstart-section` |
 | `refactor` | Code restructuring, no behavior change | `refactor/auth-module-structure` |
@@ -22,16 +22,16 @@ When the work has a Linear ticket, the branch name is the ticket's `branchName` 
 | `hotfix` | Urgent production fix (bypasses normal cycle) | `hotfix/critical-security-patch` |
 
 ```
-# ✅ Linear's branchName verbatim, and readable author-chosen names
-feature/cou-262-corregir-los-codigos-de-estado-de-los-endpoints-de-accion-de
+# ✅ Convention branch from the issue, and readable author-chosen names
+feature/262-corregir-los-codigos-de-estado-de-los-endpoints
 feat/oauth2-login
 docs/api-quickstart
 ```
 
 ```
-# ❌ Composed, shortened, or decorated names break automation or readability
-feat/COU-262-auth-action-status-codes
-feature/cou-262-auth-status
+# ❌ Decorated or truncated numbers, or names that break the convention
+feat/#262-auth-action-status-codes
+feature/262-auth-status
 john/fix-auth
 feat/add_OAuth2_Login
 2024-06-fix-bug

@@ -20,7 +20,7 @@ The label set is confirmed, singular and in English. Every ticket takes one type
 | `docs` | Documentation |
 | `infra` | Infrastructure, CI/CD |
 
-Never pluralise (`bugs`, `features`) and never encode state as a label (`done`, `in-progress`): Linear's workflow owns the state, and a second copy in the labels is the copy that disagrees. Do not invent a label outside this set without approval; an unapproved label fragments the filter it was meant to serve. The set is tooling, so it stays in English even when the ticket content is in another language.
+Never pluralise (`bugs`, `features`) and never encode state as a label (`done`, `in-progress`): the board's `Status` field owns the state, and a second copy in the labels is the copy that disagrees. Do not invent a label outside this set without approval; an unapproved label fragments the filter it was meant to serve. The set is tooling, so it stays in English even when the ticket content is in another language.
 
 ```text
 // ✅ One type, one or more components, singular and in English

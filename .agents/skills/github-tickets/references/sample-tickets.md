@@ -1,11 +1,11 @@
 # Tickets de ejemplo
 
-Cinco tickets de muestra (todos los tipos) que ilustran el estándar: título, descripción con AC testeables y los links `COU-###`/`fixes` del contrato de integración.
+Cinco tickets de muestra (todos los tipos) que ilustran el estándar: título, descripción con AC testeables y los links `#<number>`/`fixes` del contrato de integración.
 
-> **Nota**: los IDs (`COU-042`, etc.) y descripciones son ficticios y ejemplifican el formato. No corresponden a tickets reales ni abren enlaces de cierre.
-> La rama es el campo `branchName` del ticket, tal cual la genera Linear; nunca se compone a mano.
+> **Nota**: los números (`#42`, etc.) y descripciones son ficticios y ejemplifican el formato. No corresponden a issues reales ni abren enlaces de cierre.
+> La rama sale de la convención `feature/<number>-<slug>`; nunca se inventa un formato distinto.
 
-## 1. Bug — `COU-042`
+## 1. Bug — `#42`
 
 **Título**: `Arreglar scroll en navbar móvil`
 
@@ -22,9 +22,9 @@ Solo el navbar móvil. Queda fuera tablet y desktop.
 - [ ] No hay zoom accidental en iOS al hacer scroll.
 - [ ] No rompe el menú hamburguesa existente.
 
-**Branch**: `feature/cou-042-arreglar-scroll-navbar-movil`
+**Branch**: `feature/42-arreglar-scroll-navbar-movil`
 
-## 2. Feature — `COU-043`
+## 2. Feature — `#43`
 
 **Título**: `Añadir login con OAuth2`
 
@@ -44,9 +44,9 @@ No se incluye multifactor ni recuperación de contraseña.
 - [ ] El token expirado se renueva sin volver a iniciar sesión.
 - [ ] Un flujo cancelado no deja estado a medio iniciar.
 
-**Branch**: `feature/cou-043-anadir-login-oauth2`
+**Branch**: `feature/43-anadir-login-oauth2`
 
-## 3. Spike — `COU-044`
+## 3. Spike — `#44`
 
 **Título**: `Investigar migración a cola de mensajes`
 
@@ -55,9 +55,9 @@ No se incluye multifactor ni recuperación de contraseña.
 ### Entregable a investigar
 Decidir entre un broker gestionado y self-managed para el envío de eventos de auditoría, con criterios de costo, latencia y operación.
 
-**Branch**: `feature/cou-044-investigar-cola-mensajes`
+**Branch**: `feature/44-investigar-cola-mensajes`
 
-## 4. Chore — `COU-045`
+## 4. Chore — `#45`
 
 **Título**: `Actualizar dependencias de seguridad`
 
@@ -66,9 +66,9 @@ Decidir entre un broker gestionado y self-managed para el envío de eventos de a
 ### Tarea de mantenimiento
 Actualizar las dependencias del pipeline de CI con versiones parcheadas que corrigen CVEs conocidos, y verificar que el build no se rompe.
 
-**Branch**: `feature/cou-045-actualizar-dependencias-seguridad`
+**Branch**: `feature/45-actualizar-dependencias-seguridad`
 
-## 5. Feature + Docs — `COU-046`
+## 5. Feature + Docs — `#46`
 
 **Título**: `Documentar convenciones de tickets`
 
@@ -78,7 +78,7 @@ Actualizar las dependencias del pipeline de CI con versiones parcheadas que corr
 No hay una fuente única de cómo nombrar y estructurar tickets en el equipo.
 
 ### Objetivo
-Publicar la guía de convenciones como referencia local del skill `linear-tickets`.
+Publicar la guía de convenciones como referencia local del skill `github-tickets`.
 
 ### No-objetivos
 No se modifica el contrato de integración existente.
@@ -86,6 +86,6 @@ No se modifica el contrato de integración existente.
 ### Criterios de aceptación
 - [ ] La guía cubre título, descripción, AC y labels.
 - [ ] Enlaza a las plantillas por tipo.
-- [ ] Referencia `linear-tickets` como fuente única del contrato `COU-###`.
+- [ ] Referencia `github-tickets` como fuente única de la convención `feature/<number>-<slug>`.
 
-**Branch**: `feature/cou-046-documentar-convenciones-tickets`
+**Branch**: `feature/46-documentar-convenciones-tickets`
