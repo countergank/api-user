@@ -285,7 +285,7 @@ export class UserRepository implements OnApplicationBootstrap {
             active: [{ $match: { isActive: true } }, { $count: 'count' }],
             locked: [{ $match: { lockedUntil: { $gt: now } } }, { $count: 'count' }],
             unverifiedEmail: [{ $match: User.UNVERIFIED_EMAIL_FILTER }, { $count: 'count' }],
-            newLast30Days: [{ $match: { createdAt: { $gte: last30Start } } }, { $count: 'count' }],
+            newLast30Days: [{ $match: { createdAt: { $gte: last30Start, $lt: now } } }, { $count: 'count' }],
             newPrevious30Days: [
               { $match: { createdAt: { $gte: previous30Start, $lt: last30Start } } },
               { $count: 'count' },
