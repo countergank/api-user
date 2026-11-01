@@ -8,6 +8,11 @@ import { SORTABLE_FIELDS } from '../dto/pagination-query.dto';
 import { UserMetrics } from '../dto/user-metrics.dto';
 import { User, UserRole } from '../entities/user.entity';
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+const METRICS_WINDOW_DAYS = 30;
+
+type MetricsFacetResult = Record<keyof UserMetrics, { count: number }[]>;
+
 @Injectable()
 export class UserRepository implements OnApplicationBootstrap {
   private readonly logger = new Logger(UserRepository.name);
@@ -266,12 +271,14 @@ export class UserRepository implements OnApplicationBootstrap {
 
   async aggregateMetrics(): Promise<UserMetrics> {
     const now = new Date();
-    const last30Start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    const previous30Start = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+    const last30Start = new Date(now.getTime() - METRICS_WINDOW_DAYS * DAY_MS);
+    const previous30Start = new Date(now.getTime() - 2 * METRICS_WINDOW_DAYS * DAY_MS);
 
+    // `deletedAt: null` matches both absent and explicitly-null fields, so a
+    // hypothetical null-valued field never drops a live user from the counts.
     const [result] = await this.userModel
-      .aggregate<Record<string, { count: number }[]>>([
-        { $match: { deletedAt: { $exists: false } } },
+      .aggregate<MetricsFacetResult>([
+        { $match: { deletedAt: null } },
         {
           $facet: {
             total: [{ $count: 'count' }],

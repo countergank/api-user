@@ -36,6 +36,7 @@ describe('Admin Users metrics (COU-348, e2e)', () => {
   const lockedUser = newUser('locked-metrics');
   const inactiveUser = newUser('inactive-metrics');
   const previousWindowUser = newUser('previous-window-metrics');
+  const outsideWindowUser = newUser('outside-window-metrics');
   const softDeletedUser = newUser('soft-deleted-metrics');
 
   /** Registra un usuario y confirma su email; devuelve su id. */
@@ -112,6 +113,17 @@ describe('Admin Users metrics (COU-348, e2e)', () => {
       },
     );
 
+    // Fuera de ambas ventanas: hace 75 días. Cuenta en `total` y `active` y en
+    // ninguna ventana: cubre el borde superior de `newPrevious30Days`.
+    const outsideWindowId = await registerAndVerify(outsideWindowUser);
+    const seventyFiveDaysAgo = new Date(Date.now() - 75 * 24 * 60 * 60 * 1000);
+    await userModel.collection.updateOne(
+      { _id: new ObjectId(outsideWindowId) },
+      {
+        $set: { createdAt: seventyFiveDaysAgo },
+      },
+    );
+
     // Bloqueado: activo y con `lockedUntil` en el futuro.
     const lockedId = await registerAndVerify(lockedUser);
     await userModel
@@ -134,10 +146,10 @@ describe('Admin Users metrics (COU-348, e2e)', () => {
     const seeded = await readMetrics(adminToken);
 
     // El baseline se toma después del `beforeAll`: admin y regular ya están
-    // dentro de él. Aquí solo siembran unverified, locked, inactive y
-    // previousWindow.
-    expect(seeded.total - baseline.total).toBe(4); // unverified, locked, inactive, previousWindow
-    expect(seeded.active - baseline.active).toBe(2); // locked, previousWindow
+    // dentro de él. Aquí siembran unverified, locked, inactive, previousWindow
+    // y outsideWindow.
+    expect(seeded.total - baseline.total).toBe(5); // unverified, locked, inactive, previousWindow, outsideWindow
+    expect(seeded.active - baseline.active).toBe(3); // locked, previousWindow, outsideWindow
     expect(seeded.locked - baseline.locked).toBe(1); // locked
     expect(seeded.unverifiedEmail - baseline.unverifiedEmail).toBe(1); // unverified
     expect(seeded.newLast30Days - baseline.newLast30Days).toBe(3); // unverified, locked, inactive
