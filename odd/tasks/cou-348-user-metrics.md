@@ -18,10 +18,10 @@ Linear: COU-348 · estimate 3 · assignee Leandro Javier Cepeda.
 
 ## Tasks
 
-- T1 (S2, S3, S4, S5, S6): aggregation `$facet` en `UserRepository` con `$match` compartido para la exclusión de soft-deletes; `User.UNVERIFIED_EMAIL_FILTER` como única fuente de la condición de verificación. Commit: pendiente.
-- T2 (S1, S7, S9): ruta `@Get('metrics')` declarada antes de `@Get(':id')` en `user.controller.ts`, con los mismos guards que la lista y `UserMetricsResponseDTO`. Swagger documentado (`MetricsUserDoc`). Commit: pendiente.
-- T3 (S8): e2e `admin-user-metrics.e2e-spec.ts` con deltas exactos sobre baseline (usuarios por estado y por ventana, backdate de `createdAt` por driver crudo), soft-delete excluido, 401/403. Commit: pendiente.
-- T4: bloque `# 28` en `test/hurl/user.hurl` (200 con las seis claves + 403 viewer) y fila en `test/hurl/ENDPOINTS.md`. Verificado con la API real en `:3100` (`api_user_hurl`): `user.hurl` completo, exit 0. Commit: pendiente.
+- T1 (S2, S3, S4, S5, S6): aggregation `$facet` en `UserRepository` con `$match` compartido para la exclusión de soft-deletes; `User.UNVERIFIED_EMAIL_FILTER` como única fuente de la condición de verificación. Commit: `b942214`.
+- T2 (S1, S7, S9): ruta `@Get('metrics')` declarada antes de `@Get(':id')` en `user.controller.ts`, con los mismos guards que la lista y `UserMetricsResponseDTO`. Swagger documentado (`MetricsUserDoc`). Commit: `b942214`.
+- T3 (S8): e2e `admin-user-metrics.e2e-spec.ts` con deltas exactos sobre baseline (usuarios por estado y por ventana, backdate de `createdAt` por driver crudo), soft-delete excluido, 401/403. Commit: `b942214`.
+- T4: bloque `# 28` en `test/hurl/user.hurl` (200 con las seis claves + 403 viewer) y fila en `test/hurl/ENDPOINTS.md`. Verificado con la API real en `:3100` (`api_user_hurl`): `user.hurl` completo, exit 0. Commit: `b942214`.
 
 ## Verificación
 
