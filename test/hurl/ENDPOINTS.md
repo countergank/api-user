@@ -12,6 +12,7 @@ lo que crea lo borra, y lo que muta lo restaura. Total: **45 endpoints en 11 arc
 | `parameter-admin.hurl` | GET | `/admin/parameters/:group` | 200 | admin + parameter:read | — |
 | `parameter-admin.hurl` | PUT | `/admin/parameters/:key` | 200 | admin + parameter:read | `UpdateParameterDto` |
 | `user.hurl` | GET | `/admin/users` | 200 | admin + user:read | — |
+| `user.hurl` | GET | `/admin/users/metrics` | 200 | admin + user:read | — |
 | `user.hurl` | POST | `/admin/users` | 201* | admin + user:create | `CreateUserDTO` |
 | `user.hurl` | DELETE | `/admin/users/:id` | 200 | admin + user:delete | — |
 | `user.hurl` | GET | `/admin/users/:id` | 200 | admin + user:read | — |

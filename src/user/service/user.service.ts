@@ -14,6 +14,7 @@ import { AdminUserDTO } from '../dto/admin-user.dto';
 import { CreateUserDTO } from '../dto/create-user.dto';
 import { PaginationQueryDTO } from '../dto/pagination-query.dto';
 import { UpdateUserDTO } from '../dto/update-user.dto';
+import { UserMetrics } from '../dto/user-metrics.dto';
 import { User, UserRole } from '../entities/user.entity';
 import { UserRepository } from '../repository/user.repository';
 
@@ -502,5 +503,9 @@ export class UserService {
 
     const data = users.map((user) => AdminUserDTO.of(user));
     return PaginatedResponseDTO.of(data, total, page, limit);
+  }
+
+  async getMetrics(): Promise<UserMetrics> {
+    return this.userRepository.aggregateMetrics();
   }
 }

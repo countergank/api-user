@@ -13,6 +13,7 @@ import {
   DeleteUserDoc,
   FindAllUserDoc,
   FindByIdUserDoc,
+  MetricsUserDoc,
   ToggleActiveDoc,
   UnlockUserDoc,
   UpdateUserDoc,
@@ -22,6 +23,7 @@ import { CreateUserResponseDTO } from '../dto/create-user-response.dto';
 import { CreateUserDTO } from '../dto/create-user.dto';
 import { PaginationQueryDTO } from '../dto/pagination-query.dto';
 import { UpdateUserDTO } from '../dto/update-user.dto';
+import { UserMetricsResponseDTO } from '../dto/user-metrics.dto';
 import { UserRole } from '../entities/user.entity';
 import { User } from '../entities/user.entity';
 import { UserService } from '../service/user.service';
@@ -69,6 +71,14 @@ export class UserController {
   @Get()
   async findAll(@Query() query: PaginationQueryDTO): Promise<PaginatedResponseDTO<AdminUserDTO>> {
     return this.userService.findPaginated(query);
+  }
+
+  // Declared before `@Get(':id')` so the parameter route never captures `metrics` as an id.
+  @MetricsUserDoc()
+  @RequirePermissions('user:read')
+  @Get('metrics')
+  async metrics(): Promise<UserMetricsResponseDTO> {
+    return UserMetricsResponseDTO.of(await this.userService.getMetrics());
   }
 
   @FindByIdUserDoc()

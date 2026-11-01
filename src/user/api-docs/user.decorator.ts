@@ -16,8 +16,8 @@ import { InternalErrorDTO } from '../../common/dto/internal-error.dto';
 import { PaginatedResponseDTO } from '../../common/dto/paginated-response.dto';
 import { paginatedSchema } from '../../common/dto/paginated-response.schema';
 import { CreateUserDTO } from '../dto/create-user.dto';
-import { PaginationQueryDTO } from '../dto/pagination-query.dto';
 import { UpdateUserDTO } from '../dto/update-user.dto';
+import { UserMetricsResponseDTO } from '../dto/user-metrics.dto';
 import { CREATE_USER_SWAGGER } from './create-user.api-body';
 import { UserResponse } from './examples/user.examples';
 
@@ -106,6 +106,32 @@ export function FindAllUserDoc() {
       example: 'juan',
     }),
     ApiBadRequestResponse({ description: 'Bad Request', type: BadRequestDTO }),
+    ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
+  );
+}
+
+export function MetricsUserDoc() {
+  return applyDecorators(
+    ApiTags('users'),
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'KPIs globales de usuarios (Admin)',
+      description:
+        'Six global user counts for the console dashboard, computed in a single aggregation. ' +
+        'Soft-deleted users are excluded from every count. `newLast30Days` and `newPrevious30Days` ' +
+        'are two point-in-time window counts used to render the month-over-month delta; they are ' +
+        'not a time series.',
+    }),
+    ApiExtraModels(UserMetricsResponseDTO),
+    ApiResponse({
+      status: 200,
+      description: 'Conteos globales de usuarios',
+      schema: {
+        $ref: getSchemaPath(UserMetricsResponseDTO),
+      },
+    }),
+    ApiBadRequestResponse({ description: 'Bad Request', type: BadRequestDTO }),
+    ApiResponse({ status: 403, description: 'Acceso denegado. Se requiere rol admin.' }),
     ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
   );
 }
