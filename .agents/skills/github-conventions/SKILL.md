@@ -7,7 +7,7 @@ permissions:
   - write-files
 metadata:
   author: countergank
-  version: "2.0.0"
+  version: "2.1.0"
 ---
 
 Git and GitHub conventions for this repository. Three domain files; each rule states one decision with one ✅/❌ pair. Read the file that matches the action you are about to take.
@@ -15,7 +15,7 @@ Git and GitHub conventions for this repository. Three domain files; each rule st
 | File | Read it when | Why |
 |------|--------------|-----|
 | `rules/commit.md` | Writing any commit message | Eleven canonical types, imperative subject in 50 characters, body and footers, breaking changes, CHANGELOG sections |
-| `rules/branch.md` | Creating, updating or cleaning up a branch | Linear `branchName` verbatim, `type/description` without a ticket, `--no-track`, rebase, delete after merge |
+| `rules/branch.md` | Creating, updating or cleaning up a branch | `feature/<number>-<slug>` for ticket branches, `type/description` without a ticket, `--no-track`, rebase, delete after merge |
 | `rules/pr.md` | Opening or updating a pull request | Conventional title, the required template sections, issue and ticket linking |
 
 ## Assets
@@ -26,4 +26,4 @@ Git and GitHub conventions for this repository. Three domain files; each rule st
 ## Boundaries
 
 - Which branch to target and how code is promoted between environments belongs to the `git-environment-flow` skill; this skill covers naming, commits and the pull request itself.
-- The `COU-###` contract and the `fixes COU-###` magic word belong to the `linear-tickets` skill; this skill only says where the word goes.
+- The branch convention `feature/<number>-<slug>` and the `fixes #<number>` magic word belong to the `github-tickets` skill; this skill only says where the word goes.

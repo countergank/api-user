@@ -31,21 +31,19 @@ Added OAuth login. See commits for details.
 N/A
 ```
 
-## P1 — Link the issue with GitHub keywords and the Linear magic word
+## P1 — Link the issue with GitHub keywords
 
-Put one keyword per line in the PR description: `Closes #123`, `Fixes #123`, or `Resolves #123` closes the GitHub issue when the PR merges, and `Refs #123` links the issue without closing it. To drive a Linear ticket's state on merge, write the magic word `fixes COU-###` in the PR description; the `COU-###` contract is owned by the linear-tickets skill, so follow it instead of redefining the format here. GitHub keywords and `fixes COU-###` coexist in the same description without conflict.
+Put one keyword per line in the PR description: `Closes #123`, `Fixes #123`, or `Resolves #123` closes the issue when the PR merges, and `Refs #123` links it without closing. **Caveat:** the keyword only closes the issue when the PR merges into the repo's **default branch**; these repos merge into `develop`, so after merge the agent closes the issue and sets the board `Status: Done` — the `github-tickets` skill owns that contract, so follow it instead of redefining it here.
 
 ```text
-// ✅ One keyword per line plus the Linear magic word
+// ✅ One keyword per line
 Closes #42
 Fixes #43
 Refs #50
-
-fixes COU-240
 ```
 
 ```text
 // ❌ Unrecognized phrasing and a missing keyword
-This PR should fix issue 42 and update ticket COU-240.
+This PR should fix issue 42.
 The reviewer must close issue #42 manually after merge.
 ```

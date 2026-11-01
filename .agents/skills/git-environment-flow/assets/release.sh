@@ -209,12 +209,13 @@ determine_bump() {
   while IFS= read -r subject; do
     [[ -z "$subject" ]] && continue
 
-    # Check for feat!/fix!/etc! (angular-style bang = BREAKING)
-    if echo "$subject" | grep -qE '^feat!(\(.+\))?:'; then
+    # Check for feat!/fix!/etc! (angular-style bang = BREAKING), with or without scope:
+    # Conventional Commits allows both feat!: and feat(scope)!:.
+    if echo "$subject" | grep -qE '^feat(\(.+\))?!:'; then
       has_breaking=true
-    elif echo "$subject" | grep -qE '^fix!(\(.+\))?:'; then
+    elif echo "$subject" | grep -qE '^fix(\(.+\))?!:'; then
       has_breaking=true
-    elif echo "$subject" | grep -qE '^perf!(\(.+\))?:'; then
+    elif echo "$subject" | grep -qE '^perf(\(.+\))?!:'; then
       has_breaking=true
     elif echo "$subject" | grep -qE '^feat(\(.+\))?:'; then
       has_feat=true
@@ -281,9 +282,9 @@ generate_changelog() {
     # Extract scope if present
     scope=$(extract_scope "$subject")
 
-    # BREAKING: feat! in subject
-    if echo "$subject" | grep -qE '^feat!(\([^)]*\))?:'; then
-      desc=$(echo "$subject" | sed -E 's/^feat!(\([^)]*\))?:\s*//')
+    # BREAKING: feat! or feat(scope)! in subject
+    if echo "$subject" | grep -qE '^feat(\([^)]*\))?!:'; then
+      desc=$(echo "$subject" | sed -E 's/^feat(\([^)]*\))?![[:space:]]*:[[:space:]]*//')
       if [[ -n "$scope" ]]; then
         entry_text="- **${scope}**: ${desc}"
       else
