@@ -121,6 +121,11 @@ export class User extends Base {
 
   @Prop({ type: Date, default: undefined })
   deletedAt?: Date;
+
+  // A user is unverified while the verification token is present; verifyEmail unsets it.
+  static readonly UNVERIFIED_EMAIL_FILTER: Record<string, unknown> = {
+    emailVerificationToken: { $exists: true, $ne: null },
+  };
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

@@ -5,7 +5,13 @@ import { DomainError } from '../../common/errors/domain.error';
 import { escapeRegExp, isLocal } from '../../common/utils';
 import { EncodeService } from '../../encode/encode.service';
 import { SORTABLE_FIELDS } from '../dto/pagination-query.dto';
+import { UserMetrics } from '../dto/user-metrics.dto';
 import { User, UserRole } from '../entities/user.entity';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const METRICS_WINDOW_DAYS = 30;
+
+type MetricsFacetResult = Record<keyof UserMetrics, { count: number }[]>;
 
 @Injectable()
 export class UserRepository implements OnApplicationBootstrap {
@@ -261,5 +267,44 @@ export class UserRepository implements OnApplicationBootstrap {
 
   async softDelete(id: string): Promise<User> {
     return this.userModel.findByIdAndUpdate(id, { isActive: false, deletedAt: new Date() }, { new: true }).exec();
+  }
+
+  async aggregateMetrics(): Promise<UserMetrics> {
+    const now = new Date();
+    const last30Start = new Date(now.getTime() - METRICS_WINDOW_DAYS * DAY_MS);
+    const previous30Start = new Date(now.getTime() - 2 * METRICS_WINDOW_DAYS * DAY_MS);
+
+    // `deletedAt: null` matches both absent and explicitly-null fields, so a
+    // hypothetical null-valued field never drops a live user from the counts.
+    const [result] = await this.userModel
+      .aggregate<MetricsFacetResult>([
+        { $match: { deletedAt: null } },
+        {
+          $facet: {
+            total: [{ $count: 'count' }],
+            active: [{ $match: { isActive: true } }, { $count: 'count' }],
+            locked: [{ $match: { lockedUntil: { $gt: now } } }, { $count: 'count' }],
+            unverifiedEmail: [{ $match: User.UNVERIFIED_EMAIL_FILTER }, { $count: 'count' }],
+            newLast30Days: [{ $match: { createdAt: { $gte: last30Start, $lt: now } } }, { $count: 'count' }],
+            newPrevious30Days: [
+              { $match: { createdAt: { $gte: previous30Start, $lt: last30Start } } },
+              { $count: 'count' },
+            ],
+          },
+        },
+      ])
+      .exec();
+
+    // An empty facet yields an empty array, and `$count` never emits a zero row.
+    const count = (rows?: { count: number }[]): number => rows?.[0]?.count ?? 0;
+
+    return {
+      total: count(result?.total),
+      active: count(result?.active),
+      locked: count(result?.locked),
+      unverifiedEmail: count(result?.unverifiedEmail),
+      newLast30Days: count(result?.newLast30Days),
+      newPrevious30Days: count(result?.newPrevious30Days),
+    };
   }
 }

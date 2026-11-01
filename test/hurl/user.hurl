@@ -531,3 +531,25 @@ HTTP 200
 unlockedToken: jsonpath "$.accessToken"
 [Asserts]
 jsonpath "$.accessToken" isString
+
+
+# ======================================================================
+# 28 — GET /admin/users/metrics (admin, user:read): KPIs globales del dashboard.
+
+GET {{baseUrl}}/admin/users/metrics
+Authorization: Bearer {{adminToken}}
+HTTP 200
+[Asserts]
+jsonpath "$.total" isInteger
+jsonpath "$.active" isInteger
+jsonpath "$.locked" isInteger
+jsonpath "$.unverifiedEmail" isInteger
+jsonpath "$.newLast30Days" isInteger
+jsonpath "$.newPrevious30Days" isInteger
+
+# Negativo: usuario sin rol admin → 403 FORBIDDEN.
+GET {{baseUrl}}/admin/users/metrics
+Authorization: Bearer {{viewerToken}}
+HTTP 403
+[Asserts]
+jsonpath "$.code" == "UA-SEC-002"
