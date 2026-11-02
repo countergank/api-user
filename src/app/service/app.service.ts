@@ -11,6 +11,7 @@ import { DomainError } from '../../common/errors/domain.error';
 @Injectable()
 export class AppService {
   private microserviceEnabled: boolean;
+  private cachedVersion: Version | null = null;
 
   constructor(
     private readonly configService: ConfigService,
@@ -25,9 +26,22 @@ export class AppService {
     if (this.microserviceEnabled && this.client) {
       await this.client.connect();
     }
+    // PERF-10: version config is static — cache it at startup. Invalid config
+    // is not cached: getVersion keeps failing per call exactly as before.
+    await this.getVersion()
+      .then((version) => {
+        this.cachedVersion = version;
+      })
+      .catch(() => {
+        // Leave the cache empty; the per-call error contract is unchanged.
+      });
   }
 
   async getVersion(): Promise<Version> {
+    if (this.cachedVersion) {
+      return this.cachedVersion;
+    }
+
     const packageName = this.configService.get<string>('npm_package_name', 'api-user');
     const env = this.configService.getOrThrow('NODE_ENV');
     const version = this.configService.get<string>('npm_package_version')
@@ -37,7 +51,9 @@ export class AppService {
       throw DomainError.fromKind('APP_VERSION_NOT_FOUND');
     }
 
-    return new Version({ version: versionStructure(packageName, env, version) });
+    const result = new Version({ version: versionStructure(packageName, env, version) });
+    this.cachedVersion = result;
+    return result;
   }
 
   async messageMicroservice(messagePattern: string, body: Message<unknown>): Promise<Message<unknown>> {

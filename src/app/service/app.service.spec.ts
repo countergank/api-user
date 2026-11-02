@@ -53,7 +53,23 @@ describe(AppService.name, () => {
       await expect(service.getVersion()).resolves.toEqual(new VersionMock());
     });
 
-    it('should throw DomainError if config returns empty values', async () => {
+    it('should serve the same cached Version instance on every call (S2)', async () => {
+      const first = await service.getVersion();
+      const second = await service.getVersion();
+
+      expect(second).toBe(first);
+    });
+
+    it('should warm the cache at startup so the first call is already served (S1)', async () => {
+      await service.onApplicationBootstrap();
+
+      const first = await service.getVersion();
+      const second = await service.getVersion();
+
+      expect(second).toBe(first);
+    });
+
+    it('should keep failing per call when config is invalid, without caching the failure', async () => {
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           AppService,
