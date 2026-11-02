@@ -1,5 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
+import { MongooseHealthIndicator } from '@nestjs/terminus';
+import { CacheService } from '../../../src/config/cache/cache.service';
 import { createTestApp } from '../../helpers/create-test-app';
 
 describe('Health Check (e2e)', () => {
@@ -45,6 +47,22 @@ describe('Health Check (e2e)', () => {
         .expect(200);
 
       expect(response.headers['content-type']).toMatch(/application\/json/);
+    });
+
+    it('should serve consecutive probes from the cache without re-pinging the database (PERF-09)', async () => {
+      await app.get(CacheService).del('health:check');
+      const pingCheckSpy = jest.spyOn(MongooseHealthIndicator.prototype, 'pingCheck');
+      pingCheckSpy.mockClear();
+
+      const first = await request(app.getHttpServer())
+        .get('/health')
+        .expect(200);
+      const second = await request(app.getHttpServer())
+        .get('/health')
+        .expect(200);
+
+      expect(second.body).toEqual(first.body);
+      expect(pingCheckSpy).toHaveBeenCalledTimes(1);
     });
   });
 });
