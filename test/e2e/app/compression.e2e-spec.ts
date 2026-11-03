@@ -1,9 +1,8 @@
 import request from 'supertest';
-import fastifyCompress from '@fastify/compress';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Test } from '@nestjs/testing';
 import { ValidationPipe } from '../../../src/common/pipes/validation.pipe';
-import { COMPRESSION_OPTIONS } from '../../../src/config/compression.options';
+import { registerHttpCompression } from '../../../src/config/compression.options';
 import { AppModule } from '../../../src/app/app.module';
 
 describe('Response compression (e2e)', () => {
@@ -16,13 +15,16 @@ describe('Response compression (e2e)', () => {
     }).compile();
     app = moduleFixture.createNestApplication<NestFastifyApplication>(adapter);
     app.useGlobalPipes(new ValidationPipe());
-    await app.register(fastifyCompress, COMPRESSION_OPTIONS);
-    // A payload larger than the compression threshold, mirroring /docs-json.
+    await registerHttpCompression(app);
+    // Fixed-size payloads around the compression threshold, mirroring /docs-json.
     const httpAdapter = app.getHttpAdapter();
-    httpAdapter.get('/e2e/large', (_req: any, res: any) => {
+    const largeRoute = (bytes: number) => (_req: any, res: any) => {
       res.header('Content-Type', 'application/json');
-      res.send({ padding: 'x'.repeat(64 * 1024) });
-    });
+      res.send({ padding: 'x'.repeat(bytes) });
+    };
+    httpAdapter.get('/e2e/below-threshold', largeRoute(1360));
+    httpAdapter.get('/e2e/above-threshold', largeRoute(1560));
+    httpAdapter.get('/e2e/large', largeRoute(64 * 1024));
     await app.init();
     await app.listen(0);
   }, 60000);
@@ -31,16 +33,21 @@ describe('Response compression (e2e)', () => {
     await app.close();
   });
 
-  it('prefers Brotli when the client offers it and compresses large payloads', async () => {
+  it('prefers Brotli when the client offers it and the compressed payload is smaller', async () => {
     // supertest cannot decompress brotli, so read the body as binary and assert via headers.
-    const response = await request(app.getHttpServer())
+    const compressed = await request(app.getHttpServer())
       .get('/e2e/large')
       .set('Accept-Encoding', 'br, gzip, deflate')
       .responseType('arraybuffer')
       .expect(200)
       .expect('Content-Encoding', 'br');
+    const plain = await request(app.getHttpServer())
+      .get('/e2e/large')
+      .set('Accept-Encoding', 'identity')
+      .expect(200);
 
-    expect(response.body.length ?? Buffer.byteLength(response.body)).toBeGreaterThan(0);
+    expect(Buffer.byteLength(compressed.body)).toBeGreaterThan(0);
+    expect(Buffer.byteLength(compressed.body)).toBeLessThan(plain.body.padding.length + 12);
   });
 
   it('falls back to gzip when the client does not support Brotli', async () => {
@@ -52,12 +59,23 @@ describe('Response compression (e2e)', () => {
     expect(response.headers['content-encoding']).toBe('gzip');
   });
 
-  it('does not compress responses below the threshold', async () => {
+  it('sends responses just below the threshold uncompressed', async () => {
     const response = await request(app.getHttpServer())
-      .get('/health')
+      .get('/e2e/below-threshold')
       .set('Accept-Encoding', 'br, gzip, deflate')
       .expect(200);
 
     expect(response.headers['content-encoding']).toBeUndefined();
+  });
+
+  it('compresses responses just above the threshold', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/e2e/above-threshold')
+      .set('Accept-Encoding', 'br, gzip, deflate')
+      .responseType('arraybuffer')
+      .expect(200)
+      .expect('Content-Encoding', 'br');
+
+    expect(Buffer.byteLength(response.body)).toBeGreaterThan(0);
   });
 });

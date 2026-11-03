@@ -1,4 +1,5 @@
-import type { FastifyCompressOptions } from '@fastify/compress';
+import fastifyCompress, { type FastifyCompressOptions } from '@fastify/compress';
+import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 
 /**
  * Shared @fastify/compress registration options (PERF-11).
@@ -12,3 +13,12 @@ export const COMPRESSION_OPTIONS: FastifyCompressOptions = {
   encodings: ['br', 'gzip', 'deflate'],
   threshold: 1500,
 };
+
+/**
+ * Single wiring point for response compression: main.ts and the e2e suite
+ * register the plugin through this helper, so tests exercise the exact
+ * production configuration.
+ */
+export async function registerHttpCompression(app: NestFastifyApplication): Promise<void> {
+  await app.register(fastifyCompress, COMPRESSION_OPTIONS);
+}
