@@ -1,5 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import { ClientProxy } from '@nestjs/microservices';
+import { Logger } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { DomainError } from '../../common/errors/domain.error';
 import { MicroservicesNames } from '../../config/custom-providers/microservices-names.enum';
@@ -90,6 +91,31 @@ describe(AppService.name, () => {
       await expect(serviceWithMissingConfig.getVersion()).rejects.toMatchObject({
         kind: expect.objectContaining({ kind: 'APP_VERSION_NOT_FOUND' }),
       });
+    });
+
+    it('should warn on a failed warm-up instead of swallowing it, and still not crash bootstrap', async () => {
+      const warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          AppService,
+          {
+            provide: ConfigService,
+            useValue: {
+              getOrThrow: () => '',
+              get: () => '',
+            },
+          },
+          { provide: MicroservicesNames.EXAMPLE, useValue: {} as ClientProxy },
+        ],
+      }).compile();
+
+      const serviceWithMissingConfig = module.get<AppService>(AppService);
+
+      await expect(serviceWithMissingConfig.onApplicationBootstrap()).resolves.toBeUndefined();
+      expect(warnSpy).toHaveBeenCalled();
+
+      await expect(serviceWithMissingConfig.getVersion()).rejects.toBeInstanceOf(DomainError);
+      warnSpy.mockRestore();
     });
   });
 
