@@ -83,7 +83,7 @@ export class EmailTemplateService {
   ) {}
 
   /**
-   * PERF-12: templates are not cached yet, but the invalidation is already
+   * Templates are not cached yet, but the invalidation is already
    * wired so a future template cache never goes stale after a mutation.
    */
   private invalidateTemplateCaches(operation: string): void {

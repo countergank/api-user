@@ -38,8 +38,8 @@ export class UserService {
     @InjectModel(Permission.name) private readonly permissionModel: Model<Permission>,
   ) {}
 
-  // PERF-12: invalidation is reactive — mutating methods emit
-  // cache.invalidate.user and CacheService handles the Redis deletions.
+  // Invalidation is reactive: this only emits; CacheService performs the
+  // Redis deletion.
   private invalidateUserCache(userId: string): void {
     this.eventEmitter.emit('cache.invalidate.user', { pattern: `cache:user:${userId}` });
   }

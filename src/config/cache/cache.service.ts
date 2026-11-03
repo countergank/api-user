@@ -88,13 +88,9 @@ export class CacheService implements OnModuleDestroy {
     }
   }
 
-  // PERF-12: reactive invalidation — mutating services emit these events
-  // instead of touching the cache directly.
-  //
-  // Every pattern is invalidated with one command enqueued synchronously at
-  // emit time, so a later read can never observe the stale value: exact keys
-  // use a plain DEL and wildcards an atomic KEYS+DEL Lua script (delByPattern
-  // would SCAN first, leaving a window where a reader gets the old value).
+  // Invalidation must enqueue its Redis command synchronously: delByPattern
+  // SCANs first, so a concurrent reader could get the stale value before the
+  // DEL lands. Exact keys use a plain DEL; wildcards an atomic KEYS+DEL script.
   handleInvalidationPayload(payload: CacheInvalidationPayload): Promise<number> {
     if (payload.pattern.includes('*')) {
       return this.invalidatePatternAtomically(payload.pattern);

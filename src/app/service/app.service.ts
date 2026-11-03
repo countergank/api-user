@@ -27,7 +27,7 @@ export class AppService {
     if (this.microserviceEnabled && this.client) {
       await this.client.connect();
     }
-    // PERF-10: version config is static — warm the cache at startup.
+    // Version config is static — warm the cache at startup.
     // A failed warm-up is logged, not swallowed: getVersion keeps failing
     // per call with the same error contract as before.
     try {

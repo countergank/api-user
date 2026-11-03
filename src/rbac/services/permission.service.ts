@@ -214,7 +214,7 @@ export class PermissionService {
   }
 
   /**
-   * Best-effort permission-cache invalidation for a completed write (PERF-12).
+   * Best-effort permission-cache invalidation for a completed write.
    *
    * Reactive: emits cache.invalidate.rbac; CacheService performs the Redis
    * deletions. MongoDB is the source of truth and a stale permission cache is

@@ -211,7 +211,7 @@ export class RoleService {
 
   /**
    * Invalidates every rbac cache entry (roles + permissions, lists and
-   * per-name entries) after a write (PERF-12, S15).
+   * per-name entries) after a write.
    *
    * Reactive: emits cache.invalidate.rbac; CacheService performs the Redis
    * deletions, so a slow or failed listener cannot fail an applied write.
