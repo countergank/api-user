@@ -12,6 +12,7 @@ import { HttpAdapterHost } from '@nestjs/core';
 import { AppModule } from './app/app.module';
 
 import { isProd } from './common/utils';
+import { COMPRESSION_OPTIONS } from './config/compression.options';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -37,7 +38,7 @@ async function bootstrap() {
   );
 
   await app.register(fastifyHelmet);
-  await app.register(fastifyCompress, { encodings: ['gzip', 'deflate'] });
+  await app.register(fastifyCompress, COMPRESSION_OPTIONS);
 
   const port = configService.get('PORT') ?? 3000;
   const host = configService.get('HOST') ?? '0.0.0.0';
