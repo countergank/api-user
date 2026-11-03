@@ -91,16 +91,33 @@ export class CacheService implements OnModuleDestroy {
   // PERF-12: reactive invalidation — mutating services emit these events
   // instead of touching the cache directly.
   //
-  // Exact-key patterns (no wildcard) delete synchronously: delByPattern would
-  // SCAN first, so a reader could get the stale value before the DEL lands.
-  // Wildcard patterns accept eventual invalidation (best-effort semantics).
-  async handleInvalidationPayload(payload: CacheInvalidationPayload): Promise<number> {
+  // Every pattern is invalidated with one command enqueued synchronously at
+  // emit time, so a later read can never observe the stale value: exact keys
+  // use a plain DEL and wildcards an atomic KEYS+DEL Lua script (delByPattern
+  // would SCAN first, leaving a window where a reader gets the old value).
+  handleInvalidationPayload(payload: CacheInvalidationPayload): Promise<number> {
     if (payload.pattern.includes('*')) {
-      return this.delByPattern(payload.pattern);
+      return this.invalidatePatternAtomically(payload.pattern);
     }
     // Emitted patterns are stored keys (with the cache: prefix); del() adds it.
-    await this.del(payload.pattern.replace(/^cache:/, ''));
-    return 1;
+    return this.del(payload.pattern.replace(/^cache:/, '')).then(() => 1);
+  }
+
+  private async invalidatePatternAtomically(pattern: string): Promise<number> {
+    try {
+      const client = this.redisService.getClient();
+      const script = `
+local keys = redis.call('KEYS', KEYS[1])
+local deleted = 0
+for _, key in ipairs(keys) do
+  deleted = deleted + redis.call('DEL', key)
+end
+return deleted`;
+      return (await client.eval(script, 1, pattern)) as number;
+    } catch (error) {
+      this.logger.error(`Atomic invalidation error for pattern "${pattern}": ${(error as Error).message}`);
+      return 0;
+    }
   }
 
   @OnEvent('cache.invalidate.user')

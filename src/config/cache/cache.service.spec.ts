@@ -248,13 +248,14 @@ describe(CacheService.name, () => {
       ['cache.invalidate.user', 'cache:user:*'],
       ['cache.invalidate.rbac', 'cache:rbac:*'],
       ['cache.invalidate.templates', 'cache:email-template:*'],
-    ])('%s invalidates the payload pattern (PERF-12)', async (event, pattern) => {
-      const delByPatternSpy = jest.spyOn(service, 'delByPattern').mockResolvedValue(1);
+    ])('%s invalidates the payload pattern (PERF-12)', (event, pattern) => {
+      const mockClient = { eval: jest.fn().mockResolvedValue(1) };
+      mockRedisService.getClient.mockReturnValue(mockClient);
 
       eventEmitter.emit(event, { pattern });
-      await new Promise((resolve) => setImmediate(resolve));
-
-      expect(delByPatternSpy).toHaveBeenCalledWith(pattern);
+      // No event-loop turn: the atomic KEYS+DEL must already be enqueued.
+      expect(mockClient.eval).toHaveBeenCalledTimes(1);
+      expect(mockClient.eval.mock.calls[0][2]).toBe(pattern);
     });
 
     it('deletes exact-key patterns synchronously so later reads cannot slip between scan and delete (PERF-12)', async () => {
@@ -263,6 +264,20 @@ describe(CacheService.name, () => {
       eventEmitter.emit('cache.invalidate.user', { pattern: 'cache:user:abc123' });
       // No event-loop turn: the DEL must already be enqueued when emit returns.
       expect(mockRedisService.del).toHaveBeenCalledWith('cache:user:abc123');
+    });
+
+    it('invalidates wildcard patterns atomically in one command enqueued at emit time (PERF-12)', () => {
+      const mockClient = { eval: jest.fn().mockResolvedValue(2) };
+      mockRedisService.getClient.mockReturnValue(mockClient);
+
+      eventEmitter.emit('cache.invalidate.rbac', { pattern: 'cache:rbac:*' });
+      // No event-loop turn: the atomic KEYS+DEL must already be enqueued.
+      expect(mockClient.eval).toHaveBeenCalledTimes(1);
+      const [script, numKeys, pattern] = mockClient.eval.mock.calls[0];
+      expect(script).toContain('KEYS');
+      expect(script).toContain('DEL');
+      expect(numKeys).toBe(1);
+      expect(pattern).toBe('cache:rbac:*');
     });
   });
 
