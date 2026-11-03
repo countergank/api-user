@@ -1,4 +1,6 @@
+import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { EventEmitter2, EventEmitterModule } from '@nestjs/event-emitter';
 import { CacheService } from './cache.service';
 import { RedisService } from '../redis/redis.service';
 
@@ -212,6 +214,55 @@ describe(CacheService.name, () => {
       const deletedCount = await service.delByPattern('cache:bad:*');
 
       expect(deletedCount).toBe(0);
+    });
+  });
+
+  describe(`${CacheService.name} cache invalidation events (PERF-12)`, () => {
+    let eventEmitter: EventEmitter2;
+    let app: INestApplication;
+
+    beforeEach(async () => {
+      const module: TestingModule = await Test.createTestingModule({
+        imports: [EventEmitterModule.forRoot()],
+        providers: [
+          CacheService,
+          { provide: RedisService, useValue: mockRedisService },
+        ],
+      }).compile();
+
+      app = module.createNestApplication();
+      await app.init();
+
+      service = app.get<CacheService>(CacheService);
+      eventEmitter = app.get<EventEmitter2>(EventEmitter2);
+
+      const mockClient = { scan: jest.fn().mockResolvedValue(['0', ['cache:user:1']]) };
+      mockRedisService.getClient.mockReturnValue(mockClient);
+    });
+
+    afterEach(async () => {
+      await app.close();
+    });
+
+    it.each([
+      ['cache.invalidate.user', 'cache:user:*'],
+      ['cache.invalidate.rbac', 'cache:rbac:*'],
+      ['cache.invalidate.templates', 'cache:email-template:*'],
+    ])('%s invalidates the payload pattern (PERF-12)', async (event, pattern) => {
+      const delByPatternSpy = jest.spyOn(service, 'delByPattern').mockResolvedValue(1);
+
+      eventEmitter.emit(event, { pattern });
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(delByPatternSpy).toHaveBeenCalledWith(pattern);
+    });
+
+    it('deletes exact-key patterns synchronously so later reads cannot slip between scan and delete (PERF-12)', async () => {
+      mockRedisService.del.mockResolvedValue(1);
+
+      eventEmitter.emit('cache.invalidate.user', { pattern: 'cache:user:abc123' });
+      // No event-loop turn: the DEL must already be enqueued when emit returns.
+      expect(mockRedisService.del).toHaveBeenCalledWith('cache:user:abc123');
     });
   });
 

@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
 import { RedisService } from '../redis/redis.service';
 
 const DEFAULT_PREFIX = 'cache:';
@@ -9,6 +10,10 @@ const CLEANUP_INTERVAL_MS = 60_000; // 1 minute
 interface CacheEntry<T> {
   data: T;
   expiresAt: number | null;
+}
+
+export interface CacheInvalidationPayload {
+  pattern: string;
 }
 
 @Injectable()
@@ -81,6 +86,36 @@ export class CacheService implements OnModuleDestroy {
     } catch (error) {
       this.logger.error(`Cache del error for key "${key}": ${(error as Error).message}`);
     }
+  }
+
+  // PERF-12: reactive invalidation — mutating services emit these events
+  // instead of touching the cache directly.
+  //
+  // Exact-key patterns (no wildcard) delete synchronously: delByPattern would
+  // SCAN first, so a reader could get the stale value before the DEL lands.
+  // Wildcard patterns accept eventual invalidation (best-effort semantics).
+  async handleInvalidationPayload(payload: CacheInvalidationPayload): Promise<number> {
+    if (payload.pattern.includes('*')) {
+      return this.delByPattern(payload.pattern);
+    }
+    // Emitted patterns are stored keys (with the cache: prefix); del() adds it.
+    await this.del(payload.pattern.replace(/^cache:/, ''));
+    return 1;
+  }
+
+  @OnEvent('cache.invalidate.user')
+  handleUserInvalidation(payload: CacheInvalidationPayload): Promise<number> {
+    return this.handleInvalidationPayload(payload);
+  }
+
+  @OnEvent('cache.invalidate.rbac')
+  handleRbacInvalidation(payload: CacheInvalidationPayload): Promise<number> {
+    return this.handleInvalidationPayload(payload);
+  }
+
+  @OnEvent('cache.invalidate.templates')
+  handleTemplatesInvalidation(payload: CacheInvalidationPayload): Promise<number> {
+    return this.handleInvalidationPayload(payload);
   }
 
   async delByPattern(pattern: string): Promise<number> {

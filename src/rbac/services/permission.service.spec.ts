@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import { DEFAULT_PERMISSIONS, PermissionService } from './permission.service';
@@ -13,6 +14,10 @@ describe(PermissionService.name, () => {
     findOne: jest.fn(),
     countDocuments: jest.fn(),
     insertMany: jest.fn(),
+  };
+
+  const mockEventEmitter = {
+    emit: jest.fn(),
   };
 
   const mockCacheService = {
@@ -43,6 +48,7 @@ describe(PermissionService.name, () => {
         PermissionService,
         { provide: getModelToken(Permission.name), useValue: mockPermissionModel },
         { provide: CacheService, useValue: mockCacheService },
+        { provide: EventEmitter2, useValue: mockEventEmitter },
       ],
     }).compile();
 
@@ -249,14 +255,16 @@ describe(PermissionService.name, () => {
             ),
           },
           { provide: CacheService, useValue: mockCacheService },
+        { provide: EventEmitter2, useValue: mockEventEmitter },
         ],
       }).compile();
 
       const createService = module2.get<PermissionService>(PermissionService);
       await createService.create({ name: 'new:perm', description: 'New perm', category: PermissionCategory.USER });
 
-      expect(mockCacheService.delByPattern).toHaveBeenCalledWith('cache:rbac:permissions:name:*');
-      expect(mockCacheService.del).toHaveBeenCalledWith('rbac:permissions:all');
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith('cache.invalidate.rbac', {
+        pattern: 'cache:rbac:*',
+      });
     });
 
     it('should resolve with the saved permission when the cache swallows its own invalidation failure', async () => {
@@ -276,6 +284,7 @@ describe(PermissionService.name, () => {
             ),
           },
           { provide: CacheService, useValue: mockCacheService },
+        { provide: EventEmitter2, useValue: mockEventEmitter },
         ],
       }).compile();
 
@@ -289,7 +298,9 @@ describe(PermissionService.name, () => {
       });
 
       expect(result).toEqual(saved);
-      expect(mockCacheService.delByPattern).toHaveBeenCalledTimes(1);
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith('cache.invalidate.rbac', {
+        pattern: 'cache:rbac:*',
+      });
       expect(errorSpy).not.toHaveBeenCalled();
     });
   });
@@ -300,8 +311,9 @@ describe(PermissionService.name, () => {
 
       await service.createMany([{ name: 'perm:1', description: 'Perm 1', category: PermissionCategory.USER }]);
 
-      expect(mockCacheService.delByPattern).toHaveBeenCalledWith('cache:rbac:permissions:name:*');
-      expect(mockCacheService.del).toHaveBeenCalledWith('rbac:permissions:all');
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith('cache.invalidate.rbac', {
+        pattern: 'cache:rbac:*',
+      });
     });
 
     it('should resolve with the insert result when the cache swallows its own invalidation failure', async () => {
@@ -313,7 +325,9 @@ describe(PermissionService.name, () => {
       ]);
 
       expect(result).toEqual(inserted);
-      expect(mockCacheService.delByPattern).toHaveBeenCalledTimes(1);
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith('cache.invalidate.rbac', {
+        pattern: 'cache:rbac:*',
+      });
     });
 
     it('should resolve with the insert result when invalidation finds nothing to delete', async () => {
@@ -325,8 +339,7 @@ describe(PermissionService.name, () => {
       ]);
 
       expect(result).toEqual(inserted);
-      expect(mockCacheService.delByPattern).toHaveBeenCalledTimes(1);
-      expect(mockCacheService.del).toHaveBeenCalledTimes(1);
+      expect(mockEventEmitter.emit).toHaveBeenCalledTimes(1);
     });
   });
 

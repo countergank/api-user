@@ -1,8 +1,8 @@
 import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PaginatedResponseDTO } from '../../common/dto/paginated-response.dto';
 import { DomainError } from '../../common/errors/domain.error';
-import { CacheService } from '../../config/cache';
 import { EncodeService } from '../../encode/encode.service';
 import { Permission } from '../../rbac/entities/permission.entity';
 import { Mock } from '../../test-utils';
@@ -19,10 +19,8 @@ describe(UserService.name, () => {
   let service: UserService;
   let encodeService: { compare: jest.Mock; hash: jest.Mock };
 
-  const mockCacheService = {
-    get: jest.fn(),
-    set: jest.fn().mockResolvedValue(undefined),
-    del: jest.fn().mockResolvedValue(undefined),
+  const mockEventEmitter = {
+    emit: jest.fn(),
   };
 
   const userRepository = {
@@ -69,7 +67,7 @@ describe(UserService.name, () => {
       .useValue(userRepository)
       .useMocker((token) => {
         if (token === getConnectionToken()) return mockConnection;
-        if (token === CacheService) return mockCacheService;
+        if (token === EventEmitter2) return mockEventEmitter;
         if (token === getModelToken(Permission.name)) return permissionModel;
         if (typeof token === 'function') return Mock(token);
       })
@@ -486,12 +484,14 @@ describe(UserService.name, () => {
     });
   });
 
-  describe('Cache invalidation', () => {
-    beforeEach(() => {
-      mockCacheService.del.mockResolvedValue(undefined);
-    });
+  describe('Cache invalidation (PERF-12 reactive events)', () => {
+    const expectUserInvalidation = (userId: string) => {
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith('cache.invalidate.user', {
+        pattern: `cache:user:${userId}`,
+      });
+    };
 
-    it('should invalidate cache after create', async () => {
+    it('should emit the user invalidation event after create', async () => {
       const createDto = new CreateUserDTOMock();
       const user = Object.assign(new UserMock(), { _id: { toString: () => '507f1f77bcf86cd799439011' } });
       jest.spyOn(userRepository, 'existsByName').mockResolvedValue(false);
@@ -500,10 +500,10 @@ describe(UserService.name, () => {
 
       await service.create(createDto);
 
-      expect(mockCacheService.del).toHaveBeenCalledWith('user:507f1f77bcf86cd799439011');
+      expectUserInvalidation('507f1f77bcf86cd799439011');
     });
 
-    it('should invalidate cache after updateUser', async () => {
+    it('should emit the user invalidation event after updateUser', async () => {
       const user = new UserMock();
       const updateDto = new UpdateUserDTOMock();
       jest.spyOn(userRepository, 'findById').mockResolvedValue(user);
@@ -511,20 +511,20 @@ describe(UserService.name, () => {
 
       await service.updateUser(user.id, updateDto);
 
-      expect(mockCacheService.del).toHaveBeenCalledWith(`user:${user.id}`);
+      expectUserInvalidation(user.id);
     });
 
-    it('should invalidate cache after deleteUser', async () => {
+    it('should emit the user invalidation event after deleteUser', async () => {
       const user = new UserMock();
       jest.spyOn(userRepository, 'findById').mockResolvedValue(user);
       jest.spyOn(userRepository, 'softDelete').mockResolvedValue({ ...user, isActive: false, deletedAt: new Date() });
 
       await service.deleteUser(user.id);
 
-      expect(mockCacheService.del).toHaveBeenCalledWith(`user:${user.id}`);
+      expectUserInvalidation(user.id);
     });
 
-    it('should invalidate cache after toggleActiveUser', async () => {
+    it('should emit the user invalidation event after toggleActiveUser', async () => {
       const user = new UserMock();
       const activeUser = { ...user, isActive: true };
       jest.spyOn(userRepository, 'findById').mockResolvedValue(activeUser);
@@ -532,44 +532,27 @@ describe(UserService.name, () => {
 
       await service.toggleActiveUser(user.id);
 
-      expect(mockCacheService.del).toHaveBeenCalledWith(`user:${user.id}`);
+      expectUserInvalidation(user.id);
     });
 
-    it('should invalidate cache after unlockUser', async () => {
+    it('should emit the user invalidation event after unlockUser', async () => {
       const user = new UserMock();
       jest.spyOn(userRepository, 'findById').mockResolvedValue(user);
       jest.spyOn(userRepository, 'update').mockResolvedValue(user);
 
       await service.unlockUser(user.id);
 
-      expect(mockCacheService.del).toHaveBeenCalledWith(`user:${user.id}`);
+      expectUserInvalidation(user.id);
     });
   });
 
-  describe(`${UserService.name}.${UserService.prototype.invalidateUsersByRole.name}`, () => {
-    beforeEach(() => {
-      jest.clearAllMocks();
-    });
+  describe(`${UserService.name}.${UserService.prototype.invalidateAllUserCaches.name}`, () => {
+    it('should emit a wildcard user invalidation event (PERF-12)', async () => {
+      service.invalidateAllUserCaches();
 
-    it('should invalidate the cache of every user holding the role', async () => {
-      jest.spyOn(userRepository, 'findIdsByRole').mockResolvedValue(['id-1', 'id-2']);
-      mockCacheService.del.mockResolvedValue(undefined);
-
-      await service.invalidateUsersByRole(UserRole.USER);
-
-      expect(userRepository.findIdsByRole).toHaveBeenCalledWith(UserRole.USER);
-      expect(mockCacheService.del).toHaveBeenCalledWith('user:id-1');
-      expect(mockCacheService.del).toHaveBeenCalledWith('user:id-2');
-      expect(mockCacheService.del).toHaveBeenCalledTimes(2);
-    });
-
-    it('should not invalidate anything when no user holds the role', async () => {
-      jest.spyOn(userRepository, 'findIdsByRole').mockResolvedValue([]);
-
-      await service.invalidateUsersByRole(UserRole.VIEWER);
-
-      expect(userRepository.findIdsByRole).toHaveBeenCalledWith(UserRole.VIEWER);
-      expect(mockCacheService.del).not.toHaveBeenCalled();
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith('cache.invalidate.user', {
+        pattern: 'cache:user:*',
+      });
     });
   });
 

@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Permission, PermissionCategory } from '../entities/permission.entity';
@@ -68,6 +69,7 @@ export class PermissionService {
   constructor(
     @InjectModel(Permission.name) private permissionModel: Model<Permission>,
     private readonly cacheService: CacheService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async findAll(): Promise<Permission[]> {
@@ -167,7 +169,7 @@ export class PermissionService {
     const permission = new this.permissionModel(permissionData);
     const saved = await permission.save();
 
-    await this.invalidatePermissionCaches('permission create');
+    this.invalidatePermissionCaches('permission create');
 
     return saved;
   }
@@ -193,7 +195,7 @@ export class PermissionService {
       );
     }
 
-    await this.invalidatePermissionCaches('permission createMany');
+    this.invalidatePermissionCaches('permission createMany');
 
     return result;
   }
@@ -212,16 +214,15 @@ export class PermissionService {
   }
 
   /**
-   * Best-effort permission-cache invalidation for a completed write.
+   * Best-effort permission-cache invalidation for a completed write (PERF-12).
    *
-   * `CacheService.del`/`delByPattern` never reject, so there is nothing to retry.
-   * MongoDB is the source of truth and a stale permission cache is strictly more
-   * restrictive (a revoked grant can only linger, never a new one), so letting
-   * the write succeed cannot widen access.
+   * Reactive: emits cache.invalidate.rbac; CacheService performs the Redis
+   * deletions. MongoDB is the source of truth and a stale permission cache is
+   * strictly more restrictive (a revoked grant can only linger, never a new
+   * one), so letting the write succeed cannot widen access.
    */
-  private async invalidatePermissionCaches(operation: string): Promise<void> {
+  private invalidatePermissionCaches(operation: string): void {
     this.logger.debug(`Invalidating permission cache after ${operation}`);
-    await this.cacheService.delByPattern(`cache:${PERM_NAME_PREFIX}*`);
-    await this.cacheService.del(PERM_ALL_KEY);
+    this.eventEmitter.emit('cache.invalidate.rbac', { pattern: 'cache:rbac:*' });
   }
 }

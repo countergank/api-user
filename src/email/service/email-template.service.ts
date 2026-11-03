@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PaginatedResponseDTO } from '../../common/dto/paginated-response.dto';
 import { DomainError } from '../../common/errors/domain.error';
 import { I18nService } from '../../common/i18n/i18n.service';
@@ -72,11 +73,23 @@ const DEFAULT_TEMPLATES: DefaultTemplate[] = [
 
 @Injectable()
 export class EmailTemplateService {
+  private readonly logger = new Logger(EmailTemplateService.name);
+
   constructor(
     private readonly repository: EmailTemplateRepository,
     @Inject(I18nService)
     private readonly i18nService: I18nService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
+
+  /**
+   * PERF-12: templates are not cached yet, but the invalidation is already
+   * wired so a future template cache never goes stale after a mutation.
+   */
+  private invalidateTemplateCaches(operation: string): void {
+    this.logger.debug(`Invalidating template cache after ${operation}`);
+    this.eventEmitter.emit('cache.invalidate.templates', { pattern: 'cache:email-template:*' });
+  }
 
   async create(dto: CreateTemplateDto): Promise<EmailTemplate> {
     const exists = await this.repository.existsBySlug(dto.slug);
@@ -84,7 +97,7 @@ export class EmailTemplateService {
       throw DomainError.fromKind('TEMPLATE_SLUG_ALREADY_EXISTS');
     }
 
-    return this.repository.create({
+    const created = await this.repository.create({
       name: dto.name,
       slug: dto.slug,
       subject: dto.subject,
@@ -94,6 +107,8 @@ export class EmailTemplateService {
       isActive: true,
       version: 1,
     });
+    this.invalidateTemplateCaches('template create');
+    return created;
   }
 
   async findPaginated(filters: {
@@ -125,6 +140,7 @@ export class EmailTemplateService {
     if (!updated) {
       throw DomainError.fromKind('TEMPLATE_NOT_FOUND');
     }
+    this.invalidateTemplateCaches('template update');
     return updated;
   }
 
@@ -133,6 +149,7 @@ export class EmailTemplateService {
     if (!deleted) {
       throw DomainError.fromKind('TEMPLATE_NOT_FOUND');
     }
+    this.invalidateTemplateCaches('template delete');
   }
 
   async resolve(slug: string, lang?: string): Promise<EmailTemplate> {
