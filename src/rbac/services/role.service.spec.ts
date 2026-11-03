@@ -1,3 +1,4 @@
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import { RoleService, mergeEffectivePermissions } from './role.service';
@@ -19,6 +20,10 @@ describe(RoleService.name, () => {
     insertMany: jest.fn(),
   };
 
+  const mockEventEmitter = {
+    emit: jest.fn(),
+  };
+
   const mockCacheService = {
     get: jest.fn(),
     set: jest.fn().mockResolvedValue(undefined),
@@ -27,7 +32,7 @@ describe(RoleService.name, () => {
   };
 
   const mockUserService = {
-    invalidateUsersByRole: jest.fn().mockResolvedValue(undefined),
+    invalidateAllUserCaches: jest.fn(),
     findIdsByRole: jest.fn().mockResolvedValue([]),
   };
 
@@ -56,7 +61,7 @@ describe(RoleService.name, () => {
     mockCacheService.set.mockResolvedValue(undefined);
     mockCacheService.del.mockResolvedValue(undefined);
     mockCacheService.delByPattern.mockResolvedValue(0);
-    mockUserService.invalidateUsersByRole.mockResolvedValue(undefined);
+    mockUserService.invalidateAllUserCaches.mockClear();
     mockUserService.findIdsByRole.mockResolvedValue([]);
     // Default catalog: every requested name exists. Tests about rejected names
     // override this with an explicit `[null]` answer.
@@ -70,8 +75,10 @@ describe(RoleService.name, () => {
         RoleService,
         { provide: getModelToken(Role.name), useValue: mockRoleModel },
         { provide: CacheService, useValue: mockCacheService },
+        { provide: EventEmitter2, useValue: mockEventEmitter },
         { provide: UserService, useValue: mockUserService },
         { provide: PermissionService, useValue: mockPermissionService },
+        { provide: EventEmitter2, useValue: mockEventEmitter },
       ],
     }).compile();
 
@@ -297,6 +304,7 @@ describe(RoleService.name, () => {
             ),
           },
           { provide: CacheService, useValue: mockCacheService },
+        { provide: EventEmitter2, useValue: mockEventEmitter },
           { provide: UserService, useValue: mockUserService },
           { provide: PermissionService, useValue: mockPermissionService },
         ],
@@ -305,8 +313,9 @@ describe(RoleService.name, () => {
       const createService = ModuleWithMock.get<RoleService>(RoleService);
       await createService.create({ name: 'moderator', description: 'Moderator' });
 
-      expect(mockCacheService.delByPattern).toHaveBeenCalledWith('cache:rbac:roles:name:*');
-      expect(mockCacheService.del).toHaveBeenCalledWith('rbac:roles:all');
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith('cache.invalidate.rbac', {
+        pattern: 'cache:rbac:*',
+      });
     });
   });
 
@@ -329,16 +338,20 @@ describe(RoleService.name, () => {
 
       await service.updatePermissions('role-id-1', ['user:read']);
 
-      expect(mockCacheService.delByPattern).toHaveBeenCalledWith('cache:rbac:roles:*');
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith('cache.invalidate.rbac', {
+        pattern: 'cache:rbac:*',
+      });
     });
 
-    it('should use the prefixed pattern for role keys on updatePermissions', async () => {
+    it('should invalidate permissions as part of the rbac pattern on updatePermissions (PERF-12)', async () => {
       const updatedRole = mockRoleDoc({ name: 'admin', permissionIds: ['user:read'] });
       mockRoleModel.findByIdAndUpdate.mockReturnValue(mockExec(updatedRole));
 
       await service.updatePermissions('role-id-1', ['user:read']);
 
-      expect(mockCacheService.delByPattern).toHaveBeenCalledWith('cache:rbac:roles:*');
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith('cache.invalidate.rbac', {
+        pattern: 'cache:rbac:*',
+      });
     });
 
     it('should invalidate the user cache of every user with the updated role', async () => {
@@ -347,7 +360,7 @@ describe(RoleService.name, () => {
 
       await service.updatePermissions('role-id-1', ['user:read']);
 
-      expect(mockUserService.invalidateUsersByRole).toHaveBeenCalledWith('user');
+      expect(mockUserService.invalidateAllUserCaches).toHaveBeenCalled();
     });
 
     it('should not invalidate users when the role does not exist', async () => {
@@ -356,7 +369,7 @@ describe(RoleService.name, () => {
       const result = await service.updatePermissions('missing-role', ['user:read']);
 
       expect(result).toBeNull();
-      expect(mockUserService.invalidateUsersByRole).not.toHaveBeenCalled();
+      expect(mockUserService.invalidateAllUserCaches).not.toHaveBeenCalled();
     });
 
     it('should still update DB even if cache invalidation fails', async () => {
@@ -471,6 +484,7 @@ describe(RoleService.name, () => {
           RoleService,
           { provide: getModelToken(Role.name), useValue: ModelCtor },
           { provide: CacheService, useValue: mockCacheService },
+        { provide: EventEmitter2, useValue: mockEventEmitter },
           { provide: UserService, useValue: mockUserService },
           { provide: PermissionService, useValue: mockPermissionService },
         ],
@@ -506,6 +520,7 @@ describe(RoleService.name, () => {
             }),
           },
           { provide: CacheService, useValue: mockCacheService },
+        { provide: EventEmitter2, useValue: mockEventEmitter },
           { provide: UserService, useValue: mockUserService },
           { provide: PermissionService, useValue: mockPermissionService },
         ],
@@ -546,8 +561,9 @@ describe(RoleService.name, () => {
 
       await service.update('role-id-1', { name: 'moderator-v2' });
 
-      expect(mockCacheService.delByPattern).toHaveBeenCalledWith('cache:rbac:roles:*');
-      expect(mockCacheService.del).toHaveBeenCalledWith('rbac:roles:all');
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith('cache.invalidate.rbac', {
+        pattern: 'cache:rbac:*',
+      });
     });
 
     it('rejects renaming to an already-existing name with ENTITY_NAME_ALREADY_EXISTS (S16)', async () => {
@@ -634,8 +650,9 @@ describe(RoleService.name, () => {
 
       await service.remove('role-id-1');
 
-      expect(mockCacheService.delByPattern).toHaveBeenCalledWith('cache:rbac:roles:*');
-      expect(mockCacheService.del).toHaveBeenCalledWith('rbac:roles:all');
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith('cache.invalidate.rbac', {
+        pattern: 'cache:rbac:*',
+      });
     });
 
     it('does not touch user documents on delete (S15)', async () => {
@@ -646,7 +663,7 @@ describe(RoleService.name, () => {
 
       await service.remove('role-id-1');
 
-      expect(mockUserService.invalidateUsersByRole).not.toHaveBeenCalled();
+      expect(mockUserService.invalidateAllUserCaches).not.toHaveBeenCalled();
     });
 
     it('rejects deleting a system role with FORBIDDEN (S4, S9)', async () => {

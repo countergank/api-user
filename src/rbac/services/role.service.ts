@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Role } from '../entities/role.entity';
@@ -85,6 +86,7 @@ export class RoleService {
     private readonly cacheService: CacheService,
     private readonly userService: UserService,
     private readonly permissionService: PermissionService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async findAll(): Promise<Role[]> {
@@ -208,16 +210,15 @@ export class RoleService {
   }
 
   /**
-   * Invalidates every role cache entry (list + per-name entries) after a write
-   * that changes an existing role (S15).
+   * Invalidates every rbac cache entry (roles + permissions, lists and
+   * per-name entries) after a write.
    *
-   * Best-effort: Redis is not the source of truth, so a failed invalidation only
-   * delays the refresh and must not fail an already-applied write.
+   * Reactive: emits cache.invalidate.rbac; CacheService performs the Redis
+   * deletions, so a slow or failed listener cannot fail an applied write.
    */
-  private async invalidateRoleCaches(operation: string): Promise<void> {
+  private invalidateRbacCaches(operation: string): void {
     try {
-      await this.cacheService.delByPattern('cache:rbac:roles:*');
-      await this.cacheService.del(ROLE_ALL_KEY);
+      this.eventEmitter.emit('cache.invalidate.rbac', { pattern: 'cache:rbac:*' });
     } catch {
       this.logger.debug(`Cache invalidation failed after ${operation}`);
     }
@@ -244,8 +245,8 @@ export class RoleService {
     const saved = await role.save();
 
     try {
-      await this.cacheService.delByPattern('cache:rbac:roles:name:*');
-      await this.cacheService.del(ROLE_ALL_KEY);
+      this.eventEmitter.emit('cache.invalidate.rbac', { pattern: 'cache:rbac:*' });
+      this.userService.invalidateAllUserCaches();
     } catch {
       this.logger.debug('Cache invalidation failed after role create');
     }
@@ -308,7 +309,7 @@ export class RoleService {
       throw DomainError.fromKind('ENTITY_NOT_FOUND');
     }
 
-    await this.invalidateRoleCaches('role update');
+    this.invalidateRbacCaches('role update');
 
     return updated;
   }
@@ -359,7 +360,7 @@ export class RoleService {
       throw DomainError.fromKind('ENTITY_NOT_FOUND');
     }
 
-    await this.invalidateRoleCaches('role delete');
+    this.invalidateRbacCaches('role delete');
 
     return deleted;
   }
@@ -391,8 +392,8 @@ export class RoleService {
 
     if (updated) {
       try {
-        await this.cacheService.delByPattern('cache:rbac:roles:*');
-        await this.userService.invalidateUsersByRole(updated.name as UserRole);
+        this.eventEmitter.emit('cache.invalidate.rbac', { pattern: 'cache:rbac:*' });
+        this.userService.invalidateAllUserCaches();
       } catch {
         this.logger.debug('Cache invalidation failed after updatePermissions');
       }

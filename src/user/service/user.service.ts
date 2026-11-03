@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { plainToInstance } from 'class-transformer';
 import { ClientSession, Connection, Model } from 'mongoose';
@@ -7,7 +8,6 @@ import { AuditAction } from '../../common/audit/audit.decorator';
 import { PaginatedResponseDTO } from '../../common/dto/paginated-response.dto';
 import { DomainError } from '../../common/errors/domain.error';
 import { runInTransaction } from '../../common/utils/transaction';
-import { CacheService } from '../../config/cache';
 import { EncodeService } from '../../encode/encode.service';
 import { Permission } from '../../rbac/entities/permission.entity';
 import { AdminUserDTO } from '../dto/admin-user.dto';
@@ -34,22 +34,23 @@ export class UserService {
     private readonly userRepository: UserRepository,
     private readonly encodeService: EncodeService,
     @InjectConnection() private readonly connection: Connection,
-    private readonly cacheService: CacheService,
+    private readonly eventEmitter: EventEmitter2,
     @InjectModel(Permission.name) private readonly permissionModel: Model<Permission>,
   ) {}
 
-  private async invalidateUserCache(userId: string): Promise<void> {
-    await this.cacheService.del(`user:${userId}`);
+  // Invalidation is reactive: this only emits; CacheService performs the
+  // Redis deletion.
+  private invalidateUserCache(userId: string): void {
+    this.eventEmitter.emit('cache.invalidate.user', { pattern: `cache:user:${userId}` });
   }
 
   /**
-   * Purges the cached user document of every user holding the given role.
-   * Used when a role's permissions change so the effective permissions are
-   * re-resolved on the next authenticated request.
+   * Purges every cached user document. Used when a role's permissions change
+   * so the effective permissions are re-resolved on the next authenticated
+   * request, whichever user holds the role.
    */
-  async invalidateUsersByRole(role: UserRole): Promise<void> {
-    const ids = await this.userRepository.findIdsByRole(role);
-    await Promise.all(ids.map((id) => this.invalidateUserCache(id)));
+  invalidateAllUserCaches(): void {
+    this.eventEmitter.emit('cache.invalidate.user', { pattern: 'cache:user:*' });
   }
 
   /**

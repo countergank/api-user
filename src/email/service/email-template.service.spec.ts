@@ -1,4 +1,5 @@
 import * as fs from 'node:fs';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Test, TestingModule } from '@nestjs/testing';
 import { DomainError } from '../../common/errors/domain.error';
 import { I18nService } from '../../common/i18n/i18n.service';
@@ -31,6 +32,10 @@ async function expectDomainError(promise: Promise<unknown>, kind: string): Promi
 describe(EmailTemplateService.name, () => {
   let service: EmailTemplateService;
 
+  const mockEventEmitter = {
+    emit: jest.fn(),
+  };
+
   const mockRepository = {
     findBySlug: jest.fn(),
     existsBySlug: jest.fn(),
@@ -59,10 +64,59 @@ describe(EmailTemplateService.name, () => {
         EmailTemplateService,
         { provide: EmailTemplateRepository, useValue: mockRepository },
         { provide: I18nService, useValue: mockI18nService },
+        { provide: EventEmitter2, useValue: mockEventEmitter },
       ],
     }).compile();
 
     service = module.get<EmailTemplateService>(EmailTemplateService);
+  });
+
+  describe('cache invalidation events (PERF-12)', () => {
+    const expectTemplateInvalidation = () => {
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith('cache.invalidate.templates', {
+        pattern: 'cache:email-template:*',
+      });
+    };
+
+    it('should emit the template invalidation event after create', async () => {
+      mockRepository.existsBySlug.mockResolvedValue(false);
+      mockRepository.create.mockResolvedValue({ id: 'tpl-1', slug: 'welcome' });
+
+      await service.create({
+        name: 'Welcome',
+        slug: 'welcome',
+        subject: 'Hello',
+        content: '<p>Hi</p>',
+        variables: [],
+        imageUrl: 'https://cdn.example.com/welcome.png',
+      });
+
+      expectTemplateInvalidation();
+    });
+
+    it('should emit the template invalidation event after update', async () => {
+      mockRepository.updateBySlug.mockResolvedValue({ slug: 'welcome', name: 'Welcome v2' });
+
+      await service.update('welcome', { name: 'Welcome v2' } as UpdateTemplateDto);
+
+      expectTemplateInvalidation();
+    });
+
+    it('should emit the template invalidation event after delete', async () => {
+      mockRepository.deleteBySlug.mockResolvedValue(true);
+
+      await service.delete('welcome');
+
+      expectTemplateInvalidation();
+    });
+
+    it('should not emit the invalidation event when the mutation misses', async () => {
+      mockRepository.updateBySlug.mockResolvedValue(null);
+
+      await expect(service.update('missing', { name: 'X' } as UpdateTemplateDto)).rejects.toThrow();
+
+      expect(mockEventEmitter.emit).not.toHaveBeenCalled();
+    });
   });
 
   describe('create', () => {

@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
 import { RedisService } from '../redis/redis.service';
 
 const DEFAULT_PREFIX = 'cache:';
@@ -9,6 +10,10 @@ const CLEANUP_INTERVAL_MS = 60_000; // 1 minute
 interface CacheEntry<T> {
   data: T;
   expiresAt: number | null;
+}
+
+export interface CacheInvalidationPayload {
+  pattern: string;
 }
 
 @Injectable()
@@ -81,6 +86,49 @@ export class CacheService implements OnModuleDestroy {
     } catch (error) {
       this.logger.error(`Cache del error for key "${key}": ${(error as Error).message}`);
     }
+  }
+
+  // Invalidation must enqueue its Redis command synchronously: delByPattern
+  // SCANs first, so a concurrent reader could get the stale value before the
+  // DEL lands. Exact keys use a plain DEL; wildcards an atomic KEYS+DEL script.
+  handleInvalidationPayload(payload: CacheInvalidationPayload): Promise<number> {
+    if (payload.pattern.includes('*')) {
+      return this.invalidatePatternAtomically(payload.pattern);
+    }
+    // Emitted patterns are stored keys (with the cache: prefix); del() adds it.
+    return this.del(payload.pattern.replace(/^cache:/, '')).then(() => 1);
+  }
+
+  private async invalidatePatternAtomically(pattern: string): Promise<number> {
+    try {
+      const client = this.redisService.getClient();
+      const script = `
+local keys = redis.call('KEYS', KEYS[1])
+local deleted = 0
+for _, key in ipairs(keys) do
+  deleted = deleted + redis.call('DEL', key)
+end
+return deleted`;
+      return (await client.eval(script, 1, pattern)) as number;
+    } catch (error) {
+      this.logger.error(`Atomic invalidation error for pattern "${pattern}": ${(error as Error).message}`);
+      return 0;
+    }
+  }
+
+  @OnEvent('cache.invalidate.user')
+  handleUserInvalidation(payload: CacheInvalidationPayload): Promise<number> {
+    return this.handleInvalidationPayload(payload);
+  }
+
+  @OnEvent('cache.invalidate.rbac')
+  handleRbacInvalidation(payload: CacheInvalidationPayload): Promise<number> {
+    return this.handleInvalidationPayload(payload);
+  }
+
+  @OnEvent('cache.invalidate.templates')
+  handleTemplatesInvalidation(payload: CacheInvalidationPayload): Promise<number> {
+    return this.handleInvalidationPayload(payload);
   }
 
   async delByPattern(pattern: string): Promise<number> {

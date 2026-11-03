@@ -2,7 +2,7 @@ import fastifyCompress, { type FastifyCompressOptions } from '@fastify/compress'
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 
 /**
- * Shared @fastify/compress registration options (PERF-11).
+ * Shared @fastify/compress registration options.
  *
  * - Brotli first: @fastify/compress v7 supports `br` and ships recommended
  *   brotli options; clients that advertise `br` get better ratios than gzip.
