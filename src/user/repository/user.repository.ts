@@ -205,15 +205,17 @@ export class UserRepository implements OnApplicationBootstrap {
     return this.encodeService.compare(password, hashedPassword);
   }
 
-  async findPaginated(filters: {
-    page: number;
-    limit: number;
-    sortBy: string;
-    sortOrder: string;
+  /**
+   * Builds the shared Mongo filter for the admin user list and the CSV export:
+   * role/isActive/search predicates; soft-deleted users are excluded unless an
+   * explicit `isActive` filter is given. Kept in one place so both consumers
+   * can never drift apart.
+   */
+  private buildListFilter(filters: {
     role?: string;
     isActive?: boolean;
     search?: string;
-  }): Promise<{ users: User[]; total: number }> {
+  }): Record<string, unknown> {
     const mongoFilter: Record<string, unknown> = {};
     const andConditions: Record<string, unknown>[] = [];
 
@@ -247,6 +249,20 @@ export class UserRepository implements OnApplicationBootstrap {
       mongoFilter.$and = andConditions;
     }
 
+    return mongoFilter;
+  }
+
+  async findPaginated(filters: {
+    page: number;
+    limit: number;
+    sortBy: string;
+    sortOrder: string;
+    role?: string;
+    isActive?: boolean;
+    search?: string;
+  }): Promise<{ users: User[]; total: number }> {
+    const mongoFilter = this.buildListFilter(filters);
+
     const sortBy = SORTABLE_FIELDS.includes(filters.sortBy) ? filters.sortBy : 'createdAt';
     const sortOrder = filters.sortOrder === 'asc' ? 1 : -1;
 
@@ -263,6 +279,24 @@ export class UserRepository implements OnApplicationBootstrap {
     ]);
 
     return { users, total };
+  }
+
+  /**
+   * Full filtered set with no page/limit: the CSV export (issue #455) must
+   * return every user matching the list filters, sorted like the list.
+   */
+  async findAllFiltered(filters: {
+    sortBy: string;
+    sortOrder: string;
+    role?: string;
+    isActive?: boolean;
+    search?: string;
+  }): Promise<User[]> {
+    const mongoFilter = this.buildListFilter(filters);
+    const sortBy = SORTABLE_FIELDS.includes(filters.sortBy) ? filters.sortBy : 'createdAt';
+    const sortOrder = filters.sortOrder === 'asc' ? 1 : -1;
+
+    return this.userModel.find(mongoFilter).sort({ [sortBy]: sortOrder }).exec();
   }
 
   async softDelete(id: string): Promise<User> {

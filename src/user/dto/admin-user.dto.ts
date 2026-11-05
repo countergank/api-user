@@ -16,6 +16,23 @@ import { UserDTO } from './user.dto';
  *   failedLoginAttempts: 0
  * }
  */
+/**
+ * Column order for the admin users CSV export (issue #455); mirrors the DTO fields below.
+ */
+export const ADMIN_USER_CSV_HEADERS = [
+  'id',
+  'name',
+  'lastName',
+  'email',
+  'userName',
+  'role',
+  'isActive',
+  'createdAt',
+  'updatedAt',
+  'lockedUntil',
+  'failedLoginAttempts',
+] as const;
+
 export class AdminUserDTO extends UserDTO {
   @ApiProperty({
     example: null,

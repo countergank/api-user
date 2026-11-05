@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Inject, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Inject, Param, Patch, Post, Query, StreamableFile, UseGuards } from '@nestjs/common';
 import { RequirePermissions } from '../../auth/decorators/permissions.decorator';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -17,6 +17,7 @@ import {
   ToggleActiveDoc,
   UnlockUserDoc,
   UpdateUserDoc,
+  ExportUserDoc,
 } from '../api-docs/user.decorator';
 import { AdminUserDTO } from '../dto/admin-user.dto';
 import { CreateUserResponseDTO } from '../dto/create-user-response.dto';
@@ -79,6 +80,18 @@ export class UserController {
   @Get('metrics')
   async metrics(): Promise<UserMetricsResponseDTO> {
     return UserMetricsResponseDTO.of(await this.userService.getMetrics());
+  }
+
+  // Declared before `@Get(':id')` so the parameter route never captures `export.csv` as an id.
+  @ExportUserDoc()
+  @RequirePermissions('user:read')
+  @Get('export.csv')
+  async exportCsv(@Query() query: PaginationQueryDTO): Promise<StreamableFile> {
+    const csv = await this.userService.exportUsersCsv(query);
+    return new StreamableFile(Buffer.from(csv, 'utf8'), {
+      type: 'text/csv; charset=utf-8',
+      disposition: 'attachment; filename="users.csv"',
+    });
   }
 
   @FindByIdUserDoc()

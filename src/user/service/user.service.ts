@@ -8,9 +8,10 @@ import { AuditAction } from '../../common/audit/audit.decorator';
 import { PaginatedResponseDTO } from '../../common/dto/paginated-response.dto';
 import { DomainError } from '../../common/errors/domain.error';
 import { runInTransaction } from '../../common/utils/transaction';
+import { toCsv } from '../../common/utils/csv';
 import { EncodeService } from '../../encode/encode.service';
 import { Permission } from '../../rbac/entities/permission.entity';
-import { AdminUserDTO } from '../dto/admin-user.dto';
+import { AdminUserDTO, ADMIN_USER_CSV_HEADERS } from '../dto/admin-user.dto';
 import { CreateUserDTO } from '../dto/create-user.dto';
 import { PaginationQueryDTO } from '../dto/pagination-query.dto';
 import { UpdateUserDTO } from '../dto/update-user.dto';
@@ -504,6 +505,44 @@ export class UserService {
 
     const data = users.map((user) => AdminUserDTO.of(user));
     return PaginatedResponseDTO.of(data, total, page, limit);
+  }
+
+  /**
+   * Full filtered set for the CSV export (issue #455): same filters as the
+   * paginated list, no page/limit. `page`/`limit` from the DTO are ignored.
+   */
+  async findAllFiltered(filters: PaginationQueryDTO): Promise<AdminUserDTO[]> {
+    const users = await this.userRepository.findAllFiltered({
+      sortBy: filters.sortBy ?? 'createdAt',
+      sortOrder: filters.sortOrder ?? 'desc',
+      role: filters.role,
+      isActive: filters.isActive,
+      search: filters.search,
+    });
+    return users.map((user) => AdminUserDTO.of(user));
+  }
+
+  /**
+   * CSV document for the export endpoint (issue #455): one header row plus a
+   * row per user, with exactly the fields of the admin DTO — never the
+   * password or session state.
+   */
+  async exportUsersCsv(filters: PaginationQueryDTO): Promise<string> {
+    const users = await this.findAllFiltered(filters);
+    const rows = users.map((u) => [
+      u.id,
+      u.name,
+      u.lastName,
+      u.email,
+      u.userName,
+      u.role,
+      u.isActive,
+      u.createdAt ? new Date(u.createdAt).toISOString() : '',
+      u.updatedAt ? new Date(u.updatedAt).toISOString() : '',
+      u.lockedUntil,
+      u.failedLoginAttempts,
+    ]);
+    return toCsv([...ADMIN_USER_CSV_HEADERS], rows);
   }
 
   async getMetrics(): Promise<UserMetrics> {
