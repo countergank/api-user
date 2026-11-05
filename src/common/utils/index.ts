@@ -14,4 +14,5 @@ export const isLocal = () => {
 };
 
 export { escapeRegExp } from './regex';
+export { escapeCsvField, toCsv } from './csv';
 export { runInTransaction } from './transaction';

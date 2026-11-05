@@ -6,6 +6,7 @@ import {
   ApiExtraModels,
   ApiInternalServerErrorResponse,
   ApiOperation,
+  ApiProduces,
   ApiQuery,
   ApiResponse,
   ApiTags,
@@ -106,6 +107,46 @@ export function FindAllUserDoc() {
       example: 'juan',
     }),
     ApiBadRequestResponse({ description: 'Bad Request', type: BadRequestDTO }),
+    ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
+  );
+}
+
+export function ExportUserDoc() {
+  return applyDecorators(
+    ApiTags('users'),
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Exportar la lista de usuarios a CSV (Admin)',
+      description:
+        'Devuelve el conjunto completo de usuarios que matchea los mismos filtros que la lista ' +
+        '(`search`, `role`, `isActive`); `page` y `limit` se ignoran. El cuerpo es CSV RFC 4180 ' +
+        'con una primera fila de encabezados y las columnas del DTO de administración ' +
+        '(sin `password` ni estado de sesión).',
+    }),
+    ApiProduces('text/csv'),
+    ApiResponse({
+      status: 200,
+      description: 'Archivo CSV (`text/csv; charset=utf-8`, attachment `users.csv`)',
+      content: {
+        'text/csv': {
+          schema: { type: 'string' },
+          example:
+            'id,name,lastName,email,userName,role,isActive,createdAt,updatedAt,lockedUntil,failedLoginAttempts\r\n' +
+            'abc123,Ana,Gracia,ana@example.com,anag,user,true,2026-01-01T00:00:00.000Z,2026-01-01T00:00:00.000Z,,0',
+        },
+      },
+    }),
+    ApiQuery({ name: 'role', required: false, type: String, description: 'Filter by role', example: 'user' }),
+    ApiQuery({ name: 'isActive', required: false, type: Boolean, description: 'Filter by active status' }),
+    ApiQuery({
+      name: 'search',
+      required: false,
+      type: String,
+      description: 'Same text search as the list (name, lastName, email, userName; leading `@` adds a userName lookup).',
+      example: 'ana',
+    }),
+    ApiBadRequestResponse({ description: 'Bad Request', type: BadRequestDTO }),
+    ApiResponse({ status: 403, description: 'Acceso denegado. Se requiere rol admin.' }),
     ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
   );
 }
