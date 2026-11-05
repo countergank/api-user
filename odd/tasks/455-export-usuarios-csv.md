@@ -18,14 +18,15 @@ No-objetivos (verbatim): "Exportación asíncrona con job y notificación." / "O
 
 ## Tasks
 
-- T1 (S4) — utilidad de escape CSV + test unitario (RED→GREEN). `src/common/utils/csv.ts` — Commit: —
-- T2 (S1) — consulta completa filtrada sin paginación: `buildListFilter` extraído + `findAllFiltered` en repository/service. Commit: —
-- T3 (S1,S2,S3,S5,S7) — `GET export.csv` (antes de `@Get(':id')`), `StreamableFile`, `ExportUserDoc` Swagger, `ADMIN_USER_CSV_HEADERS` junto al DTO. Commit: —
-- T4 (S6) — e2e `test/e2e/user/admin-user-export.e2e-spec.ts`: 5/5 (filtro completo, headers CSV, escape, 401, 403). Commit: —
-- T5 — suite completa + reporte de diff y propuesta de commit (requiere autorización humana por AGENTS.md). En curso.
+- T1 (S4) — utilidad de escape CSV + test unitario (RED→GREEN). `src/common/utils/csv.ts` — Commit: fd3dbe6
+- T2 (S1) — consulta completa filtrada sin paginación: `buildListFilter` extraído + `findAllFiltered` en repository/service. Commit: fd3dbe6
+- T3 (S1,S2,S3,S5,S7) — `GET export.csv` (antes de `@Get(':id')`), `StreamableFile`, `ExportUserDoc` Swagger, `ADMIN_USER_CSV_HEADERS` junto al DTO. Commit: fd3dbe6
+- T4 (S6) — e2e `test/e2e/user/admin-user-export.e2e-spec.ts`: 5/5 (filtro completo, headers CSV, escape, 401, 403). Commit: fd3dbe6
+- T5 — suite completa (unit 952 ✓, e2e 311 ✓, lint, tsc) + commit fd3dbe6 autorizado por la persona.
 
 ## Log
 
 - L1: "Usemos la skill kickoff para ver con que seguir" → seleccionado issue #455 (board `api-user` #4, item PVTI_lADOBxekRc4BptzMzhFLeBI) → board a `In Progress`, rama creada.
 - L2: "vamos" → arrancar implementación con ODD (spec document + tareas).
-- L4: reporte "no baja nada de CSV desde Scalar" con 400 UA-COM-005 (role isString). Reproducido contra el server dev: `?role=admin&role=user` (parámetro repetido → Fastify lo parsea como array) genera exactamente ese error; `role=` vacío, valores únicos y sin query devuelven 200 CSV con headers correctos. Causa: Scalar mandó `role` duplicado; comportamiento esperado del DTO compartido con la lista. Sin cambio de código. Hallazgos: los dos callers también matchean el filtro por apellido (conteo corregido 7, no 5); fechas normalizadas a ISO 8601 en el CSV; lint de `src` ya tenía errores preexistentes (specs ajenos, `noDelete`/`noNonNullAssertion`). Sin commits: AGENTS.md exige autorización por commit.
+- L4: reporte "no baja nada de CSV desde Scalar" con 400 UA-COM-005 (role isString). Reproducido contra el server dev: `?role=admin&role=user` (parámetro repetido → Fastify lo parsea como array) genera exactamente ese error; `role=` vacío, valores únicos y sin query devuelven 200 CSV con headers correctos. Causa: Scalar mandó `role` duplicado; comportamiento esperado del DTO compartido con la lista. Sin cambio de código.
+- L5: commit `fd3dbe6` autorizado y pusheado a `origin/feature/455-exportar-usuarios-csv`; PR #537 contra `develop` con `Fixes #455`; board → `In Review` (verificado). Hallazgos: los dos callers también matchean el filtro por apellido (conteo corregido 7, no 5); fechas normalizadas a ISO 8601 en el CSV; lint de `src` ya tenía errores preexistentes (specs ajenos, `noDelete`/`noNonNullAssertion`). Sin commits: AGENTS.md exige autorización por commit.
