@@ -1,4 +1,6 @@
-import { Body, Controller, Get, HttpCode, Inject, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Inject, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { SessionContext as SessionContextParam } from '../common/decorators/session-context.decorator';
+import { SessionContext } from '../common/decorators/extract-session-context.helper';
 import { ApiTags } from '@nestjs/swagger';
 import { I18nService } from '../common/i18n/i18n.service';
 import { AuditAction } from '../common/audit/audit.decorator';
@@ -17,6 +19,8 @@ import {
   ApplyResendVerificationDoc,
   ApplyResetPasswordDoc,
   ApplyRevertEmailChangeDoc,
+  ApplyRevokeSelfSessionDoc,
+  ApplySelfSessionsDoc,
   ApplyVerifyEmailDoc,
 } from './api-docs';
 import { AuthService } from './auth.service';
@@ -25,12 +29,16 @@ import { MeResponseDTO } from './dto/me-response.dto';
 import { RegisterUserDTO } from './dto/register-user.dto';
 import { RevertEmailChangeDTO } from './dto/revert-email-change.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { ActiveSessionService } from '../session/active-session.service';
+import { ActiveSessionDTO } from '../session/dto/active-session.dto';
+import { DomainError } from '../common/errors/domain.error';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(
     private authService: AuthService,
+    private readonly activeSessionService: ActiveSessionService,
     @Inject(I18nService) private i18n: I18nService,
   ) {}
 
@@ -45,7 +53,7 @@ export class AuthController {
     resource: 'auth',
     getResourceId: (result: any) => result?.user?.id,
   })
-  async register(@Body() dto: RegisterUserDTO, @RequestLang() lang: string | undefined) {
+  async register(@Body() dto: RegisterUserDTO, @RequestLang() lang: string | undefined, @SessionContextParam() session: SessionContext) {
     return this.authService.register(
       dto.email,
       dto.userName,
@@ -53,6 +61,7 @@ export class AuthController {
       dto.name,
       dto.lastName,
       lang,
+      session,
     );
   }
 
@@ -64,8 +73,8 @@ export class AuthController {
     resource: 'auth',
     getResourceId: (result: any) => result?.user?.id,
   })
-  async login(@Body() dto: LoginDTO) {
-    return this.authService.login(dto.email, dto.password);
+  async login(@Body() dto: LoginDTO, @SessionContextParam() session: SessionContext) {
+    return this.authService.login(dto.email, dto.password, session);
   }
 
   @Post('forgot-password')
@@ -87,8 +96,8 @@ export class AuthController {
   @Post('refresh')
   @HttpCode(200)
   @ApplyRefreshDoc()
-  async refresh(@Body() body: { refreshToken: string }) {
-    return this.authService.refreshToken(body.refreshToken);
+  async refresh(@Body() body: { refreshToken: string }, @SessionContextParam() session: SessionContext) {
+    return this.authService.refreshToken(body.refreshToken, session);
   }
 
   @Post('verify-email')
@@ -170,6 +179,29 @@ export class AuthController {
     await this.authService.resendVerification(user.id, user.email, user.name, lang);
 
     return { message: await this.t('messages.verification_resent', lang) };
+  }
+
+  @Get('sessions')
+  @UseGuards(JwtAuthGuard)
+  @ApplySelfSessionsDoc()
+  async listSessions(@CurrentUser() user: User): Promise<ActiveSessionDTO[]> {
+    const sessions = await this.activeSessionService.listForUser(user.id);
+    return sessions.map(ActiveSessionDTO.of);
+  }
+
+  @Delete('sessions/:sessionId')
+  @UseGuards(JwtAuthGuard)
+  @ApplyRevokeSelfSessionDoc()
+  async revokeSession(
+    @CurrentUser() user: User,
+    @Param('sessionId') sessionId: string,
+    @RequestLang() lang: string | undefined,
+  ): Promise<{ message: string }> {
+    const revoked = await this.activeSessionService.revokeSession(user.id, sessionId);
+    if (!revoked) {
+      throw DomainError.fromKind('ENTITY_NOT_FOUND');
+    }
+    return { message: await this.t('messages.session_revoked', lang) };
   }
 
   @Get('me')

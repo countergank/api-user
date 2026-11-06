@@ -13,6 +13,7 @@ import {
 } from '@nestjs/swagger';
 import { BadRequestDTO } from '../../common/dto/bad-request.dto';
 import { InternalErrorDTO } from '../../common/dto/internal-error.dto';
+import { ActiveSessionDTO } from '../../session/dto/active-session.dto';
 import { MeResponseDTO } from '../dto/me-response.dto';
 import { RegisterRequest, RegisterResponse } from './examples/register.examples';
 import { LoginRequest, LoginResponse } from './examples/login.examples';
@@ -222,6 +223,53 @@ export function ApplyLogoutAllDoc() {
       },
     }),
     ApiUnauthorizedResponse({ description: 'No autenticado o token inválido' }),
+    ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
+    ApiResponse(RateLimitResponse),
+  );
+}
+
+export function ApplySelfSessionsDoc() {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Listar sesiones activas propias',
+      description:
+        'Devuelve las sesiones activas del usuario autenticado con sus metadatos (dispositivo, IP, último acceso, expiración).',
+    }),
+    ApiBearerAuth(),
+    ApiExtraModels(ActiveSessionDTO),
+    ApiResponse({
+      status: 200,
+      description: 'Sesiones activas del usuario autenticado',
+      schema: {
+        type: 'array',
+        items: { $ref: getSchemaPath(ActiveSessionDTO) },
+      },
+    }),
+    ApiUnauthorizedResponse({ description: 'No autenticado o token inválido' }),
+    ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
+    ApiResponse(RateLimitResponse),
+  );
+}
+
+export function ApplyRevokeSelfSessionDoc() {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Revocar una sesión propia',
+      description:
+        'Denylista el refresh token de la sesión indicada y elimina su registro: el siguiente refresh falla con 401. ' +
+        'Las demás sesiones del usuario siguen funcionando.',
+    }),
+    ApiBearerAuth(),
+    ApiResponse({
+      status: 200,
+      description: 'Sesión revocada',
+      schema: {
+        type: 'object',
+        properties: { message: { type: 'string', example: 'Session closed successfully' } },
+      },
+    }),
+    ApiUnauthorizedResponse({ description: 'No autenticado o token inválido' }),
+    ApiResponse({ status: 404, description: 'Sesión no encontrada' }),
     ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
     ApiResponse(RateLimitResponse),
   );
