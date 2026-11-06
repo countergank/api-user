@@ -94,4 +94,42 @@ describe(JwtAuthGuard.name, () => {
       expect(() => guard.handleRequest(error, null, null, context)).toThrow(error);
     });
   });
+
+  describe('session id claim (S7)', () => {
+    /** Builds a Bearer header whose payload decodes to the given claims. */
+    const bearer = (payload: Record<string, unknown>): string => {
+      const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url');
+      return `Bearer ${encode({ alg: 'HS256', typ: 'JWT' })}.${encode(payload)}.${encode({})}`;
+    };
+
+    it('should set the session id claim in CLS and on the request for tokens carrying it', () => {
+      const user = { id: 'user-1' };
+      const request: Record<string, unknown> = { ip: '127.0.0.1', headers: { authorization: bearer({ sub: 'user-1', sid: 'session-9' }) } };
+      const context = {
+        switchToHttp: () => ({
+          getRequest: () => request,
+        }),
+      } as unknown as ExecutionContext;
+
+      guard.handleRequest(null, user, null, context);
+
+      expect(clsService.set).toHaveBeenCalledWith('sessionId', 'session-9');
+      expect(request.sessionId).toBe('session-9');
+    });
+
+    it('should leave the session id untouched for legacy tokens without the claim', () => {
+      const user = { id: 'user-1' };
+      const request: Record<string, unknown> = { ip: '127.0.0.1', headers: { authorization: bearer({ sub: 'user-1' }) } };
+      const context = {
+        switchToHttp: () => ({
+          getRequest: () => request,
+        }),
+      } as unknown as ExecutionContext;
+
+      guard.handleRequest(null, user, null, context);
+
+      expect(clsService.set).not.toHaveBeenCalledWith('sessionId', expect.anything());
+      expect(request.sessionId).toBeUndefined();
+    });
+  });
 });

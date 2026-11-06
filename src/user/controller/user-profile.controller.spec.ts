@@ -4,6 +4,7 @@ import { Mock } from '../../test-utils';
 import { DomainError } from '../../common/errors/domain.error';
 import { I18nService } from '../../common/i18n/i18n.service';
 import { EmailEvents } from '../../email/constants/email.events';
+import { AuthService } from '../../auth/auth.service';
 import { ChangePasswordDTO } from '../dto/change-password.dto';
 import { UserMock } from '../mocks/user.mock';
 import { UserService } from '../service/user.service';
@@ -14,6 +15,21 @@ describe(UserProfileController.name, () => {
   let mockEventEmitter: { emit: jest.Mock };
 
   const user = new UserMock();
+
+  const sessionContext = () =>
+    ({
+      ip: '10.0.0.1',
+      userAgent: 'agent A',
+    }) as never;
+
+  const mockAuthService = {
+    rotateCurrentSession: jest.fn().mockResolvedValue({
+      sessionId: 'session-live',
+      accessToken: 'new-access',
+      refreshToken: 'new-refresh',
+      user: { id: user.id, email: user.email, userName: 'u', name: 'n', lastName: 'l' },
+    }),
+  };
 
   const mockUserService = {
     update: jest.fn().mockResolvedValue(user),
@@ -32,6 +48,7 @@ describe(UserProfileController.name, () => {
       providers: [
         { provide: UserService, useValue: mockUserService },
         { provide: EventEmitter2, useValue: mockEventEmitter },
+        { provide: AuthService, useValue: mockAuthService },
         { provide: I18nService, useValue: { translate: jest.fn().mockResolvedValue('Password changed') } },
       ],
     })
@@ -68,7 +85,7 @@ describe(UserProfileController.name, () => {
     });
 
     it('should propagate CURRENT_PASSWORD_INCORRECT DomainError from service', async () => {
-      mockUserService.changePassword.mockRejectedValue(DomainError.fromKind('CURRENT_PASSWORD_INCORRECT'));
+      mockUserService.changePassword.mockRejectedValueOnce(DomainError.fromKind('CURRENT_PASSWORD_INCORRECT'));
 
       const dto: ChangePasswordDTO = {
         currentPassword: 'wrong',
@@ -79,6 +96,38 @@ describe(UserProfileController.name, () => {
         kind: expect.objectContaining({ kind: 'CURRENT_PASSWORD_INCORRECT' }),
       });
       expect(mockEventEmitter.emit).not.toHaveBeenCalled();
+    });
+
+    it('returns fresh tokens for the acting session after a successful change (S7)', async () => {
+      const dto: ChangePasswordDTO = {
+        currentPassword: 'CorrectPass123@',
+        newPassword: 'NewSecurePass123@',
+      };
+
+      const result = await controller.changePassword(user as any, dto, undefined, "session-live", sessionContext());
+
+      expect(mockAuthService.rotateCurrentSession).toHaveBeenCalledWith(user.id, 'session-live', {
+        ip: '10.0.0.1',
+        userAgent: 'agent A',
+      });
+      expect(result).toMatchObject({
+        message: 'Password changed',
+        sessionId: 'session-live',
+        accessToken: 'new-access',
+        refreshToken: 'new-refresh',
+      });
+    });
+
+    it('returns only the message when the token carries no session id (legacy tokens, S7)', async () => {
+      const dto: ChangePasswordDTO = {
+        currentPassword: 'CorrectPass123@',
+        newPassword: 'NewSecurePass123@',
+      };
+
+      const result = await controller.changePassword(user as any, dto, undefined, undefined, sessionContext());
+
+      expect(result).toEqual({ message: 'Password changed' });
+      expect(mockAuthService.rotateCurrentSession).not.toHaveBeenCalled();
     });
   });
 

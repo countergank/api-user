@@ -68,13 +68,15 @@ export function ApplyChangePasswordDoc() {
   return applyDecorators(
     ApiOperation({
       summary: 'Cambiar contraseña',
-      description: 'Cambia la contraseña del usuario actual. Requiere la contraseña actual.',
+      description:
+        'Cambia la contraseña del usuario actual. Requiere la contraseña actual. Las demás sesiones se cierran al instante; la sesión que realiza el cambio sigue activa: si el access token lleva el id de sesión (sid), la respuesta incluye tokens frescos (sessionId/accessToken/refreshToken/user). Con tokens previos al claim (legacy) la sesión no puede rotarse y la respuesta contiene sólo `message`.',
     }),
     ApiBearerAuth(),
     ApiExtraModels(ChangePasswordRequest, ChangePasswordResponse),
     ApiResponse({
       status: 200,
-      description: 'Contraseña cambiada exitosamente',
+      description:
+        'Contraseña cambiada exitosamente. Con sid en el token incluye el token par fresco de la sesión actual; con tokens legacy responde sólo `message`.',
       schema: {
         $ref: getSchemaPath(ChangePasswordResponse),
       },

@@ -1,11 +1,16 @@
 import { Body, Controller, Get, HttpCode, Inject, Patch, Post, UseGuards } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { AuthService } from '../../auth/auth.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { EmailEvents } from '../../email/constants/email.events';
 import { I18nService } from '../../common/i18n/i18n.service';
 import { AuditAction } from '../../common/audit/audit.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { CurrentSessionId } from '../../common/decorators/current-session-id.decorator';
+import { SessionContext as SessionContextParam } from '../../common/decorators/session-context.decorator';
+import { SessionContext } from '../../common/decorators/extract-session-context.helper';
 import { RequestLang } from '../../common/decorators/request-lang.decorator';
 import {
   ApplyChangeEmailDoc,
@@ -32,7 +37,15 @@ export class UserProfileController {
     private userService: UserService,
     private eventEmitter: EventEmitter2,
     @Inject(I18nService) private i18n: I18nService,
+    private moduleRef: ModuleRef,
   ) {}
+
+  // The controller resolves AuthService lazily: AuthModule already depends on
+  // this module's graph (AuthModule → RbacModule → UserModule), so an eager
+  // import would close a module cycle.
+  private get authService(): AuthService {
+    return this.moduleRef.get(AuthService, { strict: false });
+  }
 
   private async t(key: string, lang: string | undefined): Promise<string> {
     return this.i18n.translate(key, lang);
@@ -69,6 +82,8 @@ export class UserProfileController {
     @CurrentUser() user: User,
     @Body() dto: ChangePasswordDTO,
     @RequestLang() lang: string | undefined,
+    @CurrentSessionId() sessionId?: string,
+    @SessionContextParam() session?: SessionContext,
   ) {
     await this.userService.changePassword(user.id, dto.currentPassword, dto.newPassword);
 
@@ -79,7 +94,28 @@ export class UserProfileController {
       lang,
     });
 
-    return { message: await this.t('messages.password_changed', lang) };
+    const message = await this.t('messages.password_changed', lang);
+
+    // Other sessions died with the epoch bump inside the service; the acting
+    // session keeps working on fresh tokens. Tokens without `sid` (legacy)
+    // cannot be rotated, so only the message is returned.
+    if (!sessionId) {
+      return { message };
+    }
+
+    const tokens = await this.authService.rotateCurrentSession(
+      user.id,
+      sessionId,
+      session,
+    );
+
+    return {
+      message,
+      sessionId: tokens.sessionId,
+      user: tokens.user,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+    };
   }
 
   @Post('change-email/code')
