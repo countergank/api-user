@@ -49,4 +49,64 @@ describe(AdminUserDTO.name, () => {
       expect(dto.isActive).toBe(true);
     });
   });
+
+  describe('account state (issue #535)', () => {
+    it('reports a user without tokens as verified with no pending changes', () => {
+      // A fresh document: `UserMock` never initializes the state tokens, so the
+      // properties are absent at runtime and the DTO maps absence as the settled
+      // state (COU-320). Asserted, not assumed.
+      const user = new UserMock();
+      expect(user.emailVerificationToken).toBeUndefined();
+      expect(user.pendingEmailToken).toBeUndefined();
+      expect(user.resetPasswordToken).toBeUndefined();
+
+      const dto = AdminUserDTO.of(user);
+
+      expect(dto.emailVerified).toBe(true);
+      expect(dto.hasPendingEmailChange).toBe(false);
+      expect(dto.hasPendingPasswordReset).toBe(false);
+    });
+
+    it('reports the email as unverified only while its token is present', () => {
+      const user = new UserMock();
+      user.emailVerificationToken = 'verification-token';
+      expect(AdminUserDTO.of(user).emailVerified).toBe(false);
+
+      user.emailVerificationToken = undefined;
+      expect(AdminUserDTO.of(user).emailVerified).toBe(true);
+    });
+
+    it('reports a pending email change and exposes no token nor new email', () => {
+      const user = new UserMock();
+      user.pendingEmailToken = 'pending-email-token';
+      user.pendingEmail = 'new-email@example.com';
+
+      const dto = AdminUserDTO.of(user);
+
+      expect(dto.hasPendingEmailChange).toBe(true);
+      expect(dto).not.toHaveProperty('pendingEmailToken');
+      expect(dto).not.toHaveProperty('pendingEmail');
+    });
+
+    it('reports a pending password reset and exposes no token', () => {
+      const user = new UserMock();
+      user.resetPasswordToken = 'reset-token';
+
+      const dto = AdminUserDTO.of(user);
+
+      expect(dto.hasPendingPasswordReset).toBe(true);
+      expect(dto).not.toHaveProperty('resetPasswordToken');
+    });
+
+    it('keeps the pending flags false while the email is unverified', () => {
+      const user = new UserMock();
+      user.emailVerificationToken = 'verification-token';
+
+      const dto = AdminUserDTO.of(user);
+
+      expect(dto.emailVerified).toBe(false);
+      expect(dto.hasPendingEmailChange).toBe(false);
+      expect(dto.hasPendingPasswordReset).toBe(false);
+    });
+  });
 });
