@@ -91,6 +91,8 @@
     "role_deleted": "Rol eliminado",
     "logged_out": "Sesión cerrada exitosamente",
     "logged_out_all": "Se cerraron todas las sesiones",
+    "session_revoked": "Sesión cerrada exitosamente",
+    "sessions_revoked_all": "Se cerraron todas las sesiones del usuario",
     "translations_reloaded": "Traducciones recargadas desde MongoDB",
     "email_change_code_sent": "Código de verificación enviado al email actual",
     "email_change_reverted": "Cambio de email revertido exitosamente"
