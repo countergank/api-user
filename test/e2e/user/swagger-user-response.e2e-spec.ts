@@ -39,6 +39,9 @@ const EXPECTED_USER_RESPONSE_PROPERTIES = [
   'updatedAt',
   'lockedUntil',
   'failedLoginAttempts',
+  'emailVerified',
+  'hasPendingEmailChange',
+  'hasPendingPasswordReset',
 ].sort();
 
 function userResponseSchema(document: OpenAPIObject): SchemaLike {
