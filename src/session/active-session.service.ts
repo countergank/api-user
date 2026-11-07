@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { ActiveSession } from './entities/active-session.entity';
 import { ActiveSessionRepository } from './repository/active-session.repository';
@@ -15,8 +15,6 @@ import { SessionRevocationService } from './session-revocation.service';
  */
 @Injectable()
 export class ActiveSessionService {
-  private readonly logger = new Logger(ActiveSessionService.name);
-
   constructor(
     private readonly repository: ActiveSessionRepository,
     private readonly revocation: SessionRevocationService,
@@ -37,17 +35,8 @@ export class ActiveSessionService {
     return sessionId;
   }
 
-  async rotate(userId: string, oldJti: string, newJti: string, expiresAt: Date): Promise<string> {
-    const record = await this.repository.findByJtiAndUserId(oldJti, userId);
-    if (record) {
-      await this.repository.rotateSessionToken(record.sessionId, newJti, new Date(), expiresAt);
-      return record.sessionId;
-    }
-
-    // A refresh token with no record predates the active-session store; the
-    // rotation must not resurrect a session id the store never issued.
-    this.logger.debug(`No active-session record for user ${userId} jti rotation; opening a fresh session`);
-    return this.start(userId, newJti, expiresAt);
+  async rotate(userId: string, oldJti: string, newJti: string, expiresAt: Date): Promise<string | null> {
+    return this.repository.rotateSessionTokenByJti(userId, oldJti, newJti, new Date(), expiresAt);
   }
 
   /**

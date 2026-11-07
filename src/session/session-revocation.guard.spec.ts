@@ -190,10 +190,12 @@ describe('PROBE P4 — revoke-one denylist TTL vs live refresh token life (S2, F
         return { ...store };
       }),
       findByJtiAndUserId: jest.fn().mockImplementation(async () => (store.expiresAt.getTime() <= Date.now() ? null : { ...store })),
-      rotateSessionToken: jest.fn().mockImplementation(async (_sid: string, jti: string, _last: Date, expiresAt: Date) => {
+      rotateSessionTokenByJti: jest.fn().mockImplementation(async (_uid: string, oldJti: string, jti: string, _last: Date, expiresAt: Date) => {
+        if (store.expiresAt.getTime() <= Date.now() || store.jti !== oldJti) return null;
         store.jti = jti;
         store.lastAccessAt = new Date();
         store.expiresAt = expiresAt;
+        return store.sessionId;
       }),
       deleteBySessionId: jest.fn().mockImplementation(async () => { store.deleted = true; }),
     } as unknown as ActiveSessionRepository;

@@ -11,6 +11,7 @@ describe(ActiveSessionService.name, () => {
     create: jest.Mock;
     findBySessionIdAndUserId: jest.Mock;
     findByJtiAndUserId: jest.Mock;
+    rotateSessionTokenByJti: jest.Mock;
     listActiveByUserId: jest.Mock;
     rotateSessionToken: jest.Mock;
     deleteBySessionId: jest.Mock;
@@ -23,6 +24,7 @@ describe(ActiveSessionService.name, () => {
       create: jest.fn(),
       findBySessionIdAndUserId: jest.fn(),
       findByJtiAndUserId: jest.fn(),
+      rotateSessionTokenByJti: jest.fn(),
       listActiveByUserId: jest.fn(),
       rotateSessionToken: jest.fn(),
       deleteBySessionId: jest.fn(),
@@ -59,14 +61,20 @@ describe(ActiveSessionService.name, () => {
     );
   });
 
-  it('rotates the token keeping the same session id', async () => {
+  it('rotates the record atomically, keyed by the incoming jti', async () => {
     const tokenExpiry = new Date('2030-01-01T00:00:00.000Z');
-    repository.findByJtiAndUserId.mockResolvedValue({ sessionId: 'session-1', jti: 'jti-old' });
+    repository.rotateSessionTokenByJti.mockResolvedValue('session-1');
 
     const sessionId = await service.rotate('user-1', 'jti-old', 'jti-new', tokenExpiry);
 
     expect(sessionId).toBe('session-1');
-    expect(repository.rotateSessionToken).toHaveBeenCalledWith('session-1', 'jti-new', expect.any(Date), tokenExpiry);
+    expect(repository.rotateSessionTokenByJti).toHaveBeenCalledWith(
+      'user-1',
+      'jti-old',
+      'jti-new',
+      expect.any(Date),
+      tokenExpiry,
+    );
     expect(repository.create).not.toHaveBeenCalled();
   });
 
@@ -83,17 +91,14 @@ describe(ActiveSessionService.name, () => {
     expect(repository.rotateSessionToken).toHaveBeenCalledWith('session-1', 'jti-new', expect.any(Date), rotatedExpiry);
   });
 
-  it('starts a fresh session when the rotated jti has no record (pre-fixture sessions)', async () => {
-    repository.findBySessionIdAndUserId.mockResolvedValue(null);
-    repository.create.mockImplementation(async (data) => ({ ...data }));
+  it('returns null when no record matches the incoming jti, without resurrecting a session', async () => {
+    repository.rotateSessionTokenByJti.mockResolvedValue(null);
     const tokenExpiry = new Date('2030-01-01T00:00:00.000Z');
 
-    await service.rotate('user-1', 'jti-orphan', 'jti-new', tokenExpiry);
+    const sessionId = await service.rotate('user-1', 'jti-orphan', 'jti-new', tokenExpiry);
 
-    expect(repository.create).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: 'user-1', jti: 'jti-new', expiresAt: tokenExpiry }),
-    );
-    expect(repository.rotateSessionToken).not.toHaveBeenCalled();
+    expect(sessionId).toBeNull();
+    expect(repository.create).not.toHaveBeenCalled();
   });
 
   it('revokes a session by id through the refresh denylist and removes the record', async () => {

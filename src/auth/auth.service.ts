@@ -631,7 +631,14 @@ export class AuthService {
     }
 
     if (session?.rotateFromJti) {
-      return this.activeSession.rotate(user.id, session.rotateFromJti, refreshJti, refreshExpiresAt);
+      const rotated = await this.activeSession.rotate(user.id, session.rotateFromJti, refreshJti, refreshExpiresAt);
+      if (!rotated) {
+        // The incoming jti no longer owns the session record: a concurrent
+        // exchange already consumed it. Fail instead of minting an orphan
+        // refresh token the revocation store would never track.
+        throw DomainError.fromKind('INVALID_REFRESH_TOKEN');
+      }
+      return rotated;
     }
 
     return this.activeSession.start(user.id, refreshJti, refreshExpiresAt, session?.ip, session?.userAgent);

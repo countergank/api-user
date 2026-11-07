@@ -56,6 +56,26 @@ export class ActiveSessionRepository {
       .exec();
   }
 
+  async rotateSessionTokenByJti(
+    userId: string,
+    oldJti: string,
+    jti: string,
+    lastAccessAt: Date,
+    expiresAt: Date,
+  ): Promise<string | null> {
+    // Atomic: only the exchange whose jti still matches the record wins the
+    // rotation. A concurrent exchange carrying the same refresh token loses,
+    // so no orphan refresh token can outlive a rotated or revoked session.
+    const updated = await this.activeSessionModel
+      .findOneAndUpdate(
+        { userId, jti: oldJti, expiresAt: { $gt: new Date() } },
+        { jti, lastAccessAt, expiresAt },
+        { new: true },
+      )
+      .exec();
+    return updated?.sessionId ?? null;
+  }
+
   async deleteBySessionId(sessionId: string, userId: string): Promise<void> {
     await this.activeSessionModel.deleteOne({ sessionId, userId }).exec();
   }
