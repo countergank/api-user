@@ -172,4 +172,36 @@ describe('Auth self-service sessions (e2e)', () => {
     await request(app.getHttpServer()).get('/auth/sessions').expect(401);
     await request(app.getHttpServer()).delete('/auth/sessions/00000000-0000-4000-8000-000000000000').expect(401);
   });
+
+  it('keeps exactly one winner when two concurrent refreshes carry the same token (no orphan session)', async () => {
+    const user = makeUser('concurrent-refresh');
+    await registerAndVerify(user);
+    // La sesión del registro se revoca para que el recuento post-carrera
+    // dependa solo del login y de la rotación.
+    await self(
+      'delete',
+      `/auth/sessions/${registerBodies.get(user)?.sessionId}`,
+      registerBodies.get(user)?.accessToken as string,
+    ).expect(200);
+
+    const first = await login(user, 'race-device');
+
+    const [winner, loser] = await Promise.all([
+      exchangeRefresh(first.refreshToken),
+      exchangeRefresh(first.refreshToken),
+    ]);
+
+    const statuses = [winner.status, loser.status].sort();
+    expect(statuses).toEqual([200, 401]);
+
+    const winnerBody = (winner.status === 200 ? winner : loser).body as AuthBody;
+    // The losing exchange must not have minted a live session: the listing
+    // keeps exactly the one record the winner rotated.
+    const listed = await self('get', '/auth/sessions', winnerBody.accessToken).expect(200);
+    expect(listed.body).toHaveLength(1);
+    expect((listed.body as SessionItem[])[0].id).toBe(winnerBody.sessionId);
+
+    // The winner's fresh pair keeps working; the loser holds no usable token.
+    await exchangeRefresh(winnerBody.refreshToken).expect(200);
+  });
 });
