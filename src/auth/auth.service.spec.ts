@@ -784,6 +784,29 @@ describe(AuthService.name, () => {
       expect(startSpy).not.toHaveBeenCalled();
       expect(result.sessionId).toBe('session-rotated');
     });
+
+    it('rejects the refresh exchange with no tokens minted when the rotation is lost to a concurrent exchange', async () => {
+      const user = Object.assign(activeUser(), { sessionEpoch: 3 });
+      jest
+        .spyOn(jwtService, 'verify')
+        .mockReturnValue({
+          sub: user.id,
+          email: user.email,
+          role: user.role,
+          jti: 'jti-old',
+          tv: 3,
+          exp: 1700000000,
+        } as never);
+      jest.spyOn(userService, 'findById').mockResolvedValue(user);
+      const signSpy = stubTokenSigning();
+      jest.spyOn(activeSession, 'rotate').mockResolvedValue(null);
+
+      await expect(service.refreshToken('rotating-token')).rejects.toMatchObject({
+        kind: expect.objectContaining({ kind: 'INVALID_REFRESH_TOKEN' }),
+      });
+      expect(signSpy).not.toHaveBeenCalled();
+      expect(activeSession.start).not.toHaveBeenCalled();
+    });
   });
 
   describe(`${AuthService.name}.${AuthService.prototype.rotateCurrentSession.name}`, () => {
@@ -936,6 +959,7 @@ describe(AuthService.name, () => {
         .spyOn(jwtService, 'verify')
         .mockReturnValue({ sub: user.id, email: user.email, role: user.role, jti: 'jti-1', tv: 3 } as never);
       jest.spyOn(userService, 'findById').mockResolvedValue(user);
+      jest.spyOn(activeSession, 'rotate').mockResolvedValue('session-1');
       const signSpy = jest.spyOn(jwtService, 'sign').mockReturnValue('fresh-token');
 
       const result = await service.refreshToken('valid-token');
