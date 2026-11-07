@@ -193,7 +193,7 @@ describe('Password Strength Validation (e2e)', () => {
     });
 
     it('should accept valid new password', async () => {
-      await request(app.getHttpServer())
+      const response = await request(app.getHttpServer())
         .post('/users/change-password')
         .set('Authorization', `Bearer ${token}`)
         .send({
@@ -201,6 +201,10 @@ describe('Password Strength Validation (e2e)', () => {
           newPassword: 'An0th3r$ecur3Y',
         })
         .expect(200);
+
+      // The change rotates the acting session: the pre-change token is void,
+      // so the following rejection cases ride the fresh pair.
+      token = response.body.accessToken;
     });
 
     it('should reject weak new password', async () => {

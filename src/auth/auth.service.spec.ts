@@ -16,6 +16,7 @@ import { UserMock } from '../user/mocks/user.mock';
 import { Mock } from '../test-utils';
 import { CacheService } from '../config/cache';
 import { SessionRevocationService } from '../session/session-revocation.service';
+import { ActiveSessionService } from '../session/active-session.service';
 
 /**
  * Assert that a promise rejects with a DomainError carrying the expected
@@ -92,6 +93,7 @@ describe(AuthService.name, () => {
   let jwtService: JwtService;
   let configService: ConfigService;
   let eventEmitter: EventEmitter2;
+  let activeSession: ActiveSessionService;
   let harness: TransactionHarness;
 
   const mockCacheService = {
@@ -130,6 +132,7 @@ describe(AuthService.name, () => {
     jwtService = module.get<JwtService>(JwtService);
     configService = module.get<ConfigService>(ConfigService);
     eventEmitter = module.get<EventEmitter2>(EventEmitter2);
+    activeSession = module.get<ActiveSessionService>(ActiveSessionService);
   });
 
   describe(`${AuthService.name}.${AuthService.prototype.register.name}`, () => {
@@ -622,7 +625,7 @@ describe(AuthService.name, () => {
   });
 
   describe(`${AuthService.name}.${AuthService.prototype.login.name} token claims`, () => {
-    it('should sign the refresh with a jti and the durable sessionEpoch and leave the access token unchanged', async () => {
+    it('should sign access and refresh with the same tv from the durable sessionEpoch and a jti on the refresh', async () => {
       const user = Object.assign(new UserMock(), { sessionEpoch: 3 });
       user.isActive = true;
 
@@ -630,15 +633,21 @@ describe(AuthService.name, () => {
       jest.spyOn(userService, 'validatePassword').mockResolvedValue(true);
       jest.spyOn(userService, 'update').mockResolvedValue(user);
       const signSpy = jest.spyOn(jwtService, 'sign').mockReturnValue('signed');
+      jest.spyOn(activeSession, 'start').mockResolvedValue('session-pin');
 
       await service.login(user.email, 'correct-password');
 
       expect(signSpy).toHaveBeenCalledTimes(2);
 
       const [accessPayload, accessOptions] = signSpy.mock.calls[0] as [Record<string, unknown>, unknown];
-      expect(accessPayload).toEqual({ sub: user.id, email: user.email, role: user.role });
+      expect(accessPayload).toEqual({
+        sub: user.id,
+        email: user.email,
+        role: user.role,
+        tv: 3,
+        sid: 'session-pin',
+      });
       expect(accessPayload).not.toHaveProperty('jti');
-      expect(accessPayload).not.toHaveProperty('tv');
       expect(accessOptions).toBeUndefined();
 
       const [refreshPayload, refreshOptions] = signSpy.mock.calls[1] as [
@@ -646,7 +655,9 @@ describe(AuthService.name, () => {
         { expiresIn?: string; jwtid?: string },
       ];
       expect(refreshPayload.tv).toBe(3);
-      expect(refreshPayload).not.toHaveProperty('jti'); // jti is set by the JWT `jwtid` option
+      expect(accessPayload.tv).toBe(refreshPayload.tv);
+      expect(refreshPayload).not.toHaveProperty('sid');
+      expect(refreshPayload).not.toHaveProperty('jti');
       expect(refreshOptions.expiresIn).toBe('7d');
       expect(typeof refreshOptions.jwtid).toBe('string');
       expect(refreshOptions.jwtid).not.toHaveLength(0);
@@ -683,6 +694,174 @@ describe(AuthService.name, () => {
       expect(result).toHaveProperty('refreshToken');
       const [refreshPayload] = signSpy.mock.calls[1] as [Record<string, unknown>];
       expect(refreshPayload.tv).toBe(0);
+    });
+  });
+
+  describe(`${AuthService.name} active-session records (issue #532)`, () => {
+    /** A user whose fields let the token flow run end-to-end. */
+    const activeUser = () => {
+      const user = new UserMock();
+      (user as unknown as Record<string, unknown>).id = 'user-1';
+      return user;
+    };
+
+    const stubTokenSigning = () => jest.spyOn(jwtService, 'sign').mockReturnValue('signed');
+
+    it('login returns a stable sessionId string in the response', async () => {
+      const user = activeUser();
+      jest.spyOn(userService, 'findByEmail').mockResolvedValue(user);
+      jest.spyOn(userService, 'validatePassword').mockResolvedValue(true);
+      jest.spyOn(userService, 'update').mockResolvedValue(user);
+      stubTokenSigning();
+      jest.spyOn(activeSession, 'start').mockResolvedValue('session-login');
+
+      const result = await service.login(user.email, 'correct-password');
+
+      expect(typeof result.sessionId).toBe('string');
+      expect(result.sessionId).not.toHaveLength(0);
+      expect(result.sessionId).toBe('session-login');
+    });
+
+    it('register returns a stable sessionId string in the response', async () => {
+      const user = activeUser();
+      jest.spyOn(userService, 'existsByEmailOrUsername').mockResolvedValue(false);
+      jest.spyOn(userService, 'createWithRole').mockResolvedValue(user);
+      jest.spyOn(userService, 'update').mockResolvedValue(user);
+      stubTokenSigning();
+      jest.spyOn(activeSession, 'start').mockResolvedValue('session-register');
+
+      const result = await service.register('new@test.com', 'new-user', 'password123', 'New', 'User');
+
+      expect(typeof result.sessionId).toBe('string');
+      expect(result.sessionId).not.toHaveLength(0);
+      expect(result.sessionId).toBe('session-register');
+    });
+
+    it('refreshToken returns a stable sessionId string in the response', async () => {
+      const user = activeUser();
+      jest
+        .spyOn(jwtService, 'verify')
+        .mockReturnValue({ sub: user.id, email: user.email, role: user.role, jti: 'jti-1', tv: 0, exp: 1700000000 } as never);
+      jest.spyOn(userService, 'findById').mockResolvedValue(user);
+      stubTokenSigning();
+      jest.spyOn(activeSession, 'rotate').mockResolvedValue('session-rotated');
+
+      const result = await service.refreshToken('valid-token');
+
+      expect(typeof result.sessionId).toBe('string');
+      expect(result.sessionId).not.toHaveLength(0);
+      expect(result.sessionId).toBe('session-rotated');
+    });
+
+    it('refreshToken rotates the existing session instead of starting a new one, and denies the old jti before minting (issue #532)', async () => {
+      const user = Object.assign(activeUser(), { sessionEpoch: 3 });
+      jest
+        .spyOn(jwtService, 'verify')
+        .mockReturnValue({
+          sub: user.id,
+          email: user.email,
+          role: user.role,
+          jti: 'jti-old',
+          tv: 3,
+          exp: 1700000000,
+        } as never);
+      jest.spyOn(userService, 'findById').mockResolvedValue(user);
+      const signSpy = stubTokenSigning();
+      const rotateSpy = jest.spyOn(activeSession, 'rotate').mockResolvedValue('session-rotated');
+      const startSpy = jest.spyOn(activeSession, 'start');
+
+      const result = await service.refreshToken('rotating-token');
+
+      // The OLD jti is denied through SessionRevocationService.revokeJti…
+      expect(mockSessionRevocation.revokeJti).toHaveBeenCalledWith('jti-old', 1700000000);
+      // …before the rotated pair is minted.
+      expect(mockSessionRevocation.revokeJti.mock.invocationCallOrder[0]).toBeLessThan(
+        signSpy.mock.invocationCallOrder[0],
+      );
+      // The session record rotates: same stable id, the new refresh jti moves in.
+      const newRefreshJti = (signSpy.mock.calls[1][1] as { jwtid: string }).jwtid;
+      expect(rotateSpy).toHaveBeenCalledWith(user.id, 'jti-old', newRefreshJti, expect.any(Date));
+      expect(startSpy).not.toHaveBeenCalled();
+      expect(result.sessionId).toBe('session-rotated');
+    });
+
+    it('rejects the refresh exchange with no tokens minted when the rotation is lost to a concurrent exchange', async () => {
+      const user = Object.assign(activeUser(), { sessionEpoch: 3 });
+      jest
+        .spyOn(jwtService, 'verify')
+        .mockReturnValue({
+          sub: user.id,
+          email: user.email,
+          role: user.role,
+          jti: 'jti-old',
+          tv: 3,
+          exp: 1700000000,
+        } as never);
+      jest.spyOn(userService, 'findById').mockResolvedValue(user);
+      const signSpy = stubTokenSigning();
+      jest.spyOn(activeSession, 'rotate').mockResolvedValue(null);
+
+      await expect(service.refreshToken('rotating-token')).rejects.toMatchObject({
+        kind: expect.objectContaining({ kind: 'INVALID_REFRESH_TOKEN' }),
+      });
+      expect(signSpy).not.toHaveBeenCalled();
+      expect(activeSession.start).not.toHaveBeenCalled();
+    });
+  });
+
+  describe(`${AuthService.name}.${AuthService.prototype.rotateCurrentSession.name}`, () => {
+    /** A user with an id and the freshly bumped epoch read back by the rotation. */
+    const freshUser = (): UserMock => {
+      const user = new UserMock();
+      (user as unknown as Record<string, unknown>).id = 'user-1';
+      user.isActive = true;
+      Object.assign(user, { sessionEpoch: 5 });
+      return user;
+    };
+
+    it('rotates the acting session and mints tokens bound to the fresh epoch (S7)', async () => {
+      const user = freshUser();
+      jest.spyOn(userService, 'findById').mockResolvedValue(user);
+      const signSpy = jest.spyOn(jwtService, 'sign').mockReturnValue('signed');
+      const rotateSpy = jest.spyOn(activeSession, 'rotateBySessionId').mockResolvedValue('session-live');
+
+      const result = await service.rotateCurrentSession('user-1', 'session-live', {
+        ip: '10.0.0.1',
+        userAgent: 'agent A',
+      });
+
+      // The session record rotates to the new refresh jti before any token is minted.
+      const newRefreshJti = (signSpy.mock.calls[1][1] as { jwtid: string }).jwtid;
+      expect(rotateSpy).toHaveBeenCalledWith('user-1', 'session-live', newRefreshJti, expect.any(Date));
+      expect(rotateSpy.mock.invocationCallOrder[0]).toBeLessThan(signSpy.mock.invocationCallOrder[0]);
+
+      // The answering session keeps its stable id, on the record and in the tokens.
+      expect(result.sessionId).toBe('session-live');
+      const [accessPayload] = signSpy.mock.calls[0] as [Record<string, unknown>];
+      expect(accessPayload.sid).toBe('session-live');
+      // Tokens carry the epoch read back from the reloaded user document…
+      expect(accessPayload.tv).toBe(5);
+      const [refreshPayload, refreshOptions] = signSpy.mock.calls[1] as [
+        Record<string, unknown>,
+        { expiresIn?: string; jwtid?: string },
+      ];
+      expect(refreshPayload.tv).toBe(5);
+      // …and the refresh token is a fresh 7-day rotation of that session.
+      expect(refreshOptions.expiresIn).toBe('7d');
+      expect(refreshOptions.jwtid).toBe(newRefreshJti);
+    });
+
+    it('throws DomainError USER_NOT_FOUND when the user is gone and touches nothing else (S7)', async () => {
+      jest.spyOn(userService, 'findById').mockResolvedValue(null);
+      const signSpy = jest.spyOn(jwtService, 'sign');
+      jest.spyOn(activeSession, 'rotateBySessionId');
+      jest.spyOn(activeSession, 'start');
+
+      await expectDomainError(service.rotateCurrentSession('ghost', 'session-1'), 'USER_NOT_FOUND');
+
+      expect(signSpy).not.toHaveBeenCalled();
+      expect(activeSession.rotateBySessionId).not.toHaveBeenCalled();
+      expect(activeSession.start).not.toHaveBeenCalled();
     });
   });
 
@@ -780,6 +959,7 @@ describe(AuthService.name, () => {
         .spyOn(jwtService, 'verify')
         .mockReturnValue({ sub: user.id, email: user.email, role: user.role, jti: 'jti-1', tv: 3 } as never);
       jest.spyOn(userService, 'findById').mockResolvedValue(user);
+      jest.spyOn(activeSession, 'rotate').mockResolvedValue('session-1');
       const signSpy = jest.spyOn(jwtService, 'sign').mockReturnValue('fresh-token');
 
       const result = await service.refreshToken('valid-token');

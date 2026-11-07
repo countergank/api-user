@@ -14,12 +14,26 @@ import { AuditAction } from '../common/audit/audit.decorator';
 import { runInTransaction } from '../common/utils/transaction';
 import { CacheService } from '../config/cache';
 import { SessionRevocationService } from '../session/session-revocation.service';
+import { ActiveSessionService } from '../session/active-session.service';
+import { SessionContext as SessionContextBase } from '../common/decorators/extract-session-context.helper';
 import { EMAIL_REVERT_WINDOW_MS } from '../user/service/email-change-code';
 
 export interface JwtPayload {
   sub: string;
   email: string;
   role: UserRole;
+  /**
+   * Session version claim: the durable `sessionEpoch` of the user at issue
+   * time. Refresh tokens have always carried it; payloads without it are
+   * pre-session tokens and only stay valid while `sessionEpoch` is still 0.
+   */
+  tv?: number;
+  /**
+   * Stable id of the active session the token belongs to. Only access tokens
+   * carry it; tokens without it predate the claim and cannot be rotated as
+   * an acting session.
+   */
+  sid?: string;
 }
 
 /**
@@ -29,7 +43,8 @@ export interface JwtPayload {
  * - `tv`: token version, the durable `sessionEpoch` of the user at issue time
  *   (S8/S9/S16). Rejecting `tv < sessionEpoch` invalidates every token issued
  *   before the last bump, and the epoch never expires at 1.
- * The access token keeps `JwtPayload` untouched.
+ * Both tokens of the pair carry `tv`; the refresh payload adds only `jti`,
+ * while the access token also carries the session id (`sid`).
  */
 export interface RefreshTokenPayload extends JwtPayload {
   jti: string;
@@ -39,6 +54,8 @@ export interface RefreshTokenPayload extends JwtPayload {
 }
 
 export interface AuthResponse {
+  /** Stable id of the active session this token pair belongs to. */
+  sessionId: string;
   user: {
     id: string;
     email: string;
@@ -49,6 +66,13 @@ export interface AuthResponse {
   accessToken: string;
   refreshToken: string;
   verificationToken?: string;
+}
+
+export interface SessionContext extends SessionContextBase {
+  /** `jti` of the refresh token being rotated (refresh exchanges only). */
+  rotateFromJti?: string;
+  /** Stable session id being rotated in place (password change on the acting session). */
+  rotateFromSessionId?: string;
 }
 
 @Injectable()
@@ -62,6 +86,7 @@ export class AuthService {
     private readonly cacheService: CacheService,
     private readonly roleService: RoleService,
     private readonly sessionRevocation: SessionRevocationService,
+    private readonly activeSession: ActiveSessionService,
   ) {}
 
   @AuditAction({
@@ -77,6 +102,7 @@ export class AuthService {
     name: string,
     lastName: string,
     lang?: string,
+    session?: SessionContext,
   ): Promise<AuthResponse> {
     const existing = await this.userService.existsByEmailOrUsername(email, userName);
     if (existing) {
@@ -114,10 +140,10 @@ export class AuthService {
       lang: lang,
     });
 
-    return this.generateAuthResponse(user, verificationToken);
+    return this.generateAuthResponse(user, verificationToken, session);
   }
 
-  async login(email: string, password: string): Promise<AuthResponse> {
+  async login(email: string, password: string, session?: SessionContext): Promise<AuthResponse> {
     const user = await this.userService.findByEmail(email, { includePassword: true });
     if (!user) {
       throw DomainError.fromKind('INVALID_CREDENTIALS');
@@ -158,7 +184,7 @@ export class AuthService {
       throw DomainError.fromKind('ACCOUNT_INACTIVE');
     }
 
-    return this.generateAuthResponse(user);
+    return this.generateAuthResponse(user, undefined, session);
   }
 
   async validateUser(userId: string): Promise<User | null> {
@@ -436,7 +462,7 @@ export class AuthService {
     resource: 'auth',
     getResourceId: (result) => (result as AuthResponse).user.id,
   })
-  async refreshToken(refreshToken: string): Promise<AuthResponse> {
+  async refreshToken(refreshToken: string, session?: SessionContext): Promise<AuthResponse> {
     const payload = this.verifyRefreshPayload(refreshToken);
 
     // S13: tokens issued before the revocation store existed carry no `jti` and
@@ -468,7 +494,17 @@ export class AuthService {
       throw DomainError.fromKind('INVALID_REFRESH_TOKEN');
     }
 
-    return this.generateAuthResponse(user);
+    // Session rotation: the old refresh id must be denylisted before the new
+    // tokens are minted. If the denylist write fails the exchange fails closed,
+    // so no rotation can leave the superseded refresh token reusable.
+    if (typeof payload.exp === 'number') {
+      await this.sessionRevocation.revokeJti(payload.jti, payload.exp);
+    }
+
+    return this.generateAuthResponse(user, undefined, {
+      ...session,
+      rotateFromJti: payload.jti,
+    });
   }
 
   /**
@@ -486,6 +522,9 @@ export class AuthService {
     }
 
     await this.sessionRevocation.revokeJti(payload.jti, payload.exp);
+    if (payload.sub) {
+      await this.activeSession.endByJti(payload.sub, payload.jti);
+    }
   }
 
   /**
@@ -495,6 +534,27 @@ export class AuthService {
    */
   async logoutAll(userId: string): Promise<void> {
     await this.userService.bumpSessionEpoch(userId);
+    await this.activeSession.clearForUser(userId);
+  }
+
+  /**
+   * Rotates the session the caller is acting in right after a successful
+   * password change (S7): `UserService.changePassword` already bumped the
+   * epoch, killing every OTHER session; the acting session survives with fresh
+   * tokens bound to the bumped epoch and a new refresh `jti`, same `sessionId`.
+   * @param userId - Owner of the acting session.
+   * @param sessionId - Stable session id taken from the access token's `sid`.
+   * @param session - Request context (ip, user agent) recorded on the session.
+   * @returns {Promise<AuthResponse>} Fresh token pair for the acting session.
+   * @throws {DomainError} USER_NOT_FOUND when the user no longer exists.
+   */
+  async rotateCurrentSession(userId: string, sessionId: string, session?: SessionContext): Promise<AuthResponse> {
+    const user = await this.userService.findById(userId);
+    if (!user) {
+      throw DomainError.fromKind('USER_NOT_FOUND');
+    }
+
+    return this.generateAuthResponse(user, undefined, { ...session, rotateFromSessionId: sessionId });
   }
 
   private verifyRefreshPayload(refreshToken: string): RefreshTokenPayload {
@@ -505,7 +565,11 @@ export class AuthService {
     }
   }
 
-  private async generateAuthResponse(user: User, verificationToken?: string): Promise<AuthResponse> {
+  private async generateAuthResponse(
+    user: User,
+    verificationToken?: string,
+    session?: SessionContext,
+  ): Promise<AuthResponse> {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
@@ -516,13 +580,21 @@ export class AuthService {
     // store read is needed (and none can fail) while signing.
     const tokenVersion = user.sessionEpoch ?? 0;
 
-    const accessToken = this.jwtService.sign(payload);
+    const refreshJti = randomUUID();
+    const refreshExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    // S7: the session id is resolved before signing so the access token can
+    // carry it, and any rotation denylist write happens before new tokens exist.
+    const sessionId = await this.resolveSessionId(user, refreshJti, refreshExpiresAt, session);
+
+    const accessToken = this.jwtService.sign({ ...payload, tv: tokenVersion, sid: sessionId } as JwtPayload);
     const refreshToken = this.jwtService.sign({ ...payload, tv: tokenVersion } as RefreshTokenPayload, {
       expiresIn: '7d',
-      jwtid: randomUUID(),
+      jwtid: refreshJti,
     });
 
     return {
+      sessionId,
       user: {
         id: user.id,
         email: user.email,
@@ -534,5 +606,41 @@ export class AuthService {
       refreshToken,
       ...(verificationToken && { verificationToken }),
     };
+  }
+
+  /**
+   * Resolves the session id for a token pair: keeps (rotating) the existing
+   * session, or opens a fresh one. Rotations denylist the superseded refresh
+   * token before the new pair is minted, so a failed denylist write can never
+   * leave two live refresh tokens for the same session.
+   */
+  private async resolveSessionId(
+    user: User,
+    refreshJti: string,
+    refreshExpiresAt: Date,
+    session?: SessionContext,
+  ): Promise<string> {
+    if (session?.rotateFromSessionId) {
+      const rotated = await this.activeSession.rotateBySessionId(user.id, session.rotateFromSessionId, refreshJti, refreshExpiresAt);
+      if (rotated) {
+        return rotated;
+      }
+      // No record for the session id (pre-fixture sessions): opening a fresh
+      // session instead of resuming an id the store never issued.
+      return this.activeSession.start(user.id, refreshJti, refreshExpiresAt, session?.ip, session?.userAgent);
+    }
+
+    if (session?.rotateFromJti) {
+      const rotated = await this.activeSession.rotate(user.id, session.rotateFromJti, refreshJti, refreshExpiresAt);
+      if (!rotated) {
+        // The incoming jti no longer owns the session record: a concurrent
+        // exchange already consumed it. Fail instead of minting an orphan
+        // refresh token the revocation store would never track.
+        throw DomainError.fromKind('INVALID_REFRESH_TOKEN');
+      }
+      return rotated;
+    }
+
+    return this.activeSession.start(user.id, refreshJti, refreshExpiresAt, session?.ip, session?.userAgent);
   }
 }

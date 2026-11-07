@@ -33,8 +33,15 @@ export class AuditAspectInterceptor implements NestInterceptor {
     }
 
     const _handler = context.getHandler();
-    const args = context.getArgs();
-    const userId = this.clsService.get('userId') ?? 'anonymous';
+    // Route params arrive here as the interceptor's own HTTP args (request,
+    // response, next), which made `(_result, args) => args[0]` hooks capture the
+    // request object itself. The handler params the hooks expect are the route
+    // params in declaration order, followed by the request body.
+    const request = context.switchToHttp().getRequest<Record<string, unknown>>();
+    const params = (request?.params ?? {}) as Record<string, unknown>;
+    const args = [...Object.values(params), request?.body];
+    const requestUserId = this.clsService.get('userId');
+    const userId = requestUserId === undefined || requestUserId === null ? 'anonymous' : String(requestUserId);
     const correlationId = this.clsService.getId() ?? 'unknown';
 
     const beforeContext = auditConfig.getBefore ? auditConfig.getBefore(...args) : undefined;
@@ -44,7 +51,6 @@ export class AuditAspectInterceptor implements NestInterceptor {
         const resourceId = auditConfig.getResourceId
           ? auditConfig.getResourceId(result, args)
           : undefined;
-
         const afterContext = auditConfig.getAfter ? auditConfig.getAfter(result) : undefined;
 
         this.eventEmitter.emit(AuditEvents.AUDIT_BUSINESS_ACTION, {
@@ -52,7 +58,7 @@ export class AuditAspectInterceptor implements NestInterceptor {
           userId,
           action: auditConfig.action,
           resource: auditConfig.resource,
-          resourceId,
+          resourceId: resourceId === undefined || resourceId === null ? undefined : String(resourceId),
           businessContext: {
             before: beforeContext,
             after: afterContext,

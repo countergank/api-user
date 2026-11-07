@@ -6,6 +6,8 @@ import { clearEmailChangeCodeThrottle, requestEmailChangeCode } from '../../help
 describe('UserProfile (e2e)', () => {
   let app: INestApplication;
   let token: string;
+  let preChangeToken: string;
+  let loginSessionId: string;
 
   const testUser = {
     email: `profile-${Date.now()}@example.com`,
@@ -37,6 +39,7 @@ describe('UserProfile (e2e)', () => {
       .expect(200);
 
     token = loginRes.body.accessToken;
+    loginSessionId = loginRes.body.sessionId;
   });
 
   afterAll(async () => {
@@ -77,7 +80,21 @@ describe('UserProfile (e2e)', () => {
   });
 
   describe('/users/change-password (POST)', () => {
-    it('should change password with valid current password', async () => {
+    it('should reject with invalid current password before any change', async () => {
+      await request(app.getHttpServer())
+        .post('/users/change-password')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          currentPassword: 'Wr0ngW0rd!z',
+          newPassword: 'An0th3rW0rd!a',
+        })
+        .expect(400);
+    });
+
+    it('should change password with valid current password and rotate the acting session (S7)', async () => {
+      // S6 evidence: this is the pre-change access token, killed by the epoch bump.
+      preChangeToken = token;
+
       const response = await request(app.getHttpServer())
         .post('/users/change-password')
         .set('Authorization', `Bearer ${token}`)
@@ -88,17 +105,20 @@ describe('UserProfile (e2e)', () => {
         .expect(200);
 
       expect(response.body).toHaveProperty('message');
+      // S7: fresh tokens for the SAME acting session, not a new login.
+      expect(response.body.sessionId).toBe(loginSessionId);
+      expect(typeof response.body.accessToken).toBe('string');
+      expect(typeof response.body.refreshToken).toBe('string');
+      expect(response.body.accessToken).not.toBe(preChangeToken);
+
+      token = response.body.accessToken;
     });
 
-    it('should reject with invalid current password', async () => {
+    it('should invalidate the pre-change access token at once (S6)', async () => {
       await request(app.getHttpServer())
-        .post('/users/change-password')
-        .set('Authorization', `Bearer ${token}`)
-        .send({
-          currentPassword: 'Wr0ngW0rd!z',
-          newPassword: 'An0th3rW0rd!a',
-        })
-        .expect(400);
+        .get('/users/profile')
+        .set('Authorization', `Bearer ${preChangeToken}`)
+        .expect(401);
     });
   });
 

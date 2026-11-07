@@ -1,10 +1,18 @@
 import { INestApplication, UnauthorizedException } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ThrottlerModule } from '@nestjs/throttler';
 import request from 'supertest';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { PERMISSIONS_KEY } from './decorators/permissions.decorator';
+import { ROLES_KEY } from './decorators/roles.decorator';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { ActiveSessionService } from '../session/active-session.service';
+import { ActiveSessionDTO } from '../session/dto/active-session.dto';
+import { ActiveSession } from '../session/entities/active-session.entity';
 import { DomainError } from '../common/errors/domain.error';
+import { ErrorKind } from '../common/errors/error-kind';
 import { AllExceptionsFilter } from '../common/filters/all-exceptions.filter';
 import { I18nService } from '../common/i18n/i18n.service';
 import { Mock } from '../test-utils';
@@ -334,6 +342,7 @@ describe(AuthController.name, () => {
         providers: [
           { provide: AuthService, useValue: mockAuthService },
           { provide: I18nService, useValue: mockI18n },
+          { provide: ActiveSessionService, useValue: {} },
         ],
       }).compile();
 
@@ -369,6 +378,102 @@ describe(AuthController.name, () => {
 
       expect(mockAuthService.logoutAll).toHaveBeenCalledWith('user-1');
       expect(result).toEqual({ message: 'messages.logged_out_all' });
+    });
+  });
+
+  describe('GET /auth/sessions and DELETE /auth/sessions/:sessionId', () => {
+    let controller: AuthController;
+    let reflector: Reflector;
+
+    const mockActiveSessionService = {
+      listForUser: jest.fn(),
+      revokeSession: jest.fn(),
+    };
+
+    const sessionRecord = {
+      userId: 'user-1',
+      sessionId: 'sid-1',
+      jti: 'secret-jti',
+      ip: '10.0.0.1',
+      userAgent: 'Mozilla/5.0',
+      issuedAt: new Date('2026-01-01T10:00:00.000Z'),
+      lastAccessAt: new Date('2026-01-02T11:30:00.000Z'),
+      expiresAt: new Date('2026-01-08T10:00:00.000Z'),
+    } as ActiveSession;
+
+    beforeEach(async () => {
+      const moduleFixture: TestingModule = await Test.createTestingModule({
+        controllers: [AuthController],
+        providers: [
+          { provide: AuthService, useValue: {} },
+          { provide: I18nService, useValue: { translate: jest.fn().mockImplementation((key: string) => Promise.resolve(key)) } },
+          { provide: ActiveSessionService, useValue: mockActiveSessionService },
+        ],
+      }).compile();
+
+      controller = moduleFixture.get(AuthController);
+      reflector = new Reflector();
+    });
+
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('lists the sessions of the authenticated user mapped through the shared session dto', async () => {
+      mockActiveSessionService.listForUser.mockResolvedValue([sessionRecord]);
+      const user = { id: 'user-1' } as User;
+
+      const result = await controller.listSessions(user);
+
+      expect(mockActiveSessionService.listForUser).toHaveBeenCalledWith('user-1');
+      expect(result).toEqual([
+        {
+          id: 'sid-1',
+          device: 'Mozilla/5.0',
+          ip: '10.0.0.1',
+          issuedAt: '2026-01-01T10:00:00.000Z',
+          lastAccessAt: '2026-01-02T11:30:00.000Z',
+          expiresAt: '2026-01-08T10:00:00.000Z',
+        },
+      ]);
+      expect(result[0]).toBeInstanceOf(ActiveSessionDTO);
+    });
+
+    it('never exposes the refresh token jti in the listing', async () => {
+      mockActiveSessionService.listForUser.mockResolvedValue([sessionRecord]);
+
+      const result = await controller.listSessions({ id: 'user-1' } as User);
+
+      expect(JSON.stringify(result)).not.toContain('secret-jti');
+      expect(Object.keys(result[0])).not.toContain('jti');
+    });
+
+    it('revokes one of the user own sessions and returns the i18n message', async () => {
+      mockActiveSessionService.revokeSession.mockResolvedValue(true);
+      const user = { id: 'user-1' } as User;
+
+      const result = await controller.revokeSession(user, 'sid-1', undefined);
+
+      expect(mockActiveSessionService.revokeSession).toHaveBeenCalledWith('user-1', 'sid-1');
+      expect(result).toEqual({ message: 'messages.session_revoked' });
+    });
+
+    it('maps an unknown session id to ENTITY_NOT_FOUND with 404', async () => {
+      mockActiveSessionService.revokeSession.mockResolvedValue(false);
+
+      const error = await controller.revokeSession({ id: 'user-1' } as User, 'unknown', undefined).catch((e) => e);
+
+      expect(error).toBeInstanceOf(DomainError);
+      expect(error.kind).toBe(ErrorKind.ENTITY_NOT_FOUND);
+      expect(error.statusCode).toBe(404);
+    });
+
+    it('guards both self-service session handlers with JWT only and no permission or role metadata', () => {
+      for (const handler of [AuthController.prototype.listSessions, AuthController.prototype.revokeSession]) {
+        expect(Reflect.getMetadata('__guards__', handler)).toEqual([JwtAuthGuard]);
+        expect(reflector.get(PERMISSIONS_KEY, handler)).toBeUndefined();
+        expect(reflector.get(ROLES_KEY, handler)).toBeUndefined();
+      }
     });
   });
 

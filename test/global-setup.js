@@ -8,6 +8,8 @@ const DEFAULT_PERMISSIONS = [
   { name: 'user:update', description: 'Update users', category: 'user' },
   { name: 'user:delete', description: 'Delete users', category: 'user' },
   { name: 'user:unlock', description: 'Unlock user accounts', category: 'user' },
+  { name: 'session:read', description: 'Read active sessions of users', category: 'user' },
+  { name: 'session:revoke', description: 'Revoke active sessions of users', category: 'user' },
   { name: 'role:create', description: 'Create roles', category: 'system' },
   { name: 'role:read', description: 'Read roles', category: 'system' },
   { name: 'role:update', description: 'Update roles', category: 'system' },

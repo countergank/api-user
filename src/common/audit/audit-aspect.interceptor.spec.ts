@@ -24,7 +24,7 @@ describe(AuditAspectInterceptor.name, () => {
   const mockExecutionContext = (handlerName = 'testHandler') =>
     ({
       getHandler: () => ({ name: handlerName }),
-      getArgs: () => [{ name: 'Test User' }],
+      switchToHttp: () => ({ getRequest: () => ({ params: {}, body: { name: 'Test User' } }) }),
     }) as unknown as ExecutionContext;
 
   beforeEach(async () => {
@@ -139,21 +139,39 @@ describe(AuditAspectInterceptor.name, () => {
       jest.spyOn(reflector, 'get').mockReturnValue(auditConfig);
 
       const result = { _id: 'new-user-id', name: 'Test' };
-      const args = [{ name: 'Test User' }];
       const ctx = {
         getHandler: () => ({ name: 'create' }),
-        getArgs: () => args,
+        switchToHttp: () => ({ getRequest: () => ({ params: {}, body: { name: 'Test User' } }) }),
       } as unknown as ExecutionContext;
       const next = mockCallHandler(result);
 
       await lastValueFrom(interceptor.intercept(ctx, next));
 
-      expect(getResourceId).toHaveBeenCalledWith(result, args);
+      expect(getResourceId).toHaveBeenCalledWith(result, [{ name: 'Test User' }]);
       expect(eventEmitter.emit).toHaveBeenCalledWith(
         AuditEvents.AUDIT_BUSINESS_ACTION,
         expect.objectContaining({
           resourceId: 'new-user-id',
         }),
+      );
+    });
+
+    it('derives route params as handler args so resourceId captures the target id', async () => {
+      const getResourceId = jest.fn((_result, args) => args[0]);
+      const auditConfig = { action: 'USER_SESSION_REVOKE', resource: 'user', getResourceId };
+      jest.spyOn(reflector, 'get').mockReturnValue(auditConfig);
+
+      const ctx = {
+        getHandler: () => ({ name: 'revoke' }),
+        switchToHttp: () => ({ getRequest: () => ({ params: { id: 'target-1', sessionId: 's-1' }, body: undefined }) }),
+      } as unknown as ExecutionContext;
+
+      await lastValueFrom(interceptor.intercept(ctx, mockCallHandler({ message: 'ok' })));
+
+      expect(getResourceId).toHaveBeenCalledWith({ message: 'ok' }, ['target-1', 's-1', undefined]);
+      expect(eventEmitter.emit).toHaveBeenCalledWith(
+        AuditEvents.AUDIT_BUSINESS_ACTION,
+        expect.objectContaining({ resourceId: 'target-1' }),
       );
     });
 
@@ -166,10 +184,10 @@ describe(AuditAspectInterceptor.name, () => {
       };
       jest.spyOn(reflector, 'get').mockReturnValue(auditConfig);
 
-      const args = [{ name: 'Old Name' }, { name: 'New Name' }];
+      const args = ['role-1', { name: 'New Name' }];
       const ctx = {
         getHandler: () => ({ name: 'update' }),
-        getArgs: () => args,
+        switchToHttp: () => ({ getRequest: () => ({ params: { id: 'role-1' }, body: { name: 'New Name' } }) }),
       } as unknown as ExecutionContext;
       const next = mockCallHandler({ name: 'New Name' });
 
