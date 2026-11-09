@@ -18,6 +18,8 @@ import {
   UnlockUserDoc,
   UpdateUserDoc,
   ExportUserDoc,
+  ResetPasswordDoc,
+  ResendVerificationDoc,
 } from '../api-docs/user.decorator';
 import { AdminUserDTO } from '../dto/admin-user.dto';
 import { AdminUserDetailDTO } from '../dto/admin-user-detail.dto';
@@ -161,5 +163,37 @@ export class UserController {
   async toggleActive(@Param('id') id: string): Promise<AdminUserDTO> {
     const user: User = await this.userService.toggleActiveUser(id);
     return AdminUserDTO.of(user);
+  }
+
+  @ResendVerificationDoc()
+  @RequirePermissions('user:update')
+  @AuditAction({
+    action: 'user.resend-verification',
+    resource: 'user',
+    getResourceId: (_result: unknown, args: unknown[]) => args[0] as string,
+  })
+  @Post(':id/resend-verification')
+  async resendVerification(
+    @Param('id') id: string,
+    @RequestLang() lang: string | undefined,
+  ): Promise<{ message: string; userId: string }> {
+    await this.userService.adminResendVerification(id, lang);
+    return { message: await this.t('messages.verification_resent', lang), userId: id };
+  }
+
+  @ResetPasswordDoc()
+  @RequirePermissions('user:update')
+  @AuditAction({
+    action: 'user.reset-password',
+    resource: 'user',
+    getResourceId: (_result: unknown, args: unknown[]) => args[0] as string,
+  })
+  @Post(':id/reset-password')
+  async resetPassword(
+    @Param('id') id: string,
+    @RequestLang() lang: string | undefined,
+  ): Promise<{ message: string; userId: string }> {
+    await this.userService.adminResetPassword(id, lang);
+    return { message: await this.t('messages.forgot_password_sent', lang), userId: id };
   }
 }

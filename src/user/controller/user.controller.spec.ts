@@ -1,6 +1,8 @@
 import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
 import { Test, TestingModule } from '@nestjs/testing';
+import { AUDIT_ACTION_KEY } from '../../common/audit/audit.decorator';
 import { PaginatedResponseDTO } from '../../common/dto/paginated-response.dto';
+import { PERMISSIONS_KEY } from '../../auth/decorators/permissions.decorator';
 import { Permission } from '../../rbac/entities/permission.entity';
 import { Role } from '../../rbac/entities/role.entity';
 import { Mock } from '../../test-utils';
@@ -252,6 +254,58 @@ describe(UserController.name, () => {
       jest.spyOn(userService, 'deleteUser').mockResolvedValue({ userId: user.id });
       const result = await controller.delete(user.id, undefined);
       expect(result).toEqual({ message: 'messages.user_deleted', userId: user.id });
+    });
+  });
+
+  describe(`${UserController.name}.${UserController.prototype.resendVerification.name} (issue #533)`, () => {
+    const user = new UserMock();
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('calls the service with the path id and lang, and returns the i18n message with the user id', async () => {
+      const spy = jest.spyOn(userService, 'adminResendVerification').mockResolvedValue(undefined);
+
+      const result = await controller.resendVerification(user.id, 'es');
+
+      expect(spy).toHaveBeenCalledWith(user.id, 'es');
+      expect(result).toEqual({ message: 'messages.verification_resent', userId: user.id });
+    });
+
+    it('requires user:update and registers the audit action', () => {
+      const handler = UserController.prototype.resendVerification;
+      expect(Reflect.getMetadata(PERMISSIONS_KEY, handler)).toEqual(['user:update']);
+      expect(Reflect.getMetadata(AUDIT_ACTION_KEY, handler)).toMatchObject({
+        action: 'user.resend-verification',
+        resource: 'user',
+      });
+    });
+  });
+
+  describe(`${UserController.name}.${UserController.prototype.resetPassword.name} (issue #533)`, () => {
+    const user = new UserMock();
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('calls the service with the path id and lang, and returns the i18n message with the user id', async () => {
+      const spy = jest.spyOn(userService, 'adminResetPassword').mockResolvedValue(undefined);
+
+      const result = await controller.resetPassword(user.id, 'en');
+
+      expect(spy).toHaveBeenCalledWith(user.id, 'en');
+      expect(result).toEqual({ message: 'messages.forgot_password_sent', userId: user.id });
+    });
+
+    it('requires user:update and registers the audit action', () => {
+      const handler = UserController.prototype.resetPassword;
+      expect(Reflect.getMetadata(PERMISSIONS_KEY, handler)).toEqual(['user:update']);
+      expect(Reflect.getMetadata(AUDIT_ACTION_KEY, handler)).toMatchObject({
+        action: 'user.reset-password',
+        resource: 'user',
+      });
     });
   });
 

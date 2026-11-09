@@ -602,6 +602,113 @@ describe(UserService.name, () => {
     });
   });
 
+  describe(`${UserService.name}.${UserService.prototype.adminResendVerification.name} (issue #533)`, () => {
+    const user = Object.assign(new UserMock(), { id: 'user-1' } as unknown as Record<string, unknown>);
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      user.email = 'pending@example.com';
+      user.name = 'Pending';
+      user.emailVerificationToken = 'existing-token';
+    });
+
+    it('regenerates the verification token and expiry via update, then emits RESEND_VERIFICATION', async () => {
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(user);
+      jest.spyOn(userRepository, 'update').mockResolvedValue(user);
+
+      await service.adminResendVerification(user.id, 'es');
+
+      expect(userRepository.update).toHaveBeenCalledWith(
+        user.id,
+        expect.objectContaining({
+          emailVerificationToken: expect.any(String),
+          emailVerificationExpires: expect.any(Date),
+        }),
+        undefined,
+      );
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+        'auth.resend-verification',
+        expect.objectContaining({
+          userId: user.id,
+          email: user.email,
+          name: user.name,
+          verificationToken: expect.any(String),
+          lang: 'es',
+        }),
+      );
+    });
+
+    it('throws VALIDATION_ERROR for an already verified user and emits nothing', async () => {
+      const verifiedUser = Object.assign(new UserMock(), { id: 'user-2' } as unknown as Record<string, unknown>, {
+        email: 'verified@example.com',
+      });
+      verifiedUser.emailVerificationToken = undefined;
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(verifiedUser);
+      const updateSpy = jest.spyOn(userRepository, 'update');
+
+      await expect(service.adminResendVerification(verifiedUser.id)).rejects.toMatchObject({
+        kind: expect.objectContaining({ kind: 'VALIDATION_ERROR' }),
+      });
+
+      expect(updateSpy).not.toHaveBeenCalled();
+      expect(mockEventEmitter.emit).not.toHaveBeenCalled();
+    });
+
+    it('propagates USER_NOT_FOUND for an unknown id', async () => {
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(undefined);
+
+      await expect(service.adminResendVerification('nonexistent-id')).rejects.toMatchObject({
+        kind: expect.objectContaining({ kind: 'USER_NOT_FOUND' }),
+      });
+      expect(mockEventEmitter.emit).not.toHaveBeenCalled();
+    });
+  });
+
+  describe(`${UserService.name}.${UserService.prototype.adminResetPassword.name} (issue #533)`, () => {
+    const user = Object.assign(new UserMock(), { id: 'user-3' } as unknown as Record<string, unknown>);
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      user.email = 'forgotten@example.com';
+      user.name = 'Forgotten';
+    });
+
+    it('sets the reset token and expiry via update, then emits FORGOT_PASSWORD', async () => {
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(user);
+      jest.spyOn(userRepository, 'update').mockResolvedValue(user);
+
+      await service.adminResetPassword(user.id, 'en');
+
+      expect(userRepository.update).toHaveBeenCalledWith(
+        user.id,
+        expect.objectContaining({
+          resetPasswordToken: expect.any(String),
+          resetPasswordExpires: expect.any(Date),
+        }),
+        undefined,
+      );
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+        'auth.forgot-password',
+        expect.objectContaining({
+          userId: user.id,
+          email: user.email,
+          name: user.name,
+          resetToken: expect.any(String),
+          lang: 'en',
+        }),
+      );
+    });
+
+    it('propagates USER_NOT_FOUND for an unknown id', async () => {
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(undefined);
+
+      await expect(service.adminResetPassword('nonexistent-id')).rejects.toMatchObject({
+        kind: expect.objectContaining({ kind: 'USER_NOT_FOUND' }),
+      });
+      expect(mockEventEmitter.emit).not.toHaveBeenCalled();
+    });
+  });
+
   describe(`${UserService.name}.${UserService.prototype.findIdsByRole.name}`, () => {
     beforeEach(() => {
       jest.clearAllMocks();
