@@ -2,8 +2,10 @@ import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PaginatedResponseDTO } from '../../common/dto/paginated-response.dto';
 import { Permission } from '../../rbac/entities/permission.entity';
+import { Role } from '../../rbac/entities/role.entity';
 import { Mock } from '../../test-utils';
 import { AdminUserDTO } from '../dto/admin-user.dto';
+import { AdminUserDetailDTO } from '../dto/admin-user-detail.dto';
 import { CreateUserResponseDTO } from '../dto/create-user-response.dto';
 import { PaginationQueryDTO } from '../dto/pagination-query.dto';
 import { UpdateUserDTO } from '../dto/update-user.dto';
@@ -33,6 +35,7 @@ describe(UserController.name, () => {
       .useMocker((token) => {
         if (token === getConnectionToken()) return mockConnection;
         if (token === getModelToken(Permission.name)) return { find: jest.fn() };
+        if (token === getModelToken(Role.name)) return { findOne: jest.fn() };
         if (typeof token === 'function') return Mock(token);
       })
       .compile();
@@ -80,9 +83,22 @@ describe(UserController.name, () => {
   });
 
   describe(`${UserController.name}.${UserController.prototype.findById.name}`, () => {
-    const user = new UserMock();
-    it(`should be return a ${User.name}`, async () => {
+    it('returns the admin detail with the effective permissions resolved (issue #536)', async () => {
+      const user = new UserMock();
       jest.spyOn(userService, 'findById').mockResolvedValue(user);
+      jest.spyOn(userService, 'getEffectivePermissions').mockResolvedValue(['user:read']);
+
+      const dto = await controller.findById(user.id);
+
+      expect(dto).toBeInstanceOf(AdminUserDetailDTO);
+      expect(dto.permissions).toEqual(['user:read']);
+      expect(userService.getEffectivePermissions).toHaveBeenCalledWith(user);
+    });
+
+    it(`should be return a ${User.name}`, async () => {
+      const user = new UserMock();
+      jest.spyOn(userService, 'findById').mockResolvedValue(user);
+      jest.spyOn(userService, 'getEffectivePermissions').mockResolvedValue([]);
       await expect(controller.findById(user.id)).resolves.toBeInstanceOf(AdminUserDTO);
     });
   });

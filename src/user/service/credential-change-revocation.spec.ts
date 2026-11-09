@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { DomainError } from '../../common/errors/domain.error';
 import { CacheService } from '../../config/cache';
 import { Permission } from '../../rbac/entities/permission.entity';
+import { Role } from '../../rbac/entities/role.entity';
 import { Mock } from '../../test-utils';
 import { UserMock } from '../mocks/user.mock';
 import { UserRepository } from '../repository/user.repository';
@@ -108,6 +109,7 @@ describe(`${UserService.name}.${UserService.prototype.changePassword.name} sessi
         if (token === getConnectionToken()) return store.connection;
         if (token === CacheService) return mockCacheService;
         if (token === getModelToken(Permission.name)) return { find: jest.fn() };
+        if (token === getModelToken(Role.name)) return { findOne: jest.fn() };
         if (typeof token === 'function') return Mock(token);
       })
       .compile();

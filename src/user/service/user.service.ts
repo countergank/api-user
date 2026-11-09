@@ -10,7 +10,9 @@ import { DomainError } from '../../common/errors/domain.error';
 import { runInTransaction } from '../../common/utils/transaction';
 import { toCsv } from '../../common/utils/csv';
 import { EncodeService } from '../../encode/encode.service';
+import { mergeEffectivePermissions } from '../../rbac/services/effective-permissions';
 import { Permission } from '../../rbac/entities/permission.entity';
+import { Role } from '../../rbac/entities/role.entity';
 import { AdminUserDTO, ADMIN_USER_CSV_HEADERS } from '../dto/admin-user.dto';
 import { CreateUserDTO } from '../dto/create-user.dto';
 import { PaginationQueryDTO } from '../dto/pagination-query.dto';
@@ -37,6 +39,7 @@ export class UserService {
     @InjectConnection() private readonly connection: Connection,
     private readonly eventEmitter: EventEmitter2,
     @InjectModel(Permission.name) private readonly permissionModel: Model<Permission>,
+    @InjectModel(Role.name) private readonly roleModel: Model<Role>,
   ) {}
 
   // Invalidation is reactive: this only emits; CacheService performs the
@@ -155,6 +158,22 @@ export class UserService {
   async findAll(): Promise<User[]> {
     const users: User[] = await this.userRepository.findAll();
     return users;
+  }
+
+  /**
+   * Resolves the effective permissions of an arbitrary user: the role's
+   * permissions as base, the user's explicit permissions additive, deduplicated
+   * (issue #536). Same rule as `AuthService.withEffectivePermissions`, so the
+   * result is coherent with what `/auth/me` would return for this user.
+   *
+   * A role that does not resolve (unknown name, empty `permissionIds`)
+   * contributes nothing; the explicit grants still apply. Never throws for a
+   * role without permissions — returns an empty list instead.
+   */
+  async getEffectivePermissions(user: Pick<User, 'role' | 'permissions'>): Promise<string[]> {
+    const role = await this.roleModel.findOne({ name: user.role }).lean().exec();
+    const rolePermissions = (role?.permissionIds as string[] | undefined) ?? [];
+    return mergeEffectivePermissions(rolePermissions, user.permissions ?? []);
   }
 
   async findById(id: string, opts?: { includePassword?: boolean }): Promise<User> {

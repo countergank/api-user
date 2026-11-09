@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { EncodeService } from '../encode/encode.service';
 import { Permission, PermissionSchema } from '../rbac/entities/permission.entity';
+import { Role, RoleSchema } from '../rbac/entities/role.entity';
 import { SessionModule } from '../session/session.module';
 import { AdminSessionController } from './controller/admin-session.controller';
 import { UserController } from './controller/user.controller';
@@ -21,6 +22,9 @@ import { UserService } from './service/user.service';
       // Registered here so the admin create path can validate explicit permissions
       // against the catalog: importing RbacModule would be a circular dependency.
       { name: Permission.name, schema: PermissionSchema },
+      // Role resolution for the admin detail's effective permissions (issue #536);
+      // same reason as Permission above — RbacModule imports this module.
+      { name: Role.name, schema: RoleSchema },
     ]),
   ],
   controllers: [UserController, UserProfileController, AdminSessionController],

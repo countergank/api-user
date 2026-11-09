@@ -16,6 +16,7 @@ import { BadRequestDTO } from '../../common/dto/bad-request.dto';
 import { InternalErrorDTO } from '../../common/dto/internal-error.dto';
 import { PaginatedResponseDTO } from '../../common/dto/paginated-response.dto';
 import { paginatedSchema } from '../../common/dto/paginated-response.schema';
+import { AdminUserDetailDTO } from '../dto/admin-user-detail.dto';
 import { CreateUserDTO } from '../dto/create-user.dto';
 import { UpdateUserDTO } from '../dto/update-user.dto';
 import { UserMetricsResponseDTO } from '../dto/user-metrics.dto';
@@ -52,14 +53,17 @@ export function FindByIdUserDoc() {
     ApiBearerAuth(),
     ApiOperation({
       summary: 'Obtener usuario por ID (Admin)',
-      description: 'Busca un usuario por su ID. Solo accesible por administradores.',
+      description:
+        'Busca un usuario por su ID e incluye sus permisos efectivos (rol + permisos explícitos, sin duplicados; issue #536). Solo accesible por administradores.',
     }),
-    ApiExtraModels(UserResponse),
+    ApiExtraModels(AdminUserDetailDTO),
     ApiResponse({
       status: 200,
-      description: 'Usuario encontrado',
+      description: 'Usuario encontrado con sus permisos efectivos',
       schema: {
-        $ref: getSchemaPath(UserResponse),
+        allOf: [
+          { $ref: getSchemaPath(AdminUserDetailDTO) },
+        ],
       },
     }),
     ApiResponse({ status: 404, description: 'Usuario no encontrado' }),

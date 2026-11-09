@@ -193,6 +193,11 @@ HTTP 200
 jsonpath "$.id" == "{{tempUserId}}"
 jsonpath "$.email" == "hurl-ep-byid@test.com"
 jsonpath "$.failedLoginAttempts" isInteger
+# Permisos efectivos en el detalle (issue #536): el usuario recién creado tiene el rol
+# `user`, cuyo rol base trae user:read y user:update.
+jsonpath "$.permissions" isList
+jsonpath "$.permissions[0]" == "user:read"
+jsonpath "$.permissions[1]" == "user:update"
 
 # Negativo: id inexistente → 404.
 GET {{baseUrl}}/admin/users/000000000000000000000000
