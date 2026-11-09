@@ -4,7 +4,7 @@ import { AdminUserDTO } from './admin-user.dto';
 
 /**
  * DTO de respuesta del detalle de usuario admin con los permisos efectivos
- * resueltos (issue #536). Extiende `AdminUserDTO`: agrega el campo
+ * resueltos. Extiende `AdminUserDTO`: agrega el campo
  * `permissions` derivado del rol del usuario más sus permisos explícitos,
  * con la misma regla que `/auth/me` aplica para el usuario autenticado.
  *

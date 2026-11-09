@@ -22,7 +22,7 @@ import { UserService } from './service/user.service';
       // Registered here so the admin create path can validate explicit permissions
       // against the catalog: importing RbacModule would be a circular dependency.
       { name: Permission.name, schema: PermissionSchema },
-      // Role resolution for the admin detail's effective permissions (issue #536);
+      // Role resolution for the admin detail's effective permissions;
       // same reason as Permission above — RbacModule imports this module.
       { name: Role.name, schema: RoleSchema },
     ]),

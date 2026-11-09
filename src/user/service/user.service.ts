@@ -10,6 +10,7 @@ import { DomainError } from '../../common/errors/domain.error';
 import { runInTransaction } from '../../common/utils/transaction';
 import { toCsv } from '../../common/utils/csv';
 import { EncodeService } from '../../encode/encode.service';
+import { EmailEvents } from '../../email/constants/email.events';
 import { mergeEffectivePermissions } from '../../rbac/services/effective-permissions';
 import { Permission } from '../../rbac/entities/permission.entity';
 import { Role } from '../../rbac/entities/role.entity';
@@ -162,8 +163,8 @@ export class UserService {
 
   /**
    * Resolves the effective permissions of an arbitrary user: the role's
-   * permissions as base, the user's explicit permissions additive, deduplicated
-   * (issue #536). Same rule as `AuthService.withEffectivePermissions`, so the
+   * permissions as base, the user's explicit permissions additive, deduplicated.
+   * Same rule as `AuthService.withEffectivePermissions`, so the
    * result is coherent with what `/auth/me` would return for this user.
    *
    * A role that does not resolve (unknown name, empty `permissionIds`)
@@ -504,6 +505,76 @@ export class UserService {
     const updated = await this.userRepository.update(id, { isActive: newIsActive });
     this.invalidateUserCache(id);
     return updated;
+  }
+
+  /**
+   * Regenerates the email-verification token of an admin-managed user and
+   * emits the resend-verification email event with the plaintext token.
+   *
+   * A user without `emailVerificationToken` is already verified (that absence
+   * is exactly what `AdminUserDTO.emailVerified` reports), so a resend is a
+   * client mistake and answers 400 without emitting anything.
+   *
+   * @throws DomainError USER_NOT_FOUND for an unknown id, VALIDATION_ERROR when
+   * the email is already verified.
+   *
+   * Side effect: writes the new token to the user document and sends the
+   * verification email via the `auth.resend-verification` event.
+   */
+  async adminResendVerification(id: string, lang?: string): Promise<void> {
+    const user = await this.findById(id);
+
+    if (!user.emailVerificationToken) {
+      throw DomainError.fromKind('VALIDATION_ERROR', {
+        message: 'Email already verified',
+      });
+    }
+
+    const verificationToken = randomUUID();
+    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await this.update(id, {
+      emailVerificationToken: verificationToken,
+      emailVerificationExpires: verificationExpires,
+    });
+
+    this.eventEmitter.emit(EmailEvents.RESEND_VERIFICATION, {
+      userId: id,
+      email: user.email,
+      name: user.name,
+      verificationToken,
+      lang,
+    });
+  }
+
+  /**
+   * Starts the password reset of an admin-managed user without knowing their
+   * current password. The plaintext token is only ever delivered
+   * through the FORGOT_PASSWORD email event, never returned over HTTP.
+   *
+   * @throws DomainError USER_NOT_FOUND for an unknown id.
+   *
+   * Side effect: writes a 24h reset token to the user document and sends the
+   * reset email via the `auth.forgot-password` event.
+   */
+  async adminResetPassword(id: string, lang?: string): Promise<void> {
+    const user = await this.findById(id);
+
+    const resetToken = randomUUID();
+    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await this.update(id, {
+      resetPasswordToken: resetToken,
+      resetPasswordExpires: expires,
+    });
+
+    this.eventEmitter.emit(EmailEvents.FORGOT_PASSWORD, {
+      userId: id,
+      email: user.email,
+      name: user.name,
+      resetToken,
+      lang,
+    });
   }
 
   async findPaginated(filters: PaginationQueryDTO): Promise<PaginatedResponseDTO<AdminUserDTO>> {
