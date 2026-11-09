@@ -4,6 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PaginatedResponseDTO } from '../../common/dto/paginated-response.dto';
 import { DomainError } from '../../common/errors/domain.error';
 import { EncodeService } from '../../encode/encode.service';
+import { Role } from '../../rbac/entities/role.entity';
 import { Permission } from '../../rbac/entities/permission.entity';
 import { Mock } from '../../test-utils';
 import { PaginationQueryDTO } from '../dto/pagination-query.dto';
@@ -52,6 +53,17 @@ describe(UserService.name, () => {
     find: jest.fn(),
   };
 
+  const roleModel = {
+    findOne: jest.fn(),
+  };
+
+  /** Makes the role lookup answer a role document with exactly these permission ids. */
+  const mockRole = (permissionIds: string[] | null): void => {
+    roleModel.findOne.mockReturnValue({
+      lean: () => ({ exec: () => Promise.resolve(permissionIds === null ? null : { permissionIds }) }),
+    });
+  };
+
   /** Makes the permission catalog answer with exactly these names. */
   const mockCatalog = (names: string[]): void => {
     permissionModel.find.mockReturnValue({
@@ -69,6 +81,7 @@ describe(UserService.name, () => {
         if (token === getConnectionToken()) return mockConnection;
         if (token === EventEmitter2) return mockEventEmitter;
         if (token === getModelToken(Permission.name)) return permissionModel;
+        if (token === getModelToken(Role.name)) return roleModel;
         if (typeof token === 'function') return Mock(token);
       })
       .compile();
@@ -553,6 +566,39 @@ describe(UserService.name, () => {
       expect(mockEventEmitter.emit).toHaveBeenCalledWith('cache.invalidate.user', {
         pattern: 'cache:user:*',
       });
+    });
+  });
+
+  describe(`${UserService.name}.${UserService.prototype.getEffectivePermissions.name} (issue #536)`, () => {
+    it('merges role permissions with the explicit grants, deduplicated', async () => {
+      mockRole(['user:read', 'user:update']);
+      const user = new UserMock();
+      user.role = UserRole.USER;
+      user.permissions = ['user:update', 'audit:read'];
+
+      await expect(service.getEffectivePermissions(user)).resolves.toEqual([
+        'user:read',
+        'user:update',
+        'audit:read',
+      ]);
+    });
+
+    it('returns an empty list for a user whose role has no permissions', async () => {
+      mockRole([]);
+      const user = new UserMock();
+      user.role = UserRole.VIEWER;
+      user.permissions = [];
+
+      await expect(service.getEffectivePermissions(user)).resolves.toEqual([]);
+    });
+
+    it('returns only the explicit grants when the role is unknown', async () => {
+      mockRole(null);
+      const user = new UserMock();
+      user.role = UserRole.USER;
+      user.permissions = ['user:read'];
+
+      await expect(service.getEffectivePermissions(user)).resolves.toEqual(['user:read']);
     });
   });
 

@@ -20,6 +20,7 @@ import {
   ExportUserDoc,
 } from '../api-docs/user.decorator';
 import { AdminUserDTO } from '../dto/admin-user.dto';
+import { AdminUserDetailDTO } from '../dto/admin-user-detail.dto';
 import { CreateUserResponseDTO } from '../dto/create-user-response.dto';
 import { CreateUserDTO } from '../dto/create-user.dto';
 import { PaginationQueryDTO } from '../dto/pagination-query.dto';
@@ -88,7 +89,7 @@ export class UserController {
   @Get('export.csv')
   async exportCsv(@Query() query: PaginationQueryDTO): Promise<StreamableFile> {
     const csv = await this.userService.exportUsersCsv(query);
-    return new StreamableFile(Buffer.from(csv, 'utf8'), {
+    return new StreamableFile(new TextEncoder().encode(csv), {
       type: 'text/csv; charset=utf-8',
       disposition: 'attachment; filename="users.csv"',
     });
@@ -97,9 +98,10 @@ export class UserController {
   @FindByIdUserDoc()
   @RequirePermissions('user:read')
   @Get(':id')
-  async findById(@Param('id') id: string): Promise<AdminUserDTO> {
+  async findById(@Param('id') id: string): Promise<AdminUserDetailDTO> {
     const user: User = await this.userService.findById(id);
-    return AdminUserDTO.of(user);
+    const permissions = await this.userService.getEffectivePermissions(user);
+    return AdminUserDetailDTO.of(user, permissions);
   }
 
   @UnlockUserDoc()

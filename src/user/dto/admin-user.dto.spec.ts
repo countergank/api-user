@@ -1,4 +1,5 @@
 import { AdminUserDTO } from './admin-user.dto';
+import { AdminUserDetailDTO } from './admin-user-detail.dto';
 import { UserMock } from '../mocks/user.mock';
 import { UserRole } from '../entities/user.entity';
 
@@ -108,5 +109,30 @@ describe(AdminUserDTO.name, () => {
       expect(dto.hasPendingEmailChange).toBe(false);
       expect(dto.hasPendingPasswordReset).toBe(false);
     });
+  });
+});
+
+describe(AdminUserDetailDTO.name, () => {
+  it('exposes the effective permissions resolved by the service (issue #536)', () => {
+    const user = new UserMock();
+    user.role = UserRole.ADMIN;
+
+    const dto = AdminUserDetailDTO.of(user, ['user:read', 'user:update']);
+
+    expect(dto.permissions).toEqual(['user:read', 'user:update']);
+    expect(dto).toBeInstanceOf(AdminUserDTO);
+  });
+
+  it('keeps every admin field of the base DTO intact', () => {
+    const user = new UserMock();
+    user.id = 'user-9';
+    user.failedLoginAttempts = 1;
+
+    const dto = AdminUserDetailDTO.of(user, []);
+
+    expect(dto.id).toBe('user-9');
+    expect(dto.failedLoginAttempts).toBe(1);
+    expect(dto.lockedUntil).toBeNull();
+    expect(dto.permissions).toEqual([]);
   });
 });

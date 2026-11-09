@@ -3,6 +3,7 @@ import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
 import { createHash } from 'node:crypto';
 import { Mock } from '../../test-utils';
 import { Permission } from '../../rbac/entities/permission.entity';
+import { Role } from '../../rbac/entities/role.entity';
 import { AUDIT_ACTION_KEY } from '../../common/audit/audit.decorator';
 import { DomainError } from '../../common/errors/domain.error';
 import { CacheService } from '../../config/cache';
@@ -89,6 +90,7 @@ describe(`${UserService.name} — email change code lifecycle (COU-263)`, () => 
         if (token === getConnectionToken()) return mockConnection;
         if (token === CacheService) return mockCacheService;
         if (token === getModelToken(Permission.name)) return { find: jest.fn() };
+        if (token === getModelToken(Role.name)) return { findOne: jest.fn() };
         if (typeof token === 'function') return Mock(token);
       })
       .compile();

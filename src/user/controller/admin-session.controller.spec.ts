@@ -8,6 +8,7 @@ import { ActiveSessionService } from '../../session/active-session.service';
 import { ActiveSessionDTO } from '../../session/dto/active-session.dto';
 import { ActiveSession } from '../../session/entities/active-session.entity';
 import { Permission } from '../../rbac/entities/permission.entity';
+import { Role } from '../../rbac/entities/role.entity';
 import { Mock } from '../../test-utils';
 import { UserService } from '../service/user.service';
 import { AdminSessionController } from './admin-session.controller';
@@ -33,6 +34,7 @@ describe(AdminSessionController.name, () => {
       .useMocker((token) => {
         if (token === getConnectionToken()) return mockConnection;
         if (token === getModelToken(Permission.name)) return { find: jest.fn() };
+        if (token === getModelToken(Role.name)) return { findOne: jest.fn() };
         if (typeof token === 'function') return Mock(token);
       })
       .compile();
