@@ -267,6 +267,25 @@ describe(UserRepository.name, () => {
       ]);
     });
 
+    it('coalesces a non-whitelisted sortBy to createdAt at the repository boundary (issue #541 review)', async () => {
+      // El whitelist del DTO rechaza el sortBy inválido por HTTP (400), pero el
+      // repository también recibe callers programáticos; el fallback defensivo
+      // del baseline evita ordenar sobre un campo arbitrario que no existe.
+      const first = new UserMock().randomize();
+      const second = new UserMock().randomize();
+      await repository.create(first);
+      await repository.create(second);
+
+      const result = await repository.findPaginated({
+        page: 1,
+        limit: 10,
+        sortBy: 'notARealField',
+        sortOrder: 'desc',
+      });
+
+      expect(result.users.map((user) => user.email)).toEqual([second.email, first.email]);
+    });
+
     it('should filter by role', async () => {
       const adminUser = new UserMock();
       adminUser.role = 'admin' as any;

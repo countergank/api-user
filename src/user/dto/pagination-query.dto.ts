@@ -7,6 +7,12 @@ export const SORTABLE_FIELDS = ['name', 'lastName', 'email', 'userName', 'role',
 /**
  * Sort spec a Mongo from the validated whitelist value (issue #541).
  *
+ * The DTO whitelists `sortBy` with `@IsIn(SORTABLE_FIELDS)` at the HTTP
+ * boundary; this function additionally coalesces any non-whitelisted value to
+ * `createdAt` (review follow-up on #541), so a programmatic caller of the
+ * repository can never sort on an arbitrary, non-existent field — the same
+ * defensive fallback the baseline had.
+ *
  * `emailVerified` is derived (`!emailVerificationToken`) and does not exist in
  * the stored documents: sorting directly by it is a silent no-op. It maps to
  * the token field with the same direction — MongoDB sorts missing values
@@ -17,6 +23,9 @@ export const SORTABLE_FIELDS = ['name', 'lastName', 'email', 'userName', 'role',
  */
 export function toMongoSort(sortBy: string, sortOrder: string): Record<string, 1 | -1> {
   const direction: 1 | -1 = sortOrder === 'asc' ? 1 : -1;
+  if (!SORTABLE_FIELDS.includes(sortBy)) {
+    return { createdAt: direction, _id: 1 };
+  }
   if (sortBy === 'emailVerified') {
     return { emailVerificationToken: direction, _id: 1 };
   }
