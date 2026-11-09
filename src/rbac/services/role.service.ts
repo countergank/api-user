@@ -66,16 +66,12 @@ export const DEFAULT_ROLES = [
 ];
 
 /**
- * Resolves the effective permissions for a user.
- *
- * The role's permissions are the base (a user with no explicit permissions
- * inherits them); the user's own permissions are additive grants. The result
- * is deduplicated while preserving order — role permissions first, then any
- * additional explicit grants. A wildcard (`*`) is passed through unchanged.
+ * Pure effective-permissions merge, shared by `AuthService` and `UserService`.
+ * Kept re-exported here for backward compatibility with existing importers;
+ * the implementation lives in `./effective-permissions` so importing it never
+ * pulls `RoleService` (and through it, `UserService`) into the import graph.
  */
-export function mergeEffectivePermissions(rolePermissions: string[], userPermissions: string[]): string[] {
-  return [...new Set([...rolePermissions, ...userPermissions])];
-}
+export { mergeEffectivePermissions } from './effective-permissions';
 
 @Injectable()
 export class RoleService {
