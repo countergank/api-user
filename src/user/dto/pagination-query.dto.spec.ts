@@ -61,6 +61,13 @@ describe(PaginationQueryDTO.name, () => {
     }
   });
 
+  it('accepts emailVerified as a sortable field (issue #541)', async () => {
+    const dto = plainToInstance(PaginationQueryDTO, { sortBy: 'emailVerified', sortOrder: 'asc' });
+    const errors = await validate(dto);
+    expect(errors).toHaveLength(0);
+    expect(dto.sortBy).toBe('emailVerified');
+  });
+
   it('should reject invalid sortOrder', async () => {
     const dto = plainToInstance(PaginationQueryDTO, { sortOrder: 'random' });
     const errors = await validate(dto);

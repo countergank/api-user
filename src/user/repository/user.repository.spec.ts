@@ -216,6 +216,57 @@ describe(UserRepository.name, () => {
       expect(result.total).toBe(5);
     });
 
+    it('sorts by emailVerified, verified first on asc, stable by creation order (issue #541)', async () => {
+      // Orden de creación deliberado: si el sort cayera al fallback `createdAt`, el
+      // resultado sería A, B, C y el assert fallaría. `emailVerified` es derivado
+      // (`!emailVerificationToken`), así que el orden real va sobre el token.
+      const unverified = new UserMock().randomize();
+      unverified.emailVerificationToken = 'token-a';
+      const verifiedFirst = new UserMock().randomize();
+      const verifiedSecond = new UserMock().randomize();
+
+      await repository.create(unverified);
+      await repository.create(verifiedFirst);
+      await repository.create(verifiedSecond);
+
+      const result = await repository.findPaginated({
+        page: 1,
+        limit: 10,
+        sortBy: 'emailVerified',
+        sortOrder: 'asc',
+      });
+
+      expect(result.users.map((user) => user.email)).toEqual([
+        verifiedFirst.email,
+        verifiedSecond.email,
+        unverified.email,
+      ]);
+    });
+
+    it('puts unverified first on emailVerified desc (issue #541)', async () => {
+      const unverified = new UserMock().randomize();
+      unverified.emailVerificationToken = 'token-b';
+      const verifiedFirst = new UserMock().randomize();
+      const verifiedSecond = new UserMock().randomize();
+
+      await repository.create(unverified);
+      await repository.create(verifiedFirst);
+      await repository.create(verifiedSecond);
+
+      const result = await repository.findPaginated({
+        page: 1,
+        limit: 10,
+        sortBy: 'emailVerified',
+        sortOrder: 'desc',
+      });
+
+      expect(result.users.map((user) => user.email)).toEqual([
+        unverified.email,
+        verifiedFirst.email,
+        verifiedSecond.email,
+      ]);
+    });
+
     it('should filter by role', async () => {
       const adminUser = new UserMock();
       adminUser.role = 'admin' as any;

@@ -4,7 +4,7 @@ import { ClientSession, Model } from 'mongoose';
 import { DomainError } from '../../common/errors/domain.error';
 import { escapeRegExp, isLocal } from '../../common/utils';
 import { EncodeService } from '../../encode/encode.service';
-import { SORTABLE_FIELDS } from '../dto/pagination-query.dto';
+import { SORTABLE_FIELDS, toMongoSort } from '../dto/pagination-query.dto';
 import { UserMetrics } from '../dto/user-metrics.dto';
 import { User, UserRole } from '../entities/user.entity';
 
@@ -263,15 +263,14 @@ export class UserRepository implements OnApplicationBootstrap {
   }): Promise<{ users: User[]; total: number }> {
     const mongoFilter = this.buildListFilter(filters);
 
-    const sortBy = SORTABLE_FIELDS.includes(filters.sortBy) ? filters.sortBy : 'createdAt';
-    const sortOrder = filters.sortOrder === 'asc' ? 1 : -1;
+    const sort = toMongoSort(filters.sortBy, filters.sortOrder);
 
     const skip = (filters.page - 1) * filters.limit;
 
     const [users, total] = await Promise.all([
       this.userModel
         .find(mongoFilter)
-        .sort({ [sortBy]: sortOrder })
+        .sort(sort)
         .skip(skip)
         .limit(filters.limit)
         .exec(),
@@ -293,10 +292,8 @@ export class UserRepository implements OnApplicationBootstrap {
     search?: string;
   }): Promise<User[]> {
     const mongoFilter = this.buildListFilter(filters);
-    const sortBy = SORTABLE_FIELDS.includes(filters.sortBy) ? filters.sortBy : 'createdAt';
-    const sortOrder = filters.sortOrder === 'asc' ? 1 : -1;
 
-    return this.userModel.find(mongoFilter).sort({ [sortBy]: sortOrder }).exec();
+    return this.userModel.find(mongoFilter).sort(toMongoSort(filters.sortBy, filters.sortOrder)).exec();
   }
 
   async softDelete(id: string): Promise<User> {
