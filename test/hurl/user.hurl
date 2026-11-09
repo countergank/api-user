@@ -193,7 +193,7 @@ HTTP 200
 jsonpath "$.id" == "{{tempUserId}}"
 jsonpath "$.email" == "hurl-ep-byid@test.com"
 jsonpath "$.failedLoginAttempts" isInteger
-# Permisos efectivos en el detalle (issue #536): el usuario recién creado tiene el rol
+# Permisos efectivos en el detalle: el usuario recién creado tiene el rol
 # `user`, cuyo rol base trae user:read y user:update.
 jsonpath "$.permissions" isList
 jsonpath "$.permissions[0]" == "user:read"
@@ -558,3 +558,50 @@ Authorization: Bearer {{viewerToken}}
 HTTP 403
 [Asserts]
 jsonpath "$.code" == "UA-SEC-002"
+
+
+# ======================================================================
+# 29 — POST /admin/users/:id/resend-verification y /reset-password (admin, user:update).
+
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+{
+  "email": "{{adminEmail}}",
+  "password": "{{adminPassword}}"
+}
+HTTP 200
+[Captures]
+adminToken: jsonpath "$.accessToken"
+
+# Negativo: usuario sin rol admin → 403 FORBIDDEN en resend-verification.
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+{
+  "email": "{{viewerEmail}}",
+  "password": "{{flowPassword}}"
+}
+HTTP 200
+[Captures]
+viewerToken: jsonpath "$.accessToken"
+
+POST {{baseUrl}}/admin/users/000000000000000000000000/resend-verification
+Authorization: Bearer {{viewerToken}}
+HTTP 403
+[Asserts]
+jsonpath "$.code" == "UA-SEC-002"
+
+# Negativo: usuario sin rol admin → 403 FORBIDDEN en reset-password.
+POST {{baseUrl}}/admin/users/000000000000000000000000/reset-password
+Authorization: Bearer {{viewerToken}}
+HTTP 403
+[Asserts]
+jsonpath "$.code" == "UA-SEC-002"
+
+# Negativo: admin con id inexistente → 404 (el guard pasa, el servicio no encuentra al usuario).
+POST {{baseUrl}}/admin/users/000000000000000000000000/resend-verification
+Authorization: Bearer {{adminToken}}
+HTTP 404
+
+POST {{baseUrl}}/admin/users/000000000000000000000000/reset-password
+Authorization: Bearer {{adminToken}}
+HTTP 404

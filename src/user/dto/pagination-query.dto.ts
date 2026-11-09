@@ -5,11 +5,11 @@ import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-va
 export const SORTABLE_FIELDS = ['name', 'lastName', 'email', 'userName', 'role', 'isActive', 'emailVerified', 'createdAt', 'updatedAt'];
 
 /**
- * Sort spec a Mongo from the validated whitelist value (issue #541).
+ * Sort spec a Mongo from the validated whitelist value.
  *
  * The DTO whitelists `sortBy` with `@IsIn(SORTABLE_FIELDS)` at the HTTP
  * boundary; this function additionally coalesces any non-whitelisted value to
- * `createdAt` (review follow-up on #541), so a programmatic caller of the
+ * `createdAt`, so a programmatic caller of the
  * repository can never sort on an arbitrary, non-existent field — the same
  * defensive fallback the baseline had.
  *

@@ -54,7 +54,7 @@ export function FindByIdUserDoc() {
     ApiOperation({
       summary: 'Obtener usuario por ID (Admin)',
       description:
-        'Busca un usuario por su ID e incluye sus permisos efectivos (rol + permisos explícitos, sin duplicados; issue #536). Solo accesible por administradores.',
+        'Busca un usuario por su ID e incluye sus permisos efectivos (rol + permisos explícitos, sin duplicados). Solo accesible por administradores.',
     }),
     ApiExtraModels(AdminUserDetailDTO),
     ApiResponse({
@@ -201,6 +201,65 @@ export function UnlockUserDoc() {
       },
     }),
     ApiBadRequestResponse({ description: 'Usuario no encontrado', type: BadRequestDTO }),
+    ApiResponse({ status: 403, description: 'Acceso denegado. Se requiere rol admin.' }),
+    ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
+  );
+}
+
+export function ResetPasswordDoc() {
+  return applyDecorators(
+    ApiTags('users'),
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Iniciar reset de contraseña de un usuario (Admin)',
+      description:
+        'Inicia el reset de la contraseña de un usuario sin conocer la actual: genera un token de ' +
+        '24h y envía el email de reset. Solo accesible por administradores. El token nunca se devuelve ' +
+        'en la respuesta.\n\n**i18n Support**: Use `Accept-Language` header (es, en, pt) to receive messages in your preferred language.',
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Reset iniciado; el usuario recibe el email con el token',
+      schema: {
+        example: {
+          message: 'Password reset email sent',
+          userId: '507f191e810c19729de860ea',
+        },
+      },
+    }),
+    ApiBadRequestResponse({ description: 'Usuario no encontrado', type: BadRequestDTO }),
+    ApiResponse({ status: 404, description: 'Usuario no encontrado' }),
+    ApiResponse({ status: 403, description: 'Acceso denegado. Se requiere rol admin.' }),
+    ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
+  );
+}
+
+export function ResendVerificationDoc() {
+  return applyDecorators(
+    ApiTags('users'),
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Reenviar verificación de email (Admin)',
+      description:
+        'Regenera el token de verificación de email y reenvía el email de verificación al usuario. ' +
+        'Solo accesible por administradores. Rechaza con 400 si el email ya está verificado.\n\n' +
+        '**i18n Support**: Use `Accept-Language` header (es, en, pt) to receive messages in your preferred language.',
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Email de verificación reenviado',
+      schema: {
+        example: {
+          message: 'Verification email resent',
+          userId: '507f191e810c19729de860ea',
+        },
+      },
+    }),
+    ApiBadRequestResponse({
+      description: 'El email ya está verificado, o usuario no encontrado',
+      type: BadRequestDTO,
+    }),
+    ApiResponse({ status: 404, description: 'Usuario no encontrado' }),
     ApiResponse({ status: 403, description: 'Acceso denegado. Se requiere rol admin.' }),
     ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
   );

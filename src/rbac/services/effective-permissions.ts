@@ -1,5 +1,6 @@
 /**
- * Pure effective-permissions resolution (issues #489 and #536).
+ * Pure effective-permissions resolution, shared by `AuthService` and
+ * `UserService`.
  *
  * Lives in its own module, separate from `RoleService`, so services that
  * resolve permissions (`AuthService`, `UserService`) never import the
