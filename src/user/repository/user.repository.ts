@@ -335,14 +335,10 @@ export class UserRepository implements OnApplicationBootstrap {
     // Every UserRole key is always present, zero included; stored role values
     // outside the enum simply match nothing, so inherited object keys such as
     // `toString` can never leak into the distribution.
-    const roleDistribution: Record<UserRole, number> = {
-      [UserRole.ADMIN]: 0,
-      [UserRole.USER]: 0,
-      [UserRole.VIEWER]: 0,
-    };
-    for (const role of Object.values(UserRole)) {
-      roleDistribution[role] = result?.roleDistribution?.find((row) => row._id === role)?.count ?? 0;
-    }
+    const roleRows = result?.roleDistribution ?? [];
+    const roleDistribution = Object.fromEntries(
+      Object.values(UserRole).map((role) => [role, roleRows.find((row) => row._id === role)?.count ?? 0]),
+    ) as Record<UserRole, number>;
 
     return {
       total: count(result?.total),
