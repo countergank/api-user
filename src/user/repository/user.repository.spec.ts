@@ -518,6 +518,52 @@ describe(UserRepository.name, () => {
     });
   });
 
+  describe(`${UserRepository.name}.${UserRepository.prototype.aggregateMetrics.name}`, () => {
+    beforeEach(() => {
+      jest.spyOn(encodeService, 'hash').mockResolvedValue(new HashMock().getMock());
+    });
+
+    it('should distribute users by role excluding soft-deleted ones', async () => {
+      const adminA = new UserMock();
+      adminA.role = UserRole.ADMIN;
+      const adminB = new UserMock().randomize();
+      adminB.role = UserRole.ADMIN;
+      const regular = new UserMock().randomize();
+      regular.role = UserRole.USER;
+      const viewer = new UserMock().randomize();
+      viewer.role = UserRole.VIEWER;
+
+      await repository.create(adminA);
+      const deleted = await repository.create(adminB);
+      await repository.create(regular);
+      await repository.create(viewer);
+      await repository.softDelete(deleted.id);
+
+      const metrics = await repository.aggregateMetrics();
+
+      expect(metrics.roleDistribution).toEqual({
+        [UserRole.ADMIN]: 1,
+        [UserRole.USER]: 1,
+        [UserRole.VIEWER]: 1,
+      });
+      expect(Object.values(metrics.roleDistribution).reduce((sum, count) => sum + count, 0)).toBe(metrics.total);
+    });
+
+    it('should return zero for roles without users', async () => {
+      const regular = new UserMock();
+      regular.role = UserRole.USER;
+      await repository.create(regular);
+
+      const metrics = await repository.aggregateMetrics();
+
+      expect(metrics.roleDistribution).toEqual({
+        [UserRole.ADMIN]: 0,
+        [UserRole.USER]: 1,
+        [UserRole.VIEWER]: 0,
+      });
+    });
+  });
+
   describe(`${UserRepository.name}.${UserRepository.prototype.update.name}`, () => {
     it('should throw DomainError when updating password for non-existent user', async () => {
       await expect(
