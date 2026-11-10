@@ -332,16 +332,16 @@ export class UserRepository implements OnApplicationBootstrap {
     // An empty facet yields an empty array, and `$count` never emits a zero row.
     const count = (rows?: { count: number }[]): number => rows?.[0]?.count ?? 0;
 
-    // Every UserRole key is always present, zero included; an unknown stored
-    // role value (not in the enum) is ignored rather than leaking a new key.
-    const roleDistribution = Object.fromEntries(Object.values(UserRole).map((role) => [role, 0])) as Record<
-      UserRole,
-      number
-    >;
-    for (const row of result?.roleDistribution ?? []) {
-      if (row._id in roleDistribution) {
-        roleDistribution[row._id as UserRole] = row.count;
-      }
+    // Every UserRole key is always present, zero included; stored role values
+    // outside the enum simply match nothing, so inherited object keys such as
+    // `toString` can never leak into the distribution.
+    const roleDistribution: Record<UserRole, number> = {
+      [UserRole.ADMIN]: 0,
+      [UserRole.USER]: 0,
+      [UserRole.VIEWER]: 0,
+    };
+    for (const role of Object.values(UserRole)) {
+      roleDistribution[role] = result?.roleDistribution?.find((row) => row._id === role)?.count ?? 0;
     }
 
     return {

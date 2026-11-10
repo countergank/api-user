@@ -66,7 +66,15 @@ describe('Admin Users metrics (COU-348, e2e)', () => {
   const getMetrics = (token: string) =>
     request(app.getHttpServer()).get('/admin/users/metrics').set('Authorization', `Bearer ${token}`);
 
-  type Metrics = Record<string, number> & { roleDistribution: Record<string, number> };
+  type Metrics = {
+    total: number;
+    active: number;
+    locked: number;
+    unverifiedEmail: number;
+    newLast30Days: number;
+    newPrevious30Days: number;
+    roleDistribution: Record<UserRole, number>;
+  };
 
   const readMetrics = async (token: string): Promise<Metrics> => {
     const res = await getMetrics(token).expect(200);

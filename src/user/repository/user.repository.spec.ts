@@ -562,6 +562,14 @@ describe(UserRepository.name, () => {
         [UserRole.VIEWER]: 0,
       });
     });
+
+    it('should ignore stored role values outside the UserRole enum', async () => {
+      await userModel.collection.insertMany([{ role: 'toString' }, { role: UserRole.USER }]);
+
+      const metrics = await repository.aggregateMetrics();
+
+      expect(Object.keys(metrics.roleDistribution).sort()).toEqual(['admin', 'user', 'viewer']);
+    });
   });
 
   describe(`${UserRepository.name}.${UserRepository.prototype.update.name}`, () => {
