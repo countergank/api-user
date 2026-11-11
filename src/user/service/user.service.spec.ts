@@ -834,5 +834,19 @@ describe(UserService.name, () => {
       );
       expect(userRepository.update).not.toHaveBeenCalled();
     });
+
+    it('a failed replacement keeps the previously referenced file intact (R1-001, R3, R4)', async () => {
+      const OLD_URL = '/uploads/avatars/user-1-old.png';
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(
+        Object.assign(new UserMock(), { id: user.id, avatarUrl: OLD_URL }),
+      );
+      mockStorage.save.mockRejectedValueOnce(new Error('disk full'));
+
+      await expect(service.updateProfilePhoto(user.id, photoFile(PNG))).rejects.toBeInstanceOf(
+        DomainError,
+      );
+      expect(mockStorage.delete).not.toHaveBeenCalledWith(OLD_URL);
+      expect(userRepository.update).not.toHaveBeenCalled();
+    });
   });
 });
