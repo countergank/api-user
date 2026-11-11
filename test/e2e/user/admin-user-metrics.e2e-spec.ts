@@ -66,7 +66,15 @@ describe('Admin Users metrics (COU-348, e2e)', () => {
   const getMetrics = (token: string) =>
     request(app.getHttpServer()).get('/admin/users/metrics').set('Authorization', `Bearer ${token}`);
 
-  type Metrics = Record<string, number>;
+  type Metrics = {
+    total: number;
+    active: number;
+    locked: number;
+    unverifiedEmail: number;
+    newLast30Days: number;
+    newPrevious30Days: number;
+    roleDistribution: Record<UserRole, number>;
+  };
 
   const readMetrics = async (token: string): Promise<Metrics> => {
     const res = await getMetrics(token).expect(200);
@@ -154,6 +162,14 @@ describe('Admin Users metrics (COU-348, e2e)', () => {
     expect(seeded.unverifiedEmail - baseline.unverifiedEmail).toBe(1); // unverified
     expect(seeded.newLast30Days - baseline.newLast30Days).toBe(3); // unverified, locked, inactive
     expect(seeded.newPrevious30Days - baseline.newPrevious30Days).toBe(1); // previousWindow
+
+    // Todo usuario sembrado aquí registra sin rol explícito: cae en USER. El
+    // admin del beforeAll ya está en el baseline.
+    expect(seeded.roleDistribution.user - baseline.roleDistribution.user).toBe(5);
+    expect(seeded.roleDistribution.admin - baseline.roleDistribution.admin).toBe(0);
+    expect(seeded.roleDistribution.viewer - baseline.roleDistribution.viewer).toBe(0);
+    // La distribución excluye soft-deleted: suma exactamente `total`.
+    expect(Object.values(seeded.roleDistribution).reduce((sum, count) => sum + count, 0)).toBe(seeded.total);
   });
 
   it('excludes soft-deleted users from every count', async () => {
@@ -172,13 +188,13 @@ describe('Admin Users metrics (COU-348, e2e)', () => {
     expect(afterDelete).toEqual(before);
   });
 
-  it('returns exactly the six contract keys', async () => {
+  it('returns exactly the six numeric counts plus the role distribution', async () => {
     const res = await request(app.getHttpServer())
       .get('/admin/users/metrics')
       .set('Authorization', `Bearer ${adminToken}`);
     expect(res.status).toBe(200);
     expect(Object.keys(res.body).sort()).toEqual(
-      ['active', 'locked', 'newLast30Days', 'newPrevious30Days', 'total', 'unverifiedEmail'].sort(),
+      ['active', 'locked', 'newLast30Days', 'newPrevious30Days', 'roleDistribution', 'total', 'unverifiedEmail'].sort(),
     );
   });
 });

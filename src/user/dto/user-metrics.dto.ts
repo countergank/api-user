@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { UserRole } from '../entities/user.entity';
 
 export class UserMetricsResponseDTO {
   @ApiProperty({ example: 1520, description: 'Users excluding soft-deleted ones (same rule as the list)' })
@@ -19,6 +20,14 @@ export class UserMetricsResponseDTO {
   @ApiProperty({ example: 56, description: 'Users created between 30 and 60 days ago, excluding soft-deleted ones' })
   newPrevious30Days: number;
 
+  @ApiProperty({
+    example: { admin: 12, user: 1480, viewer: 28 },
+    description: 'User count per role, excluding soft-deleted ones; every UserRole key is always present',
+    type: 'object',
+    additionalProperties: { type: 'number' },
+  })
+  roleDistribution: Record<UserRole, number>;
+
   constructor(counts: UserMetrics) {
     this.total = counts.total;
     this.active = counts.active;
@@ -26,6 +35,7 @@ export class UserMetricsResponseDTO {
     this.unverifiedEmail = counts.unverifiedEmail;
     this.newLast30Days = counts.newLast30Days;
     this.newPrevious30Days = counts.newPrevious30Days;
+    this.roleDistribution = counts.roleDistribution;
   }
 
   static of(counts: UserMetrics): UserMetricsResponseDTO {
@@ -41,4 +51,5 @@ export interface UserMetrics {
   unverifiedEmail: number;
   newLast30Days: number;
   newPrevious30Days: number;
+  roleDistribution: Record<UserRole, number>;
 }

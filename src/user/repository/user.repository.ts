@@ -11,7 +11,9 @@ import { User, UserRole } from '../entities/user.entity';
 const DAY_MS = 24 * 60 * 60 * 1000;
 const METRICS_WINDOW_DAYS = 30;
 
-type MetricsFacetResult = Record<keyof UserMetrics, { count: number }[]>;
+type MetricsFacetResult = Record<Exclude<keyof UserMetrics, 'roleDistribution'>, { count: number }[]> & {
+  roleDistribution?: { _id: string; count: number }[];
+};
 
 @Injectable()
 export class UserRepository implements OnApplicationBootstrap {
@@ -321,6 +323,7 @@ export class UserRepository implements OnApplicationBootstrap {
               { $match: { createdAt: { $gte: previous30Start, $lt: last30Start } } },
               { $count: 'count' },
             ],
+            roleDistribution: [{ $group: { _id: '$role', count: { $sum: 1 } } }],
           },
         },
       ])
@@ -329,6 +332,14 @@ export class UserRepository implements OnApplicationBootstrap {
     // An empty facet yields an empty array, and `$count` never emits a zero row.
     const count = (rows?: { count: number }[]): number => rows?.[0]?.count ?? 0;
 
+    // Every UserRole key is always present, zero included; stored role values
+    // outside the enum simply match nothing, so inherited object keys such as
+    // `toString` can never leak into the distribution.
+    const roleRows = result?.roleDistribution ?? [];
+    const roleDistribution = Object.fromEntries(
+      Object.values(UserRole).map((role) => [role, roleRows.find((row) => row._id === role)?.count ?? 0]),
+    ) as Record<UserRole, number>;
+
     return {
       total: count(result?.total),
       active: count(result?.active),
@@ -336,6 +347,7 @@ export class UserRepository implements OnApplicationBootstrap {
       unverifiedEmail: count(result?.unverifiedEmail),
       newLast30Days: count(result?.newLast30Days),
       newPrevious30Days: count(result?.newPrevious30Days),
+      roleDistribution,
     };
   }
 }
