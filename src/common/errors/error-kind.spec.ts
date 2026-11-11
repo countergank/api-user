@@ -99,8 +99,8 @@ describe('ErrorKind registry — COU-209 new entries', () => {
     expect(entry.defaultMessage).toBe(expected.defaultMessage);
   });
 
-  it('keeps the registry at 32 kinds (9 pre-existing + 20 new + ROLE_IN_USE from COU-269 + 2 from COU-263)', () => {
-    expect(Object.keys(ErrorKind)).toHaveLength(32);
+  it('keeps the registry at 34 kinds (32 + INVALID_PROFILE_PHOTO_FORMAT and PROFILE_PHOTO_TOO_LARGE from #539)', () => {
+    expect(Object.keys(ErrorKind)).toHaveLength(34);
   });
 
   it('registers INVALID_EMAIL_CHANGE_CODE as UA-AUTH-010 (401) for COU-263 (S1)', () => {

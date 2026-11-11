@@ -68,6 +68,20 @@ export const ErrorKind = {
     statusCode: 410,
     defaultMessage: 'User already deleted',
   },
+  INVALID_PROFILE_PHOTO_FORMAT: {
+    kind: 'INVALID_PROFILE_PHOTO_FORMAT',
+    group: 'USR',
+    code: 'UA-USR-005',
+    statusCode: 400,
+    defaultMessage: 'Invalid profile photo format. Only jpg, png and webp are accepted',
+  },
+  PROFILE_PHOTO_TOO_LARGE: {
+    kind: 'PROFILE_PHOTO_TOO_LARGE',
+    group: 'USR',
+    code: 'UA-USR-006',
+    statusCode: 413,
+    defaultMessage: 'Profile photo exceeds the maximum allowed size of 2 MB',
+  },
   VALIDATION_ERROR: {
     kind: 'VALIDATION_ERROR',
     group: 'COM',

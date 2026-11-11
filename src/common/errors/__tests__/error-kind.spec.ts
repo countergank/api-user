@@ -45,6 +45,20 @@ describe('ErrorKind Registry', () => {
     expect(ErrorKind.APP_VERSION_NOT_FOUND.code).toBe('UA-APP-002');
   });
 
+  it('should define INVALID_PROFILE_PHOTO_FORMAT error with 400 status', () => {
+    expect(ErrorKind.INVALID_PROFILE_PHOTO_FORMAT).toBeDefined();
+    expect(ErrorKind.INVALID_PROFILE_PHOTO_FORMAT.kind).toBe('INVALID_PROFILE_PHOTO_FORMAT');
+    expect(ErrorKind.INVALID_PROFILE_PHOTO_FORMAT.statusCode).toBe(400);
+    expect(ErrorKind.INVALID_PROFILE_PHOTO_FORMAT.code).toBe('UA-USR-005');
+  });
+
+  it('should define PROFILE_PHOTO_TOO_LARGE error with 413 status', () => {
+    expect(ErrorKind.PROFILE_PHOTO_TOO_LARGE).toBeDefined();
+    expect(ErrorKind.PROFILE_PHOTO_TOO_LARGE.kind).toBe('PROFILE_PHOTO_TOO_LARGE');
+    expect(ErrorKind.PROFILE_PHOTO_TOO_LARGE.statusCode).toBe(413);
+    expect(ErrorKind.PROFILE_PHOTO_TOO_LARGE.code).toBe('UA-USR-006');
+  });
+
   it('should have consistent structure across all entries', () => {
     const entries = Object.values(ErrorKind);
     expect(entries.length).toBeGreaterThanOrEqual(8);

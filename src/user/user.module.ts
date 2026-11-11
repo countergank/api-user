@@ -9,6 +9,7 @@ import { UserController } from './controller/user.controller';
 import { UserProfileController } from './controller/user-profile.controller';
 import { User, UserSchema } from './entities/user.entity';
 import { UserRepository } from './repository/user.repository';
+import { UserProfilePhotoStorage } from './storage/user-profile-photo.storage';
 import { UserService } from './service/user.service';
 
 @Module({
@@ -28,7 +29,7 @@ import { UserService } from './service/user.service';
     ]),
   ],
   controllers: [UserController, UserProfileController, AdminSessionController],
-  providers: [EncodeService, UserRepository, UserService],
+  providers: [EncodeService, UserRepository, UserService, UserProfilePhotoStorage],
   exports: [UserService],
 })
 export class UserModule {}

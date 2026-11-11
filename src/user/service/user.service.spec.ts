@@ -13,6 +13,7 @@ import { CreateUserDTOMock } from '../mocks/create-user-dto.mock';
 import { UpdateUserDTOMock } from '../mocks/update-user-dto.mock';
 import { UserMock } from '../mocks/user.mock';
 import { UserRepository } from '../repository/user.repository';
+import { UserProfilePhotoStorage } from '../storage/user-profile-photo.storage';
 import { hashEmailChangeCode } from './email-change-code';
 import { UserService } from './user.service';
 
@@ -40,6 +41,11 @@ describe(UserService.name, () => {
     softDelete: jest.fn(),
     findPaginated: jest.fn(),
     findIdsByRole: jest.fn(),
+  };
+
+  const mockStorage = {
+    save: jest.fn(),
+    delete: jest.fn(),
   };
 
   const mockConnection = {
@@ -73,10 +79,12 @@ describe(UserService.name, () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [UserService, UserRepository],
+      providers: [UserService, UserRepository, UserProfilePhotoStorage],
     })
       .overrideProvider(UserRepository)
       .useValue(userRepository)
+      .overrideProvider(UserProfilePhotoStorage)
+      .useValue(mockStorage)
       .useMocker((token) => {
         if (token === getConnectionToken()) return mockConnection;
         if (token === EventEmitter2) return mockEventEmitter;
@@ -725,6 +733,106 @@ describe(UserService.name, () => {
       jest.spyOn(userRepository, 'findIdsByRole').mockResolvedValue([]);
 
       await expect(service.findIdsByRole(UserRole.VIEWER)).resolves.toEqual([]);
+    });
+  });
+
+  describe(`${UserService.name}.${UserService.prototype.updateProfilePhoto.name}`, () => {
+    const PNG = Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      Buffer.from([0x00, 0x00, 0x00, 0x0d]),
+      Buffer.from('IHDR', 'ascii'),
+      Buffer.from([0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00]),
+    ]);
+    const JPEG = Buffer.concat([
+      Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]),
+      Buffer.from('JFIF', 'ascii'),
+      Buffer.from([0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00]),
+    ]);
+    const WEBP = Buffer.concat([
+      Buffer.from('RIFF', 'ascii'),
+      Buffer.from([0x1e, 0x00, 0x00, 0x00]),
+      Buffer.from('WEBP', 'ascii'),
+      Buffer.from('VP8 ', 'ascii'),
+      Buffer.from([0x10, 0x00, 0x00, 0x00, 0x30, 0x01, 0x00, 0x9d, 0x01, 0x2a]),
+    ]);
+    const GIF = Buffer.concat([
+      Buffer.from('GIF89a', 'ascii'),
+      Buffer.from([0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00]),
+    ]);
+    const NEW_URL = '/uploads/avatars/user-1-1700000000000.png';
+
+    const user = Object.assign(new UserMock(), { id: 'user-1' });
+
+    const photoFile = (buffer: Buffer, size?: number) => ({
+      buffer,
+      size: size ?? buffer.length,
+      mimetype: 'application/octet-stream',
+      originalName: 'photo.bin',
+    });
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      mockStorage.save.mockResolvedValue(NEW_URL);
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(user);
+      jest.spyOn(userRepository, 'update').mockResolvedValue(
+        Object.assign(new UserMock(), { id: user.id, avatarUrl: NEW_URL }),
+      );
+    });
+
+    it('stores a valid photo and persists the served URL (S4, S6)', async () => {
+      const result = await service.updateProfilePhoto(user.id, photoFile(PNG));
+
+      expect(mockStorage.save).toHaveBeenCalledWith(user.id, PNG, 'png');
+      expect(userRepository.update).toHaveBeenCalledWith(user.id, { avatarUrl: NEW_URL });
+      expect(result).toMatchObject({ avatarUrl: NEW_URL });
+    });
+
+    it.each([
+      ['jpeg', JPEG, 'jpg'],
+      ['webp', WEBP, 'webp'],
+    ])('accepts %s by magic bytes, not by client mimetype (S2)', async (_name, buffer, ext) => {
+      await service.updateProfilePhoto(user.id, photoFile(buffer));
+
+      expect(mockStorage.save).toHaveBeenCalledWith(user.id, buffer, ext);
+    });
+
+    it('rejects a disallowed format with a typed 400 error and does not mutate the user (S2, S6)', async () => {
+      await expect(service.updateProfilePhoto(user.id, photoFile(GIF))).rejects.toMatchObject({
+        kind: expect.objectContaining({ kind: 'INVALID_PROFILE_PHOTO_FORMAT', code: 'UA-USR-005', statusCode: 400 }),
+      });
+      expect(mockStorage.save).not.toHaveBeenCalled();
+      expect(userRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects a file over the size limit and does not mutate the user (S3)', async () => {
+      const oversized = photoFile(PNG, 2 * 1024 * 1024 + 1);
+
+      await expect(service.updateProfilePhoto(user.id, oversized)).rejects.toMatchObject({
+        kind: expect.objectContaining({ kind: 'PROFILE_PHOTO_TOO_LARGE', code: 'UA-USR-006' }),
+      });
+      expect(mockStorage.save).not.toHaveBeenCalled();
+      expect(userRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('replacing the photo deletes the previously referenced file (S5)', async () => {
+      const OLD_URL = '/uploads/avatars/user-1-old.png';
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(
+        Object.assign(new UserMock(), { id: user.id, avatarUrl: OLD_URL }),
+      );
+
+      await service.updateProfilePhoto(user.id, photoFile(PNG));
+
+      expect(mockStorage.delete).toHaveBeenCalledWith(OLD_URL);
+      expect(userRepository.update).toHaveBeenCalledWith(user.id, { avatarUrl: NEW_URL });
+    });
+
+    it('a storage failure aborts the update and removes the orphan file (S6)', async () => {
+      mockStorage.save.mockRejectedValueOnce(new Error('disk full'));
+
+      await expect(service.updateProfilePhoto(user.id, photoFile(PNG))).rejects.toBeInstanceOf(
+        DomainError,
+      );
+      expect(userRepository.update).not.toHaveBeenCalled();
     });
   });
 });
