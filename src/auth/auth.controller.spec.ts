@@ -531,10 +531,18 @@ describe(AuthController.name, () => {
       await app.close();
     });
 
-    it('returns exactly the six whitelisted fields', () => {
+    it('returns exactly the seven whitelisted fields (avatarUrl included, #539 S4)', () => {
       const result = controller.me(requestUser);
 
-      expect(Object.keys(result)).toEqual(['id', 'name', 'lastName', 'email', 'role', 'permissions']);
+      expect(Object.keys(result)).toEqual([
+        'id',
+        'name',
+        'lastName',
+        'email',
+        'role',
+        'permissions',
+        'avatarUrl',
+      ]);
     });
 
     it('maps role and effective permissions from request.user', () => {

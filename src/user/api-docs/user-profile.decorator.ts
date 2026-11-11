@@ -4,6 +4,7 @@ import {
   ApiBearerAuth,
   ApiBody,
   ApiConflictResponse,
+  ApiConsumes,
   ApiExtraModels,
   ApiInternalServerErrorResponse,
   ApiOperation,
@@ -14,6 +15,7 @@ import {
 import { BadRequestDTO } from '../../common/dto/bad-request.dto';
 import { InternalErrorDTO } from '../../common/dto/internal-error.dto';
 import { GetProfileResponse } from './examples/get-profile.response';
+import { UploadProfilePhotoResponse } from './examples/upload-photo.response';
 import { UpdateProfileRequest } from './examples/update-profile.request';
 import { ChangePasswordRequest, ChangePasswordResponse } from './examples/change-password.request';
 import { ChangeEmailRequest, ChangeEmailResponse, RequestEmailChangeCodeResponse } from '../../auth/api-docs/examples/verification.examples';
@@ -35,6 +37,39 @@ export function ApplyGetProfileDoc() {
     }),
     ApiUnauthorizedResponse({ description: 'No autenticado' }),
     ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
+  );
+}
+
+export function ApplyUploadProfilePhotoDoc() {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Cargar foto de perfil',
+      description:
+        'Recibe la foto del usuario autenticado (jpg/png/webp, hasta 2 MB) y retorna la URL pública servible del avatar.',
+    }),
+    ApiBearerAuth(),
+    ApiConsumes('multipart/form-data'),
+    ApiExtraModels(UploadProfilePhotoResponse),
+    ApiResponse({
+      status: 201,
+      description: 'Foto almacenada',
+      schema: {
+        $ref: getSchemaPath(UploadProfilePhotoResponse),
+      },
+    }),
+    ApiUnauthorizedResponse({ description: 'No autenticado' }),
+    ApiBadRequestResponse({ description: 'Formato no soportado o archivo vacío', type: BadRequestDTO }),
+    ApiResponse({ status: 413, description: 'Archivo por encima del límite de 2 MB' }),
+    ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
+    ApiBody({
+      schema: {
+        type: 'object',
+        properties: {
+          file: { type: 'string', format: 'binary' },
+        },
+        required: ['file'],
+      },
+    }),
   );
 }
 
