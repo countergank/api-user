@@ -264,6 +264,7 @@ describe('PROBE P7 — change-password legacy fallback (no sid) (S7)', () => {
       { emit: jest.fn() } as any,
       { translate: jest.fn().mockResolvedValue('msg') } as any,
       moduleRef,
+      { resolve: (v?: string) => v } as any,
     );
     return { c, rotate, sessionId };
   };

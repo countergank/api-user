@@ -1,3 +1,4 @@
+import { ConfigService } from '@nestjs/config';
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { EncodeService } from '../encode/encode.service';
@@ -9,7 +10,10 @@ import { UserController } from './controller/user.controller';
 import { UserProfileController } from './controller/user-profile.controller';
 import { User, UserSchema } from './entities/user.entity';
 import { UserRepository } from './repository/user.repository';
-import { UserProfilePhotoStorage } from './storage/user-profile-photo.storage';
+import { LocalProfilePhotoStorage } from './storage/local-profile-photo.storage';
+import { PROFILE_PHOTO_STORAGE } from './storage/profile-photo-storage';
+import { profilePhotoStorageFactory } from './storage/profile-photo-storage.factory';
+import { ProfilePhotoUrlResolver } from './storage/profile-photo-url.resolver';
 import { UserService } from './service/user.service';
 
 @Module({
@@ -29,7 +33,17 @@ import { UserService } from './service/user.service';
     ]),
   ],
   controllers: [UserController, UserProfileController, AdminSessionController],
-  providers: [EncodeService, UserRepository, UserService, UserProfilePhotoStorage],
-  exports: [UserService],
+  providers: [
+    EncodeService,
+    UserRepository,
+    UserService,
+    ProfilePhotoUrlResolver,
+    {
+      provide: PROFILE_PHOTO_STORAGE,
+      useFactory: profilePhotoStorageFactory,
+      inject: [ConfigService],
+    },
+  ],
+  exports: [UserService, ProfilePhotoUrlResolver],
 })
 export class UserModule {}

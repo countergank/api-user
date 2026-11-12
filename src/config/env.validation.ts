@@ -203,6 +203,35 @@ export class EnvironmentVariables {
   @IsString()
   @IsOptional()
   REDIS_DB: string;
+
+  // Profile photo storage driver (#546)
+  @IsIn(['local', 's3'])
+  @IsOptional()
+  STORAGE_DRIVER: string;
+
+  @IsString()
+  @IsOptional()
+  S3_ENDPOINT: string;
+
+  @IsString()
+  @IsOptional()
+  S3_REGION: string;
+
+  @IsString()
+  @IsOptional()
+  S3_BUCKET: string;
+
+  @IsString()
+  @IsOptional()
+  S3_ACCESS_KEY_ID: string;
+
+  @IsString()
+  @IsOptional()
+  S3_SECRET_ACCESS_KEY: string;
+
+  @IsString()
+  @IsOptional()
+  STORAGE_PUBLIC_URL: string;
 }
 
 export function validate(config: Record<string, unknown>) {
@@ -237,6 +266,12 @@ export function validate(config: Record<string, unknown>) {
   }
   if (!validatedConfig.REDIS_DB) {
     validatedConfig.REDIS_DB = '0';
+  }
+
+  // Profile photo storage defaults to the local driver; the S3 driver fails
+  // fast at boot through the ConfigService.getOrThrow calls in its constructor.
+  if (!validatedConfig.STORAGE_DRIVER) {
+    validatedConfig.STORAGE_DRIVER = 'local';
   }
 
   return validatedConfig;

@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { PROFILE_PHOTO_STORAGE } from '../storage/profile-photo-storage';
 import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
 import { createHash } from 'node:crypto';
 import { Mock } from '../../test-utils';
@@ -82,7 +83,7 @@ describe(`${UserService.name} — email change code lifecycle (COU-263)`, () => 
     });
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [UserService, UserRepository],
+      providers: [UserService, UserRepository, { provide: PROFILE_PHOTO_STORAGE, useValue: { save: jest.fn(), delete: jest.fn() } }],
     })
       .overrideProvider(UserRepository)
       .useValue(userRepository)

@@ -1,8 +1,10 @@
 import { INestApplication, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ThrottlerModule } from '@nestjs/throttler';
 import request from 'supertest';
+import { ProfilePhotoUrlResolver } from '../user/storage/profile-photo-url.resolver';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { PERMISSIONS_KEY } from './decorators/permissions.decorator';
@@ -58,7 +60,7 @@ describe(AuthController.name, () => {
           ]),
         ],
         controllers: [AuthController],
-        providers: [{ provide: AuthService, useValue: mockService }],
+        providers: [{ provide: AuthService, useValue: mockService }, ProfilePhotoUrlResolver, { provide: ConfigService, useValue: { get: () => undefined } }],
       })
         .useMocker((token) => {
           if (typeof token === 'function') return Mock(token);
@@ -165,7 +167,7 @@ describe(AuthController.name, () => {
           ]),
         ],
         controllers: [AuthController],
-        providers: [{ provide: AuthService, useValue: mockService }],
+        providers: [{ provide: AuthService, useValue: mockService }, ProfilePhotoUrlResolver, { provide: ConfigService, useValue: { get: () => undefined } }],
       })
         .useMocker((token) => {
           if (typeof token === 'function') return Mock(token);
@@ -285,7 +287,7 @@ describe(AuthController.name, () => {
           ]),
         ],
         controllers: [AuthController],
-        providers: [{ provide: AuthService, useValue: mockService }],
+        providers: [{ provide: AuthService, useValue: mockService }, ProfilePhotoUrlResolver, { provide: ConfigService, useValue: { get: () => undefined } }],
       })
         .useMocker((token) => {
           if (typeof token === 'function') return Mock(token);
@@ -343,6 +345,8 @@ describe(AuthController.name, () => {
           { provide: AuthService, useValue: mockAuthService },
           { provide: I18nService, useValue: mockI18n },
           { provide: ActiveSessionService, useValue: {} },
+          ProfilePhotoUrlResolver,
+          { provide: ConfigService, useValue: { get: () => undefined } },
         ],
       }).compile();
 
@@ -408,6 +412,8 @@ describe(AuthController.name, () => {
           { provide: AuthService, useValue: {} },
           { provide: I18nService, useValue: { translate: jest.fn().mockImplementation((key: string) => Promise.resolve(key)) } },
           { provide: ActiveSessionService, useValue: mockActiveSessionService },
+          ProfilePhotoUrlResolver,
+          { provide: ConfigService, useValue: { get: () => undefined } },
         ],
       }).compile();
 

@@ -1,5 +1,6 @@
 import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
 import { Test, TestingModule } from '@nestjs/testing';
+import { PROFILE_PHOTO_STORAGE } from '../storage/profile-photo-storage';
 import { DomainError } from '../../common/errors/domain.error';
 import { CacheService } from '../../config/cache';
 import { Permission } from '../../rbac/entities/permission.entity';
@@ -101,7 +102,7 @@ describe(`${UserService.name}.${UserService.prototype.changePassword.name} sessi
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [UserService, UserRepository],
+      providers: [UserService, UserRepository, { provide: PROFILE_PHOTO_STORAGE, useValue: { save: jest.fn(), delete: jest.fn() } }],
     })
       .overrideProvider(UserRepository)
       .useValue(userRepository)

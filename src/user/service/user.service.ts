@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { plainToInstance } from 'class-transformer';
@@ -25,8 +25,12 @@ import {
   detectPhotoExtension,
   PROFILE_PHOTO_MAX_BYTES,
   ProfilePhotoFile,
-  UserProfilePhotoStorage,
 } from '../storage/user-profile-photo.storage';
+import {
+  PROFILE_PHOTO_STORAGE,
+  ProfilePhotoStorage,
+} from '../storage/profile-photo-storage';
+import { ProfilePhotoUrlResolver } from '../storage/profile-photo-url.resolver';
 import {
   emptyProfilePhotoError,
   photoLimitExceededError,
@@ -44,10 +48,13 @@ import {
 
 @Injectable()
 export class UserService {
+  private readonly logger = new Logger(UserService.name);
+
   constructor(
     private readonly userRepository: UserRepository,
     private readonly encodeService: EncodeService,
-    private readonly photoStorage: UserProfilePhotoStorage,
+    @Inject(PROFILE_PHOTO_STORAGE) private readonly photoStorage: ProfilePhotoStorage,
+    private readonly avatarUrlResolver: ProfilePhotoUrlResolver,
     @InjectConnection() private readonly connection: Connection,
     private readonly eventEmitter: EventEmitter2,
     @InjectModel(Permission.name) private readonly permissionModel: Model<Permission>,
@@ -651,9 +658,11 @@ export class UserService {
   }
 
   /**
-   * Validates, stores and references a profile photo (issue #539). Size and
-   * format are decided from the payload itself, never from client headers.
-   * The previous file is removed only after the new reference is committed.
+   * Validates, stores and references a profile photo (issues #539 and #546).
+   * Size and format are decided from the payload itself, never from client
+   * headers. The stored reference is the object key; the response carries the
+   * public URL. The previous object is removed only after the new reference
+   * is committed.
    */
   async updateProfilePhoto(
     userId: string,
@@ -671,23 +680,26 @@ export class UserService {
       throw DomainError.fromKind('INVALID_PROFILE_PHOTO_FORMAT');
     }
 
-    const previousUrl = (await this.userRepository.findById(userId))?.avatarUrl;
+    const previous = (await this.userRepository.findById(userId))?.avatarUrl;
 
-    let avatarUrl: string | undefined;
+    let key: string | undefined;
     try {
-      avatarUrl = await this.photoStorage.save(userId, file.buffer, extension);
-      const updated = await this.userRepository.update(userId, { avatarUrl });
-      if (previousUrl) {
+      key = await this.photoStorage.save(userId, file.buffer, extension);
+      const updated = await this.userRepository.update(userId, { avatarUrl: key });
+      if (previous) {
         // Best effort: once the new reference committed, a failed removal of
-        // the replaced file must not turn a successful update into an error.
-        await this.photoStorage.delete(previousUrl).catch(() => undefined);
+        // the replaced object must not turn a successful update into an error.
+        await this.photoStorage.delete(previous).catch(() => undefined);
       }
-      return { avatarUrl: updated.avatarUrl };
+      return { avatarUrl: this.avatarUrlResolver.resolve(updated.avatarUrl) };
     } catch (error) {
       // Reaching here means the reference never committed, so the freshly
-      // saved file is an orphan and the document still needs no cleanup.
-      if (avatarUrl) await this.photoStorage.delete(avatarUrl);
+      // saved object is an orphan and the document still needs no cleanup.
+      if (key) await this.photoStorage.delete(key);
       if (error instanceof Error && error.name === 'PhotoLimitExceededError') throw error;
+      this.logger.error(
+        `Failed to store profile photo for user ${userId}: ${error instanceof Error ? error.message : error}`,
+      );
       throw DomainError.internal('Failed to store the profile photo');
     }
   }

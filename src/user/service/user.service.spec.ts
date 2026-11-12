@@ -1,4 +1,5 @@
 import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
+import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PaginatedResponseDTO } from '../../common/dto/paginated-response.dto';
@@ -13,7 +14,8 @@ import { CreateUserDTOMock } from '../mocks/create-user-dto.mock';
 import { UpdateUserDTOMock } from '../mocks/update-user-dto.mock';
 import { UserMock } from '../mocks/user.mock';
 import { UserRepository } from '../repository/user.repository';
-import { UserProfilePhotoStorage } from '../storage/user-profile-photo.storage';
+import { PROFILE_PHOTO_STORAGE } from '../storage/profile-photo-storage';
+import { ProfilePhotoUrlResolver } from '../storage/profile-photo-url.resolver';
 import { hashEmailChangeCode } from './email-change-code';
 import { UserService } from './user.service';
 
@@ -79,12 +81,16 @@ describe(UserService.name, () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [UserService, UserRepository, UserProfilePhotoStorage],
+      providers: [
+        UserService,
+        UserRepository,
+        ProfilePhotoUrlResolver,
+        { provide: PROFILE_PHOTO_STORAGE, useValue: mockStorage },
+        { provide: ConfigService, useValue: { get: () => undefined } },
+      ],
     })
       .overrideProvider(UserRepository)
       .useValue(userRepository)
-      .overrideProvider(UserProfilePhotoStorage)
-      .useValue(mockStorage)
       .useMocker((token) => {
         if (token === getConnectionToken()) return mockConnection;
         if (token === EventEmitter2) return mockEventEmitter;
@@ -862,6 +868,36 @@ describe(UserService.name, () => {
       expect(result).toMatchObject({ avatarUrl: NEW_URL });
       expect(mockStorage.delete).toHaveBeenCalledWith(OLD_URL);
       expect(mockStorage.delete).not.toHaveBeenCalledWith(NEW_URL);
+    });
+
+    it('stores the object key and resolves the public URL in the response (#546 S3)', async () => {
+      const KEY = 'avatar/user-1-1700000000001.png';
+      mockStorage.save.mockResolvedValue(KEY);
+      jest.spyOn(userRepository, 'update').mockResolvedValue(
+        Object.assign(new UserMock(), { id: user.id, avatarUrl: KEY }),
+      );
+
+      const result = await service.updateProfilePhoto(user.id, photoFile(PNG));
+
+      expect(userRepository.update).toHaveBeenCalledWith(user.id, { avatarUrl: KEY });
+      expect(result).toMatchObject({ avatarUrl: '/uploads/avatars/user-1-1700000000001.png' });
+    });
+
+    it('replacing a keyed photo deletes the previous object key after committing (#546 S5.3)', async () => {
+      const OLD_KEY = 'avatar/user-1-1699999999999.png';
+      const NEW_KEY = 'avatar/user-1-1700000000002.png';
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(
+        Object.assign(new UserMock(), { id: user.id, avatarUrl: OLD_KEY }),
+      );
+      mockStorage.save.mockResolvedValue(NEW_KEY);
+      jest.spyOn(userRepository, 'update').mockResolvedValue(
+        Object.assign(new UserMock(), { id: user.id, avatarUrl: NEW_KEY }),
+      );
+
+      await service.updateProfilePhoto(user.id, photoFile(PNG));
+
+      expect(userRepository.update).toHaveBeenCalledWith(user.id, { avatarUrl: NEW_KEY });
+      expect(mockStorage.delete).toHaveBeenCalledWith(OLD_KEY);
     });
   });
 });

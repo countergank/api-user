@@ -1,6 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
+import { PROFILE_PHOTO_STORAGE } from '../user/storage/profile-photo-storage';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
 import { DomainError } from '../common/errors/domain.error';
@@ -114,7 +115,7 @@ describe(AuthService.name, () => {
     harness = new TransactionHarness();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AuthService, UserService, RoleService, JwtService, EventEmitter2, ConfigService],
+      providers: [AuthService, UserService, RoleService, JwtService, EventEmitter2, ConfigService, { provide: PROFILE_PHOTO_STORAGE, useValue: { save: jest.fn(), delete: jest.fn() } }],
     })
       .useMocker((token) => {
         if (token === getConnectionToken()) return harness.connection;
