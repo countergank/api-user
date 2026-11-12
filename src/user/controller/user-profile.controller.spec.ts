@@ -185,7 +185,7 @@ describe(UserProfileController.name, () => {
       const part = {
         mimetype: 'image/png',
         toBuffer: jest.fn().mockRejectedValue(
-          Object.assign(new Error('limit exceeded'), { name: 'RequestFileTooLargeError' }),
+          Object.assign(new Error('limit exceeded'), { code: 'FST_REQ_FILE_TOO_LARGE' }),
         ),
       };
 

@@ -96,7 +96,10 @@ export class UserProfileController {
     try {
       buffer = await part.toBuffer();
     } catch (error) {
-      if (error instanceof Error && error.name === 'RequestFileTooLargeError') {
+      // @fastify/error stamps `FastifyError` as the runtime name; the stable
+      // discriminator is the error code, not the source-local variable name.
+      const code = (error as Error & { code?: unknown }).code;
+      if (code === 'FST_REQ_FILE_TOO_LARGE') {
         throw DomainError.fromKind('PROFILE_PHOTO_TOO_LARGE');
       }
       throw error;

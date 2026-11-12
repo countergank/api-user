@@ -44,8 +44,8 @@ describe(UserService.name, () => {
   };
 
   const mockStorage = {
-    save: jest.fn(),
-    delete: jest.fn(),
+    save: jest.fn<Promise<string>, [string, Buffer, string]>(),
+    delete: jest.fn<Promise<void>, [string]>(),
   };
 
   const mockConnection = {
@@ -773,6 +773,7 @@ describe(UserService.name, () => {
     beforeEach(() => {
       jest.clearAllMocks();
       mockStorage.save.mockResolvedValue(NEW_URL);
+      mockStorage.delete.mockResolvedValue(undefined);
       jest.spyOn(userRepository, 'findById').mockResolvedValue(user);
       jest.spyOn(userRepository, 'update').mockResolvedValue(
         Object.assign(new UserMock(), { id: user.id, avatarUrl: NEW_URL }),
@@ -847,6 +848,20 @@ describe(UserService.name, () => {
       );
       expect(mockStorage.delete).not.toHaveBeenCalledWith(OLD_URL);
       expect(userRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('a failed cleanup of the replaced file keeps the committed new reference (R4-avatar-cleanup-after-commit)', async () => {
+      const OLD_URL = '/uploads/avatars/user-1-old.png';
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(
+        Object.assign(new UserMock(), { id: user.id, avatarUrl: OLD_URL }),
+      );
+      mockStorage.delete.mockRejectedValueOnce(new Error('EACCES'));
+
+      const result = await service.updateProfilePhoto(user.id, photoFile(PNG));
+
+      expect(result).toMatchObject({ avatarUrl: NEW_URL });
+      expect(mockStorage.delete).toHaveBeenCalledWith(OLD_URL);
+      expect(mockStorage.delete).not.toHaveBeenCalledWith(NEW_URL);
     });
   });
 });

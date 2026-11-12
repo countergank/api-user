@@ -677,11 +677,15 @@ export class UserService {
     try {
       avatarUrl = await this.photoStorage.save(userId, file.buffer, extension);
       const updated = await this.userRepository.update(userId, { avatarUrl });
-      // The replaced file is removed only after the new reference commits, so
-      // a failed save or update never destroys the avatar the document still uses.
-      if (previousUrl) await this.photoStorage.delete(previousUrl);
+      if (previousUrl) {
+        // Best effort: once the new reference committed, a failed removal of
+        // the replaced file must not turn a successful update into an error.
+        await this.photoStorage.delete(previousUrl).catch(() => undefined);
+      }
       return { avatarUrl: updated.avatarUrl };
     } catch (error) {
+      // Reaching here means the reference never committed, so the freshly
+      // saved file is an orphan and the document still needs no cleanup.
       if (avatarUrl) await this.photoStorage.delete(avatarUrl);
       if (error instanceof Error && error.name === 'PhotoLimitExceededError') throw error;
       throw DomainError.internal('Failed to store the profile photo');
