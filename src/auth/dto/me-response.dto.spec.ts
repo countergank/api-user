@@ -19,6 +19,7 @@ describe(MeResponseDTO.name, () => {
     deletedAt: new Date('2030-01-01T00:00:00.000Z'),
     isActive: true,
     userName: 'juanperez',
+    avatarUrl: '/uploads/avatars/user-1.png',
     createdAt: '2024-01-01T00:00:00.000Z',
     updatedAt: '2024-01-01T00:00:00.000Z',
     _id: 'mongo-object-id',
@@ -34,12 +35,27 @@ describe(MeResponseDTO.name, () => {
     expect(result.email).toBe('juan@example.com');
     expect(result.role).toBe(UserRole.ADMIN);
     expect(result.permissions).toEqual(['*']);
+    expect(result.avatarUrl).toBe('/uploads/avatars/user-1.png');
   });
 
-  it('exposes exactly the six expected keys (no internal field leaks)', () => {
+  it('maps avatarUrl as undefined when the user has no photo (S4)', () => {
+    const withoutAvatar = { ...input, avatarUrl: undefined } as unknown as User;
+
+    expect(MeResponseDTO.of(withoutAvatar).avatarUrl).toBeUndefined();
+  });
+
+  it('exposes exactly the seven whitelisted fields (no internal field leaks)', () => {
     const result = MeResponseDTO.of(input);
 
-    expect(Object.keys(result)).toEqual(['id', 'name', 'lastName', 'email', 'role', 'permissions']);
+    expect(Object.keys(result)).toEqual([
+      'id',
+      'name',
+      'lastName',
+      'email',
+      'role',
+      'permissions',
+      'avatarUrl',
+    ]);
   });
 
   it('never copies sensitive or internal fields present on the input', () => {

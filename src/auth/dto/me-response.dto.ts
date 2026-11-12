@@ -54,6 +54,14 @@ export class MeResponseDTO {
   })
   permissions: string[];
 
+  @ApiProperty({
+    example: '/uploads/avatars/507f1f77bcf86cd799439011-1700000000000.png',
+    description: 'URL pública de la foto de perfil (undefined si nunca cargó una)',
+    required: false,
+    nullable: true,
+  })
+  avatarUrl?: string;
+
   constructor(user: User) {
     this.id = user.id;
     this.name = user.name;
@@ -61,6 +69,7 @@ export class MeResponseDTO {
     this.email = user.email;
     this.role = user.role;
     this.permissions = user.permissions;
+    this.avatarUrl = user.avatarUrl;
   }
 
   static of(user: User): MeResponseDTO {

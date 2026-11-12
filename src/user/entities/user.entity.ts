@@ -42,6 +42,13 @@ export class User extends Base {
   isActive: boolean;
 
   /**
+   * Public URL of the profile photo served from the local uploads directory
+   * (issue #539). Unset while the user never uploaded a photo.
+   */
+  @Prop()
+  avatarUrl?: string;
+
+  /**
    * Durable, monotonic session epoch (S16). Every refresh token is stamped with
    * the value current at issue time (`tv`), and rejecting `tv < sessionEpoch`
    * invalidates every token issued before the last bump.

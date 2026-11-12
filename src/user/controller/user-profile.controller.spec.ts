@@ -33,6 +33,7 @@ describe(UserProfileController.name, () => {
 
   const mockUserService = {
     update: jest.fn().mockResolvedValue(user),
+    updateProfilePhoto: jest.fn(),
     changePassword: jest.fn().mockResolvedValue(undefined),
     requestEmailChange: jest.fn().mockResolvedValue({ token: 'token', expires: new Date(), user }),
     requestEmailChangeCode: jest
@@ -128,6 +129,79 @@ describe(UserProfileController.name, () => {
 
       expect(result).toEqual({ message: 'Password changed' });
       expect(mockAuthService.rotateCurrentSession).not.toHaveBeenCalled();
+    });
+  });
+
+  describe(`${UserProfileController.prototype.getProfile.name}`, () => {
+    it('returns the avatar URL of the authenticated user (S4)', async () => {
+      const withAvatar = Object.assign(new UserMock(), { avatarUrl: '/uploads/avatars/user-1.png' });
+
+      const result = await controller.getProfile(withAvatar as any);
+
+      expect(result).toMatchObject({ avatarUrl: '/uploads/avatars/user-1.png' });
+    });
+  });
+
+  describe(`${UserProfileController.prototype.updateProfilePhoto.name}`, () => {
+    const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    const NEW_URL = '/uploads/avatars/user-1-1700000000000.png';
+
+    const requestWithPart = (part: unknown | undefined) => ({ file: jest.fn().mockResolvedValue(part) });
+
+    beforeEach(() => {
+      mockUserService.updateProfilePhoto.mockResolvedValue(
+        Object.assign(new UserMock(), { avatarUrl: NEW_URL }),
+      );
+    });
+
+    it('hands the uploaded file to the service and returns the served URL (S1, S4)', async () => {
+      const part = { mimetype: 'image/png', toBuffer: jest.fn().mockResolvedValue(PNG) };
+
+      const result = await controller.updateProfilePhoto(user as any, requestWithPart(part) as any);
+
+      expect(mockUserService.updateProfilePhoto).toHaveBeenCalledWith(user.id, {
+        buffer: PNG,
+        size: PNG.length,
+        mimetype: 'image/png',
+        originalName: undefined,
+      });
+      expect(result).toEqual({ avatarUrl: NEW_URL });
+    });
+
+    it('propagates the typed rejection for a disallowed format (S2)', async () => {
+      mockUserService.updateProfilePhoto.mockRejectedValueOnce(
+        DomainError.fromKind('INVALID_PROFILE_PHOTO_FORMAT'),
+      );
+      const part = { mimetype: 'image/gif', toBuffer: jest.fn().mockResolvedValue(Buffer.from('GIF89a')) };
+
+      await expect(
+        controller.updateProfilePhoto(user as any, requestWithPart(part) as any),
+      ).rejects.toMatchObject({
+        kind: expect.objectContaining({ kind: 'INVALID_PROFILE_PHOTO_FORMAT', statusCode: 400 }),
+      });
+    });
+
+    it('rejects an oversized upload with PROFILE_PHOTO_TOO_LARGE without calling the service (S3)', async () => {
+      const part = {
+        mimetype: 'image/png',
+        toBuffer: jest.fn().mockRejectedValue(
+          Object.assign(new Error('limit exceeded'), { code: 'FST_REQ_FILE_TOO_LARGE' }),
+        ),
+      };
+
+      await expect(
+        controller.updateProfilePhoto(user as any, requestWithPart(part) as any),
+      ).rejects.toMatchObject({
+        kind: expect.objectContaining({ kind: 'PROFILE_PHOTO_TOO_LARGE' }),
+      });
+      expect(mockUserService.updateProfilePhoto).not.toHaveBeenCalled();
+    });
+
+    it('rejects a non-multipart or empty upload without calling the service (S1)', async () => {
+      await expect(
+        controller.updateProfilePhoto(user as any, requestWithPart(undefined) as any),
+      ).rejects.toBeInstanceOf(DomainError);
+      expect(mockUserService.updateProfilePhoto).not.toHaveBeenCalled();
     });
   });
 

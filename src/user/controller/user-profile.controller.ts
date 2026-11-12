@@ -1,9 +1,11 @@
-import { Body, Controller, Get, HttpCode, Inject, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Inject, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { FastifyRequest } from 'fastify';
 import { AuthService } from '../../auth/auth.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { DomainError } from '../../common/errors/domain.error';
 import { EmailEvents } from '../../email/constants/email.events';
 import { I18nService } from '../../common/i18n/i18n.service';
 import { AuditAction } from '../../common/audit/audit.decorator';
@@ -18,10 +20,12 @@ import {
   ApplyGetProfileDoc,
   ApplyRequestEmailChangeCodeDoc,
   ApplyUpdateProfileDoc,
+  ApplyUploadProfilePhotoDoc,
 } from '../api-docs';
 import { ChangePasswordDTO } from '../dto/change-password.dto';
 import { RequestEmailChangeDTO } from '../dto/request-email-change.dto';
 import { UserService } from '../service/user.service';
+import { missingPhotoPartError } from '../storage/user-profile-photo.errors';
 import { User } from '../entities/user.entity';
 
 /**
@@ -58,6 +62,7 @@ export class UserProfileController {
       name: user.name,
       lastName: user.lastName,
       email: user.email,
+      avatarUrl: user.avatarUrl,
     };
   }
 
@@ -72,7 +77,42 @@ export class UserProfileController {
       name: updated.name,
       lastName: updated.lastName,
       email: updated.email,
+      avatarUrl: updated.avatarUrl,
     };
+  }
+
+  // S3: the plugin-level `limits.fileSize` makes the stream truncate past the
+  // cap, so `toBuffer()` throws before the service ever reads the payload.
+  @Post('profile/photo')
+  @ApplyUploadProfilePhotoDoc()
+  async updateProfilePhoto(@CurrentUser() user: User, @Req() request: FastifyRequest) {
+    const part = await request.file();
+
+    if (!part) {
+      throw missingPhotoPartError();
+    }
+
+    let buffer: Buffer;
+    try {
+      buffer = await part.toBuffer();
+    } catch (error) {
+      // @fastify/error stamps `FastifyError` as the runtime name; the stable
+      // discriminator is the error code, not the source-local variable name.
+      const code = (error as Error & { code?: unknown }).code;
+      if (code === 'FST_REQ_FILE_TOO_LARGE') {
+        throw DomainError.fromKind('PROFILE_PHOTO_TOO_LARGE');
+      }
+      throw error;
+    }
+
+    const { avatarUrl } = await this.userService.updateProfilePhoto(user.id, {
+      buffer,
+      size: buffer.length,
+      mimetype: part.mimetype,
+      originalName: part.filename,
+    });
+
+    return { avatarUrl };
   }
 
   @Post('change-password')

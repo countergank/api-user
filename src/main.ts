@@ -1,4 +1,6 @@
 import fastifyHelmet from '@fastify/helmet';
+import fastifyMultipart from '@fastify/multipart';
+import fastifyStatic from '@fastify/static';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from './common/pipes/validation.pipe';
@@ -7,11 +9,13 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { apiReference } from '@scalar/nestjs-api-reference';
 import { Logger } from 'nestjs-pino';
 import hyperid from 'hyperid';
+import path from 'path';
 import { HttpAdapterHost } from '@nestjs/core';
 import { AppModule } from './app/app.module';
 
 import { isProd } from './common/utils';
 import { registerHttpCompression } from './config/compression.options';
+import { PROFILE_PHOTO_MAX_BYTES } from './user/storage/user-profile-photo.storage';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -38,6 +42,17 @@ async function bootstrap() {
 
   await app.register(fastifyHelmet);
   await registerHttpCompression(app);
+
+  // Profile photo uploads (issue #539): the stream truncates past the cap so
+  // `part.toBuffer()` throws `RequestFileTooLargeError` before any byte is read.
+  await app.register(fastifyMultipart, {
+    limits: { fileSize: PROFILE_PHOTO_MAX_BYTES },
+  });
+  await app.register(fastifyStatic, {
+    root: path.resolve(process.cwd(), 'public', 'uploads'),
+    prefix: '/uploads/',
+    decorateReply: false,
+  });
 
   const port = configService.get('PORT') ?? 3000;
   const host = configService.get('HOST') ?? '0.0.0.0';

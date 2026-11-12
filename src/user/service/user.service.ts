@@ -21,6 +21,16 @@ import { UpdateUserDTO } from '../dto/update-user.dto';
 import { UserMetrics } from '../dto/user-metrics.dto';
 import { User, UserRole } from '../entities/user.entity';
 import { UserRepository } from '../repository/user.repository';
+import {
+  detectPhotoExtension,
+  PROFILE_PHOTO_MAX_BYTES,
+  ProfilePhotoFile,
+  UserProfilePhotoStorage,
+} from '../storage/user-profile-photo.storage';
+import {
+  emptyProfilePhotoError,
+  photoLimitExceededError,
+} from '../storage/user-profile-photo.errors';
 
 import {
   EMAIL_CHANGE_CODE_MAX_ATTEMPTS,
@@ -37,6 +47,7 @@ export class UserService {
   constructor(
     private readonly userRepository: UserRepository,
     private readonly encodeService: EncodeService,
+    private readonly photoStorage: UserProfilePhotoStorage,
     @InjectConnection() private readonly connection: Connection,
     private readonly eventEmitter: EventEmitter2,
     @InjectModel(Permission.name) private readonly permissionModel: Model<Permission>,
@@ -637,5 +648,47 @@ export class UserService {
 
   async getMetrics(): Promise<UserMetrics> {
     return this.userRepository.aggregateMetrics();
+  }
+
+  /**
+   * Validates, stores and references a profile photo (issue #539). Size and
+   * format are decided from the payload itself, never from client headers.
+   * The previous file is removed only after the new reference is committed.
+   */
+  async updateProfilePhoto(
+    userId: string,
+    file: ProfilePhotoFile,
+  ): Promise<Pick<User, 'avatarUrl'>> {
+    if (file.size <= 0 || file.buffer.length === 0) {
+      throw emptyProfilePhotoError();
+    }
+    if (file.size > PROFILE_PHOTO_MAX_BYTES) {
+      throw DomainError.fromKind('PROFILE_PHOTO_TOO_LARGE');
+    }
+
+    const extension = await detectPhotoExtension(file);
+    if (!extension) {
+      throw DomainError.fromKind('INVALID_PROFILE_PHOTO_FORMAT');
+    }
+
+    const previousUrl = (await this.userRepository.findById(userId))?.avatarUrl;
+
+    let avatarUrl: string | undefined;
+    try {
+      avatarUrl = await this.photoStorage.save(userId, file.buffer, extension);
+      const updated = await this.userRepository.update(userId, { avatarUrl });
+      if (previousUrl) {
+        // Best effort: once the new reference committed, a failed removal of
+        // the replaced file must not turn a successful update into an error.
+        await this.photoStorage.delete(previousUrl).catch(() => undefined);
+      }
+      return { avatarUrl: updated.avatarUrl };
+    } catch (error) {
+      // Reaching here means the reference never committed, so the freshly
+      // saved file is an orphan and the document still needs no cleanup.
+      if (avatarUrl) await this.photoStorage.delete(avatarUrl);
+      if (error instanceof Error && error.name === 'PhotoLimitExceededError') throw error;
+      throw DomainError.internal('Failed to store the profile photo');
+    }
   }
 }
