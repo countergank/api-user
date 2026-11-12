@@ -870,6 +870,20 @@ describe(UserService.name, () => {
       expect(mockStorage.delete).not.toHaveBeenCalledWith(NEW_URL);
     });
 
+    it('logs a warning when the replaced object cannot be removed but still succeeds (S7)', async () => {
+      const OLD_URL = '/uploads/avatars/user-1-old.png';
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(
+        Object.assign(new UserMock(), { id: user.id, avatarUrl: OLD_URL }),
+      );
+      mockStorage.delete.mockRejectedValueOnce(new Error('EACCES'));
+      const warnSpy = jest.spyOn(service['logger'], 'warn').mockImplementation(() => undefined);
+
+      const result = await service.updateProfilePhoto(user.id, photoFile(PNG));
+
+      expect(result).toMatchObject({ avatarUrl: NEW_URL });
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Failed to remove replaced photo'));
+    });
+
     it('stores the object key and resolves the public URL in the response (#546 S3)', async () => {
       const KEY = 'avatar/user-1-1700000000001.png';
       mockStorage.save.mockResolvedValue(KEY);

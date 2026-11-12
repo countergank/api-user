@@ -55,4 +55,19 @@ describe('LocalProfilePhotoStorage', () => {
       readFile(path.join(uploadsRoot, path.basename(key))),
     ).resolves.toEqual(PNG);
   });
+
+  it('delete ignores stored values whose basename does not match the driver pattern (S1)', async () => {
+    const key = await storage.save('user-1', PNG, 'png');
+
+    // A crafted stored value (another user's path shape, traversal, or a bare
+    // name) must never reach the filesystem: only `<userId>-<timestamp>.<ext>`
+    // basenames the driver itself generates are deletable.
+    await storage.delete('avatar/other-user.png');
+    await storage.delete('avatar/..');
+    await storage.delete('/uploads/avatars/crafted-name.png');
+
+    await expect(
+      readFile(path.join(uploadsRoot, path.basename(key))),
+    ).resolves.toEqual(PNG);
+  });
 });

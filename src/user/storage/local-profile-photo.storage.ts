@@ -2,12 +2,16 @@ import { mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { Injectable } from '@nestjs/common';
 import {
+  AVATAR_BASENAME_PATTERN,
   AVATAR_KEY_PREFIX,
   avatarObjectKey,
   LOCAL_AVATAR_SERVE_ROOT,
   ProfilePhotoStorage,
 } from './profile-photo-storage';
 import { SupportedPhotoExtension } from './user-profile-photo.storage';
+
+/** Basenames the driver itself generates; anything else is never deletable. */
+const AVATAR_FILE_NAME_PATTERN = AVATAR_BASENAME_PATTERN;
 
 @Injectable()
 export class LocalProfilePhotoStorage implements ProfilePhotoStorage {
@@ -34,7 +38,7 @@ export class LocalProfilePhotoStorage implements ProfilePhotoStorage {
       : url.startsWith(legacyPrefix)
         ? path.basename(url)
         : undefined;
-    if (!fileName) return;
+    if (!fileName || !AVATAR_FILE_NAME_PATTERN.test(fileName)) return;
 
     await rm(path.join(this.uploadsRoot, fileName), { force: true });
   }

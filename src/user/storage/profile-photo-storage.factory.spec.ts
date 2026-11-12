@@ -37,4 +37,14 @@ describe('profile photo storage factory (#546 S2)', () => {
       LocalProfilePhotoStorage,
     );
   });
+
+  it('never delivers the S3 driver when the driver value is outside the local|s3 enum (S8)', () => {
+    // `env.validation.ts` rejects these at boot; the factory's own contract is
+    // that anything but the exact 's3' literal falls back to the local driver.
+    for (const invalid of ['gcs', 'azure', 'S3', ' s3', '']) {
+      expect(profilePhotoStorageFactory(configWith({ STORAGE_DRIVER: invalid }))).toBeInstanceOf(
+        LocalProfilePhotoStorage,
+      );
+    }
+  });
 });

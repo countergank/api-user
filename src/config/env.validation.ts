@@ -270,8 +270,17 @@ export function validate(config: Record<string, unknown>) {
 
   // Profile photo storage defaults to the local driver; the S3 driver fails
   // fast at boot through the ConfigService.getOrThrow calls in its constructor.
+  // Cross-field coherence is checked here so a misconfigured s3 driver surfaces
+  // at boot with a clear message instead of on the first upload (S5).
   if (!validatedConfig.STORAGE_DRIVER) {
     validatedConfig.STORAGE_DRIVER = 'local';
+  }
+  if (validatedConfig.STORAGE_DRIVER === 's3') {
+    const requiredS3Vars = ['S3_ENDPOINT', 'S3_REGION', 'S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY'] as const;
+    const missing = requiredS3Vars.filter((name) => !validatedConfig[name]);
+    if (missing.length > 0) {
+      throw new Error(`STORAGE_DRIVER=s3 requires these environment variables: ${missing.join(', ')}`);
+    }
   }
 
   return validatedConfig;
