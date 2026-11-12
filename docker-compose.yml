@@ -57,6 +57,60 @@ services:
     networks:
       - default
 
+  minio:
+    # Storage S3-compatible para desarrollo del driver de fotos (#546). Igual
+    # que mailpit: no arranca con `make up`; vive bajo el profile `storage-s3`
+    # y se activa con COMPOSE_PROFILES=storage-s3 en el .env de la raíz del
+    # proyecto, o por comando: docker compose --profile storage-s3 up -d minio
+    # Imagen de Chainguard: MinIO borró minio/minio de Docker Hub (09/2026) y
+    # quay.io exige login; este fork se mantiene y se puede pull anonimamente.
+    image: cgr.dev/chainguard/minio:latest
+    container_name: minio-user
+    profiles:
+      - storage-s3
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=${S3_ACCESS_KEY_ID:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${S3_SECRET_ACCESS_KEY:-minioadmin}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-user-data:/data
+    healthcheck:
+      # La imagen Chainguard no trae curl; el `mc` embebido hace las veces.
+      test: ["CMD-SHELL", "mc alias set health http://localhost:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - default
+
+  minio-init:
+    # Crea el bucket y deja sus objetos en lectura pública (patrón mongo-init).
+    # Usa el `mc` embebido en la misma imagen: minio/mc ya no se distribuye y el
+    # JSON de PutBucketPolicy no sobrevive al escapado de YAML + shell.
+    image: cgr.dev/chainguard/minio:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    profiles:
+      - storage-s3
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD" &&
+        mc mb --ignore-existing "local/$$S3_BUCKET" &&
+        mc anonymous set download "local/$$S3_BUCKET" &&
+        echo 'minio-init: bucket listo'
+    environment:
+      - MINIO_ROOT_USER=${S3_ACCESS_KEY_ID:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${S3_SECRET_ACCESS_KEY:-minioadmin}
+      - S3_BUCKET=${S3_BUCKET:-countergank-assets}
+    restart: "no"
+    networks:
+      - default
+
   api-user:
     image: countergank/api-user:${NODE_ENV:-development}-${VERSION:-1.0.0}
     container_name: api-user
@@ -93,6 +147,8 @@ volumes:
   api-user-data:
     driver: local
   redis-user-data:
+    driver: local
+  minio-user-data:
     driver: local
 
 networks:

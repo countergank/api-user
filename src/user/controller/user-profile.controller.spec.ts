@@ -8,6 +8,8 @@ import { AuthService } from '../../auth/auth.service';
 import { ChangePasswordDTO } from '../dto/change-password.dto';
 import { UserMock } from '../mocks/user.mock';
 import { UserService } from '../service/user.service';
+import { ConfigService } from '@nestjs/config';
+import { ProfilePhotoUrlResolver } from '../storage/profile-photo-url.resolver';
 import { UserProfileController } from './user-profile.controller';
 
 describe(UserProfileController.name, () => {
@@ -51,6 +53,8 @@ describe(UserProfileController.name, () => {
         { provide: EventEmitter2, useValue: mockEventEmitter },
         { provide: AuthService, useValue: mockAuthService },
         { provide: I18nService, useValue: { translate: jest.fn().mockResolvedValue('Password changed') } },
+        ProfilePhotoUrlResolver,
+        { provide: ConfigService, useValue: { get: () => undefined } },
       ],
     })
       .useMocker((token) => {

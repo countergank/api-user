@@ -25,6 +25,7 @@ import {
 import { ChangePasswordDTO } from '../dto/change-password.dto';
 import { RequestEmailChangeDTO } from '../dto/request-email-change.dto';
 import { UserService } from '../service/user.service';
+import { ProfilePhotoUrlResolver } from '../storage/profile-photo-url.resolver';
 import { missingPhotoPartError } from '../storage/user-profile-photo.errors';
 import { User } from '../entities/user.entity';
 
@@ -42,6 +43,7 @@ export class UserProfileController {
     private eventEmitter: EventEmitter2,
     @Inject(I18nService) private i18n: I18nService,
     private moduleRef: ModuleRef,
+    private avatarUrlResolver: ProfilePhotoUrlResolver,
   ) {}
 
   // The controller resolves AuthService lazily: AuthModule already depends on
@@ -62,7 +64,7 @@ export class UserProfileController {
       name: user.name,
       lastName: user.lastName,
       email: user.email,
-      avatarUrl: user.avatarUrl,
+      avatarUrl: this.avatarUrlResolver.resolve(user.avatarUrl),
     };
   }
 
@@ -77,7 +79,7 @@ export class UserProfileController {
       name: updated.name,
       lastName: updated.lastName,
       email: updated.email,
-      avatarUrl: updated.avatarUrl,
+      avatarUrl: this.avatarUrlResolver.resolve(updated.avatarUrl),
     };
   }
 

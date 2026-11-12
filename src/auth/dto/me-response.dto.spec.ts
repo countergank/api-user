@@ -44,6 +44,14 @@ describe(MeResponseDTO.name, () => {
     expect(MeResponseDTO.of(withoutAvatar).avatarUrl).toBeUndefined();
   });
 
+  it('exposes the resolved public URL when the caller supplies one (#546 S5.5)', () => {
+    const keyed = { ...input, avatarUrl: 'avatar/user-1-170.png' } as unknown as User;
+
+    expect(MeResponseDTO.of(keyed, '/uploads/avatars/user-1-170.png').avatarUrl).toBe(
+      '/uploads/avatars/user-1-170.png',
+    );
+  });
+
   it('exposes exactly the seven whitelisted fields (no internal field leaks)', () => {
     const result = MeResponseDTO.of(input);
 

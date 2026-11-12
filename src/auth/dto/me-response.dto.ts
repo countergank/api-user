@@ -62,17 +62,17 @@ export class MeResponseDTO {
   })
   avatarUrl?: string;
 
-  constructor(user: User) {
+  constructor(user: User, avatarUrl?: string) {
     this.id = user.id;
     this.name = user.name;
     this.lastName = user.lastName;
     this.email = user.email;
     this.role = user.role;
     this.permissions = user.permissions;
-    this.avatarUrl = user.avatarUrl;
+    this.avatarUrl = avatarUrl ?? user.avatarUrl;
   }
 
-  static of(user: User): MeResponseDTO {
-    return new MeResponseDTO(user);
+  static of(user: User, avatarUrl?: string): MeResponseDTO {
+    return new MeResponseDTO(user, avatarUrl);
   }
 }

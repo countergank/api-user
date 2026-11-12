@@ -1,5 +1,6 @@
 import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
 import { Test, TestingModule } from '@nestjs/testing';
+import { PROFILE_PHOTO_STORAGE } from '../storage/profile-photo-storage';
 import { AUDIT_ACTION_KEY } from '../../common/audit/audit.decorator';
 import { PaginatedResponseDTO } from '../../common/dto/paginated-response.dto';
 import { PERMISSIONS_KEY } from '../../auth/decorators/permissions.decorator';
@@ -32,7 +33,7 @@ describe(UserController.name, () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [UserController],
-      providers: [UserService],
+      providers: [UserService, { provide: PROFILE_PHOTO_STORAGE, useValue: { save: jest.fn(), delete: jest.fn() } }],
     })
       .useMocker((token) => {
         if (token === getConnectionToken()) return mockConnection;

@@ -1,6 +1,7 @@
 import { Reflector } from '@nestjs/core';
 import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
 import { Test, TestingModule } from '@nestjs/testing';
+import { PROFILE_PHOTO_STORAGE } from '../storage/profile-photo-storage';
 import { PERMISSIONS_KEY } from '../../auth/decorators/permissions.decorator';
 import { DomainError } from '../../common/errors/domain.error';
 import { ErrorKind } from '../../common/errors/error-kind';
@@ -29,7 +30,7 @@ describe(AdminSessionController.name, () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AdminSessionController],
-      providers: [UserService, ActiveSessionService],
+      providers: [UserService, ActiveSessionService, { provide: PROFILE_PHOTO_STORAGE, useValue: { save: jest.fn(), delete: jest.fn() } }],
     })
       .useMocker((token) => {
         if (token === getConnectionToken()) return mockConnection;

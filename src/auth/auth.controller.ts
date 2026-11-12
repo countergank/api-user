@@ -31,6 +31,7 @@ import { RevertEmailChangeDTO } from './dto/revert-email-change.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { ActiveSessionService } from '../session/active-session.service';
 import { ActiveSessionDTO } from '../session/dto/active-session.dto';
+import { ProfilePhotoUrlResolver } from '../user/storage/profile-photo-url.resolver';
 import { DomainError } from '../common/errors/domain.error';
 
 @ApiTags('auth')
@@ -40,6 +41,7 @@ export class AuthController {
     private authService: AuthService,
     private readonly activeSessionService: ActiveSessionService,
     @Inject(I18nService) private i18n: I18nService,
+    private readonly avatarUrlResolver: ProfilePhotoUrlResolver,
   ) {}
 
   private async t(key: string, lang: string | undefined): Promise<string> {
@@ -208,6 +210,6 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApplyMeDoc()
   me(@CurrentUser() user: User): MeResponseDTO {
-    return MeResponseDTO.of(user);
+    return MeResponseDTO.of(user, this.avatarUrlResolver.resolve(user.avatarUrl));
   }
 }
