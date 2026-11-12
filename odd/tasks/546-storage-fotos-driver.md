@@ -25,6 +25,8 @@ Refactor del storage de fotos de perfil a driver parametrizable (local | s3/R2).
 - T5 (S5.3) Reemplazo: save nueva key → update Mongo → delete objeto anterior (orden actual, ambos drivers). — commit: pendiente.
 - T6 (S5.6) Tests: factory, drivers (save/delete/reemplazo), flujo del servicio, resolver. — commit: pendiente.
 
+- T1..T5 → commit `4141ffe` `feat(user): add parametrizable photo storage` (slice 1, ~681 líneas). T6 (compose MinIO) → commit siguiente (slice 2). Commits autorizados explícitamente por el usuario en sesión (12/11).
+
 ## Log
 
 - L1 (12/11): «usa la skill kickoff» → kickoff eligió #546 por continuidad con #539; «eliminado, vamos con el ticket». Implementación autorizada; commits requieren autorización explícita por commit (AGENTS.md).
