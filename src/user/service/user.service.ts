@@ -29,6 +29,7 @@ import {
 import {
   PROFILE_PHOTO_STORAGE,
   ProfilePhotoStorage,
+  sanitizeLogValue,
 } from '../storage/profile-photo-storage';
 import { ProfilePhotoUrlResolver } from '../storage/profile-photo-url.resolver';
 import {
@@ -688,17 +689,31 @@ export class UserService {
       const updated = await this.userRepository.update(userId, { avatarUrl: key });
       if (previous) {
         // Best effort: once the new reference committed, a failed removal of
-        // the replaced object must not turn a successful update into an error.
-        await this.photoStorage.delete(previous).catch(() => undefined);
+        // the replaced object must not turn a successful update into an error;
+        // it stays visible as a warning instead (S7).
+        await this.photoStorage.delete(previous).catch((cleanupError: unknown) => {
+          this.logger.warn(
+            `Failed to remove replaced photo ${sanitizeLogValue(previous)} for user ${sanitizeLogValue(userId)}: ${sanitizeLogValue(cleanupError instanceof Error ? cleanupError.message : String(cleanupError))}`,
+          );
+        });
       }
       return { avatarUrl: this.avatarUrlResolver.resolve(updated.avatarUrl) };
     } catch (error) {
       // Reaching here means the reference never committed, so the freshly
       // saved object is an orphan and the document still needs no cleanup.
-      if (key) await this.photoStorage.delete(key);
+      const committed = Boolean(key);
+      if (committed) {
+        await this.photoStorage.delete(key).catch((orphanError: unknown) => {
+          // The update never committed, so the leftover object is harmless;
+          // the warning keeps the double failure from passing unnoticed (R3-2).
+          this.logger.warn(
+            `Orphan photo object ${sanitizeLogValue(key)} for user ${sanitizeLogValue(userId)} could not be removed: ${sanitizeLogValue(orphanError instanceof Error ? orphanError.message : String(orphanError))}`,
+          );
+        });
+      }
       if (error instanceof Error && error.name === 'PhotoLimitExceededError') throw error;
       this.logger.error(
-        `Failed to store profile photo for user ${userId}: ${error instanceof Error ? error.message : error}`,
+        `Failed to store profile photo for user ${sanitizeLogValue(userId)} (object ${committed ? `saved, cleanup attempted` : 'never saved'}): ${sanitizeLogValue(error instanceof Error ? error.message : String(error))}`,
       );
       throw DomainError.internal('Failed to store the profile photo');
     }

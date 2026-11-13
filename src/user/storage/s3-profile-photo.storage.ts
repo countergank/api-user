@@ -49,6 +49,9 @@ export class S3ProfilePhotoStorage implements ProfilePhotoStorage {
   }
 
   async delete(url: string): Promise<void> {
+    // Legacy `/uploads/avatars/...` values never existed in any bucket (local
+    // disk was the only pre-#546 driver), so they are a deliberate no-op here:
+    // deleting by basename would reach into whatever object happens to collide.
     if (!url.startsWith(AVATAR_KEY_PREFIX)) return;
 
     try {
