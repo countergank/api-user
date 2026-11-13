@@ -99,4 +99,15 @@ describe('LocalProfilePhotoStorage', () => {
     const files = await readdir(uploadsRoot);
     expect(files.filter((f) => f.startsWith('user-2-'))).toHaveLength(0);
   });
+
+  it('save keeps the pre-existing file when the write fails with EEXIST (R3-001)', async () => {
+    const keepKey = await storage.save('user-2', PNG, 'png');
+    const keepName = keepKey.slice('avatar/'.length);
+
+    // Same save again: 'wx' rejects with EEXIST because the valid photo from
+    // the previous save is already there; the cleanup must not delete it.
+    await expect(storage.save('user-2', PNG, 'png')).rejects.toThrow();
+
+    await expect(readFile(path.join(uploadsRoot, keepName))).resolves.toEqual(PNG);
+  });
 });

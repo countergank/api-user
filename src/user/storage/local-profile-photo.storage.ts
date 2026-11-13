@@ -36,12 +36,16 @@ export class LocalProfilePhotoStorage implements ProfilePhotoStorage {
     const target = path.join(this.uploadsRoot, fileName);
 
     await mkdir(this.uploadsRoot, { recursive: true });
-    // 'wx' creates the file before writing, so a failed write can leave a
-    // partially written orphan behind; remove it before surfacing the error.
+    // 'wx' creates the file before writing, so a mid-write failure can leave a
+    // partially written orphan behind. EEXIST is different: the write rejected
+    // the create, so the existing file predates this save and must stay.
     try {
       await this.writer(target, buffer);
     } catch (error) {
-      await rm(target, { force: true }).catch(() => undefined);
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code !== 'EEXIST') {
+        await rm(target, { force: true }).catch(() => undefined);
+      }
       throw error;
     }
 
