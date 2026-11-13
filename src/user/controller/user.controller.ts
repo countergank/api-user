@@ -138,7 +138,7 @@ export class UserController {
       : undefined;
 
     const user: User = await this.userService.updateUser(id, { ...dto, permissions } as UpdateUserDTO);
-    return AdminUserDTO.of(user);
+    return AdminUserDTO.of(user, this.avatarUrlResolver.resolve(user.avatarUrl));
   }
 
   @DeleteUserDoc()
@@ -167,7 +167,7 @@ export class UserController {
   @Patch(':id/active')
   async toggleActive(@Param('id') id: string): Promise<AdminUserDTO> {
     const user: User = await this.userService.toggleActiveUser(id);
-    return AdminUserDTO.of(user);
+    return AdminUserDTO.of(user, this.avatarUrlResolver.resolve(user.avatarUrl));
   }
 
   @ResendVerificationDoc()
