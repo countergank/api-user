@@ -42,6 +42,7 @@ const EXPECTED_USER_RESPONSE_PROPERTIES = [
   'emailVerified',
   'hasPendingEmailChange',
   'hasPendingPasswordReset',
+  'avatarUrl',
 ].sort();
 
 function userResponseSchema(document: OpenAPIObject): SchemaLike {
@@ -78,6 +79,13 @@ describe('UserResponse OpenAPI schema (e2e)', () => {
     const lockedUntil = schema.properties?.lockedUntil as SchemaLike;
     expect(lockedUntil.nullable).toBe(true);
     expect(lockedUntil.format).toBe('date-time');
+  });
+
+  it('documents avatarUrl as an optional, nullable public URL (issue #548)', () => {
+    const schema = userResponseSchema(document);
+    const avatarUrl = schema.properties?.avatarUrl as SchemaLike;
+    expect(avatarUrl.nullable).toBe(true);
+    expect(avatarUrl.description).toContain('URL pública de la foto de perfil');
   });
 });
 

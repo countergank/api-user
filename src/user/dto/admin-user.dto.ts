@@ -34,6 +34,7 @@ export const ADMIN_USER_CSV_HEADERS = [
   'updatedAt',
   'lockedUntil',
   'failedLoginAttempts',
+  'avatarUrl',
 ] as const;
 
 export class AdminUserDTO extends UserDTO {
@@ -74,16 +75,29 @@ export class AdminUserDTO extends UserDTO {
   })
   hasPendingPasswordReset: boolean;
 
-  constructor(user: User) {
+  @ApiProperty({
+    example: '/uploads/avatars/507f1f77bcf86cd799439011-1700000000000.png',
+    description:
+      'URL pública de la foto de perfil, resuelta por el mismo driver que /auth/me (undefined si no tiene foto). Solo lectura.',
+    required: false,
+    nullable: true,
+  })
+  avatarUrl?: string;
+
+  constructor(user: User, avatarUrl?: string) {
     super(user);
     this.lockedUntil = user.lockedUntil ? user.lockedUntil.toISOString() : null;
     this.failedLoginAttempts = user.failedLoginAttempts ?? 0;
     this.emailVerified = !user.emailVerificationToken;
     this.hasPendingEmailChange = Boolean(user.pendingEmailToken);
     this.hasPendingPasswordReset = Boolean(user.resetPasswordToken);
+    // Resolved-only by design (issue #548): the raw stored object key never
+    // leaks; callers that do not resolve (update, toggleActive) expose no
+    // avatarUrl at all rather than an unusable key.
+    this.avatarUrl = avatarUrl;
   }
 
-  static of(user: User): AdminUserDTO {
-    return new AdminUserDTO(user);
+  static of(user: User, avatarUrl?: string): AdminUserDTO {
+    return new AdminUserDTO(user, avatarUrl);
   }
 }

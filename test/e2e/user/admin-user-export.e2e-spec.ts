@@ -128,8 +128,28 @@ describe('Admin users CSV export (#455, e2e)', () => {
     expect(res.headers['content-type']).toBe('text/csv; charset=utf-8');
     expect(res.headers['content-disposition']).toBe('attachment; filename="users.csv"');
     expect(rows(res.text)[0]).toBe(
-      'id,name,lastName,email,userName,role,isActive,createdAt,updatedAt,lockedUntil,failedLoginAttempts',
+      'id,name,lastName,email,userName,role,isActive,createdAt,updatedAt,lockedUntil,failedLoginAttempts,avatarUrl',
     );
+  });
+
+  it('exports the resolved avatarUrl per user and omits the raw object key (issue #548)', async () => {
+    const photoUser = newUser('photoy');
+    const photoUserId = await registerAndVerify(photoUser);
+    await userModel.findByIdAndUpdate(photoUserId, {
+      avatarUrl: `avatar/${photoUserId}-1700000000000.png`,
+    }).exec();
+
+    const res = await getExport(adminToken, `?search=${lastNameStamp}`).expect(200);
+
+    const csvRows = rows(res.text);
+    const photoLine = csvRows.find((line) => line.includes(photoUser.email));
+    expect(photoLine).toBeDefined();
+    expect(photoLine).toContain('/uploads/avatars/');
+    expect(photoLine).not.toContain('avatar/');
+    const photolessLine = csvRows.find((line) => line.includes(listedB.email));
+    expect(photolessLine).toBeDefined();
+    // The last column of a photo-less row is empty.
+    expect(photolessLine?.endsWith(',')).toBe(true);
   });
 
   it('escapes a value with comma and quote per RFC 4180', async () => {

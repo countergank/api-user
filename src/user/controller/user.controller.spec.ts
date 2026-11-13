@@ -98,6 +98,35 @@ describe(UserController.name, () => {
       expect(userService.getEffectivePermissions).toHaveBeenCalledWith(user);
     });
 
+    it('exposes the avatarUrl resolved from the stored photo key (issue #548)', async () => {
+      const user = Object.assign(new UserMock(), {
+        avatarUrl: 'avatar/507f1f77bcf86cd799439011-1700000000000.png',
+      });
+      jest.spyOn(userService, 'findById').mockResolvedValue(user);
+      jest.spyOn(userService, 'getEffectivePermissions').mockResolvedValue([]);
+      const resolve = jest
+        .fn()
+        .mockReturnValue('/uploads/avatars/507f1f77bcf86cd799439011-1700000000000.png');
+      (controller as any).avatarUrlResolver = { resolve };
+
+      const dto = await controller.findById(user.id);
+
+      expect(dto.avatarUrl).toBe('/uploads/avatars/507f1f77bcf86cd799439011-1700000000000.png');
+      expect(resolve).toHaveBeenCalledWith('avatar/507f1f77bcf86cd799439011-1700000000000.png');
+    });
+
+    it('leaves avatarUrl undefined in the detail of a user without photo (issue #548)', async () => {
+      const user = new UserMock();
+      expect(user.avatarUrl).toBeUndefined();
+      jest.spyOn(userService, 'findById').mockResolvedValue(user);
+      jest.spyOn(userService, 'getEffectivePermissions').mockResolvedValue([]);
+      (controller as any).avatarUrlResolver = { resolve: jest.fn().mockReturnValue(undefined) };
+
+      const dto = await controller.findById(user.id);
+
+      expect(dto.avatarUrl).toBeUndefined();
+    });
+
     it(`should be return a ${User.name}`, async () => {
       const user = new UserMock();
       jest.spyOn(userService, 'findById').mockResolvedValue(user);

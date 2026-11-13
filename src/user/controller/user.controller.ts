@@ -28,8 +28,8 @@ import { CreateUserDTO } from '../dto/create-user.dto';
 import { PaginationQueryDTO } from '../dto/pagination-query.dto';
 import { UpdateUserDTO } from '../dto/update-user.dto';
 import { UserMetricsResponseDTO } from '../dto/user-metrics.dto';
-import { UserRole } from '../entities/user.entity';
-import { User } from '../entities/user.entity';
+import { User, UserRole } from '../entities/user.entity';
+import { ProfilePhotoUrlResolver } from '../storage/profile-photo-url.resolver';
 import { UserService } from '../service/user.service';
 
 /**
@@ -45,6 +45,7 @@ export class UserController {
   constructor(
     private readonly userService: UserService,
     @Inject(I18nService) private i18n: I18nService,
+    private readonly avatarUrlResolver: ProfilePhotoUrlResolver,
   ) {}
 
   private async t(key: string, lang: string | undefined): Promise<string> {
@@ -103,7 +104,11 @@ export class UserController {
   async findById(@Param('id') id: string): Promise<AdminUserDetailDTO> {
     const user: User = await this.userService.findById(id);
     const permissions = await this.userService.getEffectivePermissions(user);
-    return AdminUserDetailDTO.of(user, permissions);
+    return AdminUserDetailDTO.ofDetail(
+      user,
+      permissions,
+      this.avatarUrlResolver.resolve(user.avatarUrl),
+    );
   }
 
   @UnlockUserDoc()
