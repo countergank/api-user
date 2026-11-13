@@ -702,7 +702,15 @@ export class UserService {
       // Reaching here means the reference never committed, so the freshly
       // saved object is an orphan and the document still needs no cleanup.
       const committed = Boolean(key);
-      if (committed) await this.photoStorage.delete(key);
+      if (committed) {
+        await this.photoStorage.delete(key).catch((orphanError: unknown) => {
+          // The update never committed, so the leftover object is harmless;
+          // the warning keeps the double failure from passing unnoticed (R3-2).
+          this.logger.warn(
+            `Orphan photo object ${sanitizeLogValue(key)} for user ${sanitizeLogValue(userId)} could not be removed: ${sanitizeLogValue(orphanError instanceof Error ? orphanError.message : String(orphanError))}`,
+          );
+        });
+      }
       if (error instanceof Error && error.name === 'PhotoLimitExceededError') throw error;
       this.logger.error(
         `Failed to store profile photo for user ${sanitizeLogValue(userId)} (object ${committed ? `saved, cleanup attempted` : 'never saved'}): ${sanitizeLogValue(error instanceof Error ? error.message : String(error))}`,

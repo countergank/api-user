@@ -281,6 +281,14 @@ export function validate(config: Record<string, unknown>) {
     if (missing.length > 0) {
       throw new Error(`STORAGE_DRIVER=s3 requires these environment variables: ${missing.join(', ')}`);
     }
+    if (!validatedConfig.STORAGE_PUBLIC_URL) {
+      // The s3 resolver has no local served-path fallback, so without a base
+      // every avatar would resolve to undefined at read time.
+      throw new Error('STORAGE_DRIVER=s3 requires STORAGE_PUBLIC_URL to resolve public avatar URLs');
+    }
+  }
+  if (validatedConfig.STORAGE_PUBLIC_URL && !/^https?:\/\/\S+$/i.test(validatedConfig.STORAGE_PUBLIC_URL)) {
+    throw new Error('STORAGE_PUBLIC_URL must be an absolute http(s) URL');
   }
 
   return validatedConfig;

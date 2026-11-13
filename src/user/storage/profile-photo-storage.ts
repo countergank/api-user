@@ -10,8 +10,12 @@ export interface ProfilePhotoStorage {
 export const AVATAR_KEY_PREFIX = 'avatar/';
 export const LOCAL_AVATAR_SERVE_ROOT = '/uploads/avatars';
 
-/** Basenames the driver itself generates; anything else is never trusted. */
-export const AVATAR_BASENAME_PATTERN = /^[^/]+-\d+\.(?:jpg|png|webp)$/;
+/**
+ * Basenames the driver itself generates; anything else is never trusted. The
+ * userId segment excludes separators and whitespace so a crafted stored value
+ * can never reformat itself into a matching basename (R3-1).
+ */
+export const AVATAR_BASENAME_PATTERN = /^[A-Za-z0-9_-]+-\d+\.(?:jpg|png|webp)$/;
 
 /** True only for values this module would have produced as object keys. */
 export function isAvatarObjectKey(value: string): boolean {
