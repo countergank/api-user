@@ -104,9 +104,14 @@ describe('LocalProfilePhotoStorage', () => {
     const keepKey = await storage.save('user-2', PNG, 'png');
     const keepName = keepKey.slice('avatar/'.length);
 
-    // Same save again: 'wx' rejects with EEXIST because the valid photo from
-    // the previous save is already there; the cleanup must not delete it.
-    await expect(storage.save('user-2', PNG, 'png')).rejects.toThrow();
+    // A writer failure carrying EEXIST means the create rejected because a
+    // valid photo already exists at that path; the cleanup must not delete it.
+    const eexist = Object.assign(new Error('EEXIST: file already exists'), { code: 'EEXIST' });
+    const eexistStorage = new LocalProfilePhotoStorage(uploadsRoot, async () => {
+      throw eexist;
+    });
+
+    await expect(eexistStorage.save('user-2', PNG, 'png')).rejects.toThrow('EEXIST');
 
     await expect(readFile(path.join(uploadsRoot, keepName))).resolves.toEqual(PNG);
   });
