@@ -60,9 +60,11 @@ start: dev
 up:
 	@set -e; \
 	file=$$(scripts/resolve-env.sh "$(ENV)"); \
-	profiles=$$(sed -n 's/^COMPOSE_PROFILES=//p' "$$file" | tail -1 | tr -d '"\r'); \
+	profiles=$$(sed -n 's/^[[:space:]]*COMPOSE_PROFILES[[:space:]]*=[[:space:]]*//p' "$$file" | tail -1 | tr -d "\"'[:space:]\r"); \
 	trap 'case "$$file" in */api-user-env.*/*) rm -rf "$${file%/*}" ;; esac' EXIT; \
-	COMPOSE_PROFILES="$${profiles:-$${COMPOSE_PROFILES:-}}" NODE_ENV=$(ENV) ENV_FILE="$$file" docker compose up -d --build
+	profiles="$${profiles:-$${COMPOSE_PROFILES:-}}"; \
+	echo "[env] compose profiles activos: $${profiles:-ninguno (solo stack base)}"; \
+	COMPOSE_PROFILES="$$profiles" NODE_ENV=$(ENV) ENV_FILE="$$file" docker compose up -d --build
 
 ## down — Stop Docker services for this project
 down:
