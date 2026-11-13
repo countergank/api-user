@@ -55,12 +55,14 @@ start: dev
 ## COU-312 + #548: el env resuelto entra al contenedor como `env_file`, pero
 ## COMPOSE_PROFILES la lee el propio proceso de compose: sin este puente, la
 ## variable definida en Doppler nunca activa los perfiles (minio, mailpit).
+## Precedencia: si el env resuelto no define COMPOSE_PROFILES, se respeta la
+## que el shell del invocador ya tenga exportada (comportamiento previo).
 up:
 	@set -e; \
 	file=$$(scripts/resolve-env.sh "$(ENV)"); \
 	profiles=$$(sed -n 's/^COMPOSE_PROFILES=//p' "$$file" | tail -1 | tr -d '"\r'); \
 	trap 'case "$$file" in */api-user-env.*/*) rm -rf "$${file%/*}" ;; esac' EXIT; \
-	COMPOSE_PROFILES="$$profiles" NODE_ENV=$(ENV) ENV_FILE="$$file" docker compose up -d --build
+	COMPOSE_PROFILES="$${profiles:-$${COMPOSE_PROFILES:-}}" NODE_ENV=$(ENV) ENV_FILE="$$file" docker compose up -d --build
 
 ## down — Stop Docker services for this project
 down:
