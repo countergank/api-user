@@ -31,12 +31,14 @@ export class AdminUserDetailDTO extends AdminUserDTO {
   })
   permissions: string[];
 
-  constructor(user: User, permissions: string[]) {
-    super(user);
+  constructor(user: User, permissions: string[], avatarUrl?: string) {
+    super(user, avatarUrl);
     this.permissions = permissions;
   }
 
-  static of(user: User, permissions: string[] = []): AdminUserDetailDTO {
-    return new AdminUserDetailDTO(user, permissions);
+  // Named differently from the base `of` (issue #548): the detail adds
+  // `permissions` before `avatarUrl`, which would break the base signature.
+  static ofDetail(user: User, permissions: string[] = [], avatarUrl?: string): AdminUserDetailDTO {
+    return new AdminUserDetailDTO(user, permissions, avatarUrl);
   }
 }

@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Admin avatar exposure (issue #548)** — `GET /admin/users`, `GET /admin/users/:id`, `PATCH /admin/users/:id` and `PATCH /admin/users/:id/active` now return `avatarUrl` resolved by the same driver as `/auth/me` (relative with the local driver, absolute with `STORAGE_PUBLIC_URL`). The raw stored object key is never exposed; users without a photo omit the field.
+- **Admin users CSV export** — the `GET /admin/users/export.csv` document gains a trailing `avatarUrl` column with the resolved public URL (empty cell for users without a photo). **Consumers parsing the CSV by column position must account for the new trailing column.**
+- **`make up` compose profiles bridge** — `COMPOSE_PROFILES` from the resolved environment source (Doppler, `.env.<env>` or explicit `ENV_FILE`) now reaches the compose process, so profile services like MinIO (`storage-s3`) start with `make up` as documented. The active profiles are logged on startup; a shell-exported `COMPOSE_PROFILES` is respected when the resolved source does not define one.
+
 - **Rate Limiting** — All public auth endpoints are now protected by configurable rate limiting using `@nestjs/throttler`:
   - `POST /auth/login` — 5 requests per 60s (configurable via `LOGIN_THROTTLE_LIMIT` / `LOGIN_THROTTLE_TTL`)
   - `POST /auth/forgot-password` — 3 requests per 60s (configurable via `FORGOT_PASSWORD_THROTTLE_LIMIT` / `FORGOT_PASSWORD_THROTTLE_TTL`)

@@ -51,6 +51,31 @@ describe(AdminUserDTO.name, () => {
     });
   });
 
+  describe('avatarUrl (issue #548)', () => {
+    it('exposes the resolved public URL passed by the caller', () => {
+      const user = new UserMock();
+      const resolved = '/uploads/avatars/507f1f77bcf86cd799439011-1700000000000.png';
+
+      const dto = AdminUserDTO.of(user, resolved);
+
+      expect(dto.avatarUrl).toBe(resolved);
+    });
+
+    it('leaves avatarUrl undefined for a user without photo', () => {
+      const user = new UserMock();
+      expect(user.avatarUrl).toBeUndefined();
+
+      expect(AdminUserDTO.of(user).avatarUrl).toBeUndefined();
+    });
+
+    it('never falls back to the raw stored object key', () => {
+      const user = new UserMock();
+      user.avatarUrl = 'avatar/507f1f77bcf86cd799439011-1700000000000.png';
+
+      expect(AdminUserDTO.of(user).avatarUrl).toBeUndefined();
+    });
+  });
+
   describe('account state (issue #535)', () => {
     it('reports a user without tokens as verified with no pending changes', () => {
       // A fresh document: `UserMock` never initializes the state tokens, so the
@@ -117,10 +142,20 @@ describe(AdminUserDetailDTO.name, () => {
     const user = new UserMock();
     user.role = UserRole.ADMIN;
 
-    const dto = AdminUserDetailDTO.of(user, ['user:read', 'user:update']);
+    const dto = AdminUserDetailDTO.ofDetail(user, ['user:read', 'user:update']);
 
     expect(dto.permissions).toEqual(['user:read', 'user:update']);
     expect(dto).toBeInstanceOf(AdminUserDTO);
+  });
+
+  it('exposes the resolved avatarUrl alongside the effective permissions (issue #548)', () => {
+    const user = new UserMock();
+    const resolved = '/uploads/avatars/507f1f77bcf86cd799439011-1700000000000.png';
+
+    const dto = AdminUserDetailDTO.ofDetail(user, ['user:read'], resolved);
+
+    expect(dto.avatarUrl).toBe(resolved);
+    expect(dto.permissions).toEqual(['user:read']);
   });
 
   it('keeps every admin field of the base DTO intact', () => {
@@ -128,7 +163,7 @@ describe(AdminUserDetailDTO.name, () => {
     user.id = 'user-9';
     user.failedLoginAttempts = 1;
 
-    const dto = AdminUserDetailDTO.of(user, []);
+    const dto = AdminUserDetailDTO.ofDetail(user, []);
 
     expect(dto.id).toBe('user-9');
     expect(dto.failedLoginAttempts).toBe(1);

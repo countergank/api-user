@@ -320,6 +320,54 @@ describe('Admin Users CRUD (e2e)', () => {
     expect(Array.isArray(res.body.data)).toBe(true);
   });
 
+  it('GET /admin/users -- returns the resolved avatarUrl and never the raw object key (issue #548)', async () => {
+    // The DELETE tests above soft-delete the admin user, so the listing uses
+    // two fresh users, isolated by a unique lastName stamp: one with a seeded
+    // photo key, one without any photo.
+    const stamp = Date.now();
+    const register = (suffix: string, lastName: string) =>
+      request(app.getHttpServer())
+        .post('/auth/register')
+        .send({
+          email: `avatar-crud-${stamp}-${suffix}@example.com`,
+          userName: `avatar-crud-${stamp}-${suffix}`,
+          password: 'Av4tarW0rd!x',
+          name: 'Avatar',
+          lastName,
+        })
+        .expect(201);
+
+    const photoRes = await register('photo', `CrudAvatar${stamp}`);
+    const photoUserId = (photoRes.body.user as { id: string }).id;
+    const photolessRes = await register('nophoto', `CrudAvatar${stamp}`);
+    const photolessUserId = (photolessRes.body.user as { id: string }).id;
+
+    const userModel = app.get<Model<User>>(getModelToken(User.name));
+    // Seed a raw stored object key straight on the document: only the resolver
+    // can turn it into a public URL.
+    await userModel.findByIdAndUpdate(photoUserId, {
+      avatarUrl: `avatar/${photoUserId}-1700000000000.png`,
+    }).exec();
+
+    const res = await request(app.getHttpServer())
+      .get(`/admin/users?search=CrudAvatar${stamp}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    const byId = (id: string) =>
+      res.body.data.find((u: { id: string }) => u.id === id);
+    const withPhoto = byId(photoUserId);
+    expect(withPhoto).toBeDefined();
+    expect(withPhoto.avatarUrl).toBe(
+      `/uploads/avatars/${photoUserId}-1700000000000.png`,
+    );
+    expect(JSON.stringify(withPhoto)).not.toContain('"avatar/');
+
+    const photoless = byId(photolessUserId);
+    expect(photoless).toBeDefined();
+    expect(photoless.avatarUrl).toBeUndefined();
+  });
+
   it('GET /admin/users?page=1&limit=10 -- custom pagination', async () => {
     const res = await request(app.getHttpServer())
       .get('/admin/users?page=1&limit=10')

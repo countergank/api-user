@@ -612,7 +612,7 @@ export class UserService {
       search: filters.search,
     });
 
-    const data = users.map((user) => AdminUserDTO.of(user));
+    const data = users.map((user) => AdminUserDTO.of(user, this.avatarUrlResolver.resolve(user.avatarUrl)));
     return PaginatedResponseDTO.of(data, total, page, limit);
   }
 
@@ -628,7 +628,7 @@ export class UserService {
       isActive: filters.isActive,
       search: filters.search,
     });
-    return users.map((user) => AdminUserDTO.of(user));
+    return users.map((user) => AdminUserDTO.of(user, this.avatarUrlResolver.resolve(user.avatarUrl)));
   }
 
   /**
@@ -650,6 +650,7 @@ export class UserService {
       u.updatedAt ? new Date(u.updatedAt).toISOString() : '',
       u.lockedUntil,
       u.failedLoginAttempts,
+      u.avatarUrl,
     ]);
     return toCsv([...ADMIN_USER_CSV_HEADERS], rows);
   }

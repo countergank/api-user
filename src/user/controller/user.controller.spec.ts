@@ -98,6 +98,35 @@ describe(UserController.name, () => {
       expect(userService.getEffectivePermissions).toHaveBeenCalledWith(user);
     });
 
+    it('exposes the avatarUrl resolved from the stored photo key (issue #548)', async () => {
+      const user = Object.assign(new UserMock(), {
+        avatarUrl: 'avatar/507f1f77bcf86cd799439011-1700000000000.png',
+      });
+      jest.spyOn(userService, 'findById').mockResolvedValue(user);
+      jest.spyOn(userService, 'getEffectivePermissions').mockResolvedValue([]);
+      const resolve = jest
+        .fn()
+        .mockReturnValue('/uploads/avatars/507f1f77bcf86cd799439011-1700000000000.png');
+      (controller as any).avatarUrlResolver = { resolve };
+
+      const dto = await controller.findById(user.id);
+
+      expect(dto.avatarUrl).toBe('/uploads/avatars/507f1f77bcf86cd799439011-1700000000000.png');
+      expect(resolve).toHaveBeenCalledWith('avatar/507f1f77bcf86cd799439011-1700000000000.png');
+    });
+
+    it('leaves avatarUrl undefined in the detail of a user without photo (issue #548)', async () => {
+      const user = new UserMock();
+      expect(user.avatarUrl).toBeUndefined();
+      jest.spyOn(userService, 'findById').mockResolvedValue(user);
+      jest.spyOn(userService, 'getEffectivePermissions').mockResolvedValue([]);
+      (controller as any).avatarUrlResolver = { resolve: jest.fn().mockReturnValue(undefined) };
+
+      const dto = await controller.findById(user.id);
+
+      expect(dto.avatarUrl).toBeUndefined();
+    });
+
     it(`should be return a ${User.name}`, async () => {
       const user = new UserMock();
       jest.spyOn(userService, 'findById').mockResolvedValue(user);
@@ -195,6 +224,25 @@ describe(UserController.name, () => {
       jest.spyOn(userService, 'assertPermissionsAssignable').mockResolvedValue([]);
       jest.spyOn(userService, 'updateUser').mockResolvedValue(user);
       await expect(controller.update(user.id, updateDto)).resolves.toBeInstanceOf(AdminUserDTO);
+    });
+
+    it('resolves the updated user avatarUrl (review finding R3-mutation-avatar-omission)', async () => {
+      const withPhoto = Object.assign(new UserMock(), {
+        avatarUrl: 'avatar/507f1f77bcf86cd799439011-1700000000000.png',
+      });
+      jest.spyOn(userService, 'assertPermissionsAssignable').mockResolvedValue([]);
+      jest.spyOn(userService, 'updateUser').mockResolvedValue(withPhoto);
+      const resolve = jest
+        .fn()
+        .mockReturnValue('/uploads/avatars/507f1f77bcf86cd799439011-1700000000000.png');
+      (controller as any).avatarUrlResolver = { resolve };
+
+      const dto = await controller.update(user.id, updateDto);
+
+      expect(dto.avatarUrl).toBe(
+        '/uploads/avatars/507f1f77bcf86cd799439011-1700000000000.png',
+      );
+      expect(resolve).toHaveBeenCalledWith('avatar/507f1f77bcf86cd799439011-1700000000000.png');
     });
 
     it('validates the permissions before updating the user (S1, S3)', async () => {
@@ -321,6 +369,23 @@ describe(UserController.name, () => {
       const toggledUser = { ...user, isActive: false };
       jest.spyOn(userService, 'toggleActiveUser').mockResolvedValue(toggledUser);
       await expect(controller.toggleActive(user.id)).resolves.toBeInstanceOf(AdminUserDTO);
+    });
+
+    it('resolves the toggled user avatarUrl (review finding R3-mutation-avatar-omission)', async () => {
+      const toggled = Object.assign(new UserMock(), {
+        isActive: false,
+        avatarUrl: 'avatar/507f1f77bcf86cd799439011-1700000000000.png',
+      });
+      jest.spyOn(userService, 'toggleActiveUser').mockResolvedValue(toggled);
+      (controller as any).avatarUrlResolver = {
+        resolve: jest.fn().mockReturnValue('/uploads/avatars/507f1f77bcf86cd799439011-1700000000000.png'),
+      };
+
+      const dto = await controller.toggleActive(user.id);
+
+      expect(dto.avatarUrl).toBe(
+        '/uploads/avatars/507f1f77bcf86cd799439011-1700000000000.png',
+      );
     });
   });
 });

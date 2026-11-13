@@ -289,6 +289,23 @@ describe(UserService.name, () => {
       expect(result.totalPages).toBe(1);
     });
 
+    it('resolves each user avatarUrl through the profile photo resolver (issue #548)', async () => {
+      const withPhoto = Object.assign(new UserMock(), {
+        avatarUrl: 'avatar/507f1f77bcf86cd799439011-1700000000000.png',
+      });
+      const withoutPhoto = new UserMock();
+      jest
+        .spyOn(userRepository, 'findPaginated')
+        .mockResolvedValue({ users: [withPhoto, withoutPhoto], total: 2 });
+
+      const result = await service.findPaginated({ page: 1, limit: 20 });
+
+      expect(result.data[0].avatarUrl).toBe(
+        '/uploads/avatars/507f1f77bcf86cd799439011-1700000000000.png',
+      );
+      expect(result.data[1].avatarUrl).toBeUndefined();
+    });
+
     it('should calculate totalPages correctly', async () => {
       const filters: PaginationQueryDTO = { page: 2, limit: 10, sortBy: 'createdAt', sortOrder: 'desc' };
 
