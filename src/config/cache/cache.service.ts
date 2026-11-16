@@ -8,10 +8,21 @@ const DEFAULT_TTL_SECONDS = 300; // 5 minutes
 const SCAN_COUNT = 100;
 const CLEANUP_INTERVAL_MS = 60_000; // 1 minute
 const DEFAULT_METRICS_LOG_INTERVAL_MINUTES = 15;
+const METRICS_MEMO_TTL_MS = 60_000; // 1 minute
 
 interface CacheEntry<T> {
   data: T;
   expiresAt: number | null;
+}
+
+/** Invalid, zero, or missing config values all fall back to the default;
+ * anything below one minute is clamped to one minute. */
+function resolveMetricsLogIntervalMinutes(configService: ConfigService): number {
+  const raw = Number(configService.get('CACHE_METRICS_LOG_INTERVAL_MINUTES', DEFAULT_METRICS_LOG_INTERVAL_MINUTES));
+  if (!Number.isFinite(raw) || raw < 1) {
+    return raw < 1 && raw > 0 ? 1 : DEFAULT_METRICS_LOG_INTERVAL_MINUTES;
+  }
+  return Math.floor(raw);
 }
 
 export interface CacheInvalidationPayload {
@@ -31,6 +42,7 @@ export class CacheService implements OnModuleDestroy {
   private readonly logger = new Logger(CacheService.name);
   private readonly cleanupTimer: ReturnType<typeof setInterval> | null = null;
   private readonly metricsTimer: ReturnType<typeof setInterval> | null = null;
+  private metricsMemo: { at: number; size: number; evictions: number } | null = null;
 
   private hits = 0;
   private misses = 0;
@@ -49,7 +61,7 @@ export class CacheService implements OnModuleDestroy {
       this.cleanupTimer.unref();
     }
 
-    const minutes = Math.max(1, Number(configService.get('CACHE_METRICS_LOG_INTERVAL_MINUTES', DEFAULT_METRICS_LOG_INTERVAL_MINUTES)) || DEFAULT_METRICS_LOG_INTERVAL_MINUTES);
+    const minutes = Math.max(1, resolveMetricsLogIntervalMinutes(configService));
     this.metricsTimer = setInterval(() => {
       const { hits, misses, hitRate } = this.currentCounters();
       this.logger.log(
@@ -184,46 +196,49 @@ return deleted`;
   }
 
   async stats(): Promise<CacheStats> {
-    const total = this.hits + this.misses;
-    const [size, evictions] = await Promise.all([this.countKeys(), this.readEvictions()]);
+    const { hits, misses, hitRate } = this.currentCounters();
+    const { size, evictions } = await this.sizeAndEvictions();
     return {
-      hits: this.hits,
-      misses: this.misses,
-      hitRate: total > 0 ? this.hits / total : 0,
+      hits,
+      misses,
+      hitRate,
       size,
       evictions,
     };
   }
 
-  private async countKeys(): Promise<number> {
-    try {
-      const client = this.redisService.getClient();
-      let cursor = '0';
-      let count = 0;
-
-      do {
-        const [nextCursor, keys] = await client.scan(cursor, 'MATCH', `${DEFAULT_PREFIX}*`, 'COUNT', SCAN_COUNT);
-        cursor = nextCursor;
-        count += keys.length;
-      } while (cursor !== '0');
-
-      return count;
-    } catch (error) {
-      this.logger.error(`Cache size count error: ${(error as Error).message}`);
-      return 0;
+  // GET /admin/cache/stats must not run a full-keyspace SCAN on every request:
+  // size and evictions are served from a short-lived memo and re-read from
+  // Redis only after METRICS_MEMO_TTL_MS.
+  private async sizeAndEvictions(): Promise<{ size: number; evictions: number }> {
+    if (this.metricsMemo && Date.now() - this.metricsMemo.at < METRICS_MEMO_TTL_MS) {
+      return { size: this.metricsMemo.size, evictions: this.metricsMemo.evictions };
     }
+
+    const [size, evictions] = await Promise.all([this.countKeys(), this.readEvictions()]);
+    this.metricsMemo = { at: Date.now(), size, evictions };
+    return { size, evictions };
+  }
+
+  private async countKeys(): Promise<number> {
+    const client = this.redisService.getClient();
+    let cursor = '0';
+    let count = 0;
+
+    do {
+      const [nextCursor, keys] = await client.scan(cursor, 'MATCH', `${DEFAULT_PREFIX}*`, 'COUNT', SCAN_COUNT);
+      cursor = nextCursor;
+      count += keys.length;
+    } while (cursor !== '0');
+
+    return count;
   }
 
   private async readEvictions(): Promise<number> {
-    try {
-      const client = this.redisService.getClient();
-      const info = (await client.info('stats')) as string;
-      const match = info.match(/evicted_keys:(\d+)/);
-      return match ? Number.parseInt(match[1], 10) : 0;
-    } catch (error) {
-      this.logger.error(`Cache evictions read error: ${(error as Error).message}`);
-      return 0;
-    }
+    const client = this.redisService.getClient();
+    const info = (await client.info('stats')) as string;
+    const match = info.match(/evicted_keys:(\d+)/);
+    return match ? Number.parseInt(match[1], 10) : 0;
   }
 
   resetStats(): void {

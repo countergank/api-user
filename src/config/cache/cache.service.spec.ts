@@ -72,6 +72,10 @@ describe(CacheService.name, () => {
 
     it('should increment miss counter on cache miss', async () => {
       mockRedisService.get.mockResolvedValue(null);
+      mockRedisService.getClient.mockReturnValue({
+        scan: jest.fn().mockResolvedValue(['0', []]),
+        info: jest.fn().mockResolvedValue('evicted_keys:0\r\n'),
+      });
 
       await service.get('miss-key');
 
@@ -83,6 +87,10 @@ describe(CacheService.name, () => {
     it('should increment hit counter on cache hit', async () => {
       const entry = { data: 'test', expiresAt: null };
       mockRedisService.get.mockResolvedValue(JSON.stringify(entry));
+      mockRedisService.getClient.mockReturnValue({
+        scan: jest.fn().mockResolvedValue(['0', []]),
+        info: jest.fn().mockResolvedValue('evicted_keys:0\r\n'),
+      });
 
       await service.get('hit-key');
 
@@ -290,6 +298,10 @@ describe(CacheService.name, () => {
 
   describe(`${CacheService.name}.stats`, () => {
     it('should return initial stats with zero counters', async () => {
+      mockRedisService.getClient.mockReturnValue({
+        scan: jest.fn().mockResolvedValue(['0', []]),
+        info: jest.fn().mockResolvedValue('evicted_keys:0\r\n'),
+      });
       const stats = await service.stats();
 
       expect(stats.hits).toBe(0);
@@ -327,19 +339,51 @@ describe(CacheService.name, () => {
       expect(mockClient.info).toHaveBeenCalledWith('stats');
     });
 
-    it('should degrade size and evictions to 0 when Redis metrics fail (PERF-13)', async () => {
+    it('should reject when Redis metrics fail instead of masking with zeros (PERF-13)', async () => {
       const mockClient = {
         scan: jest.fn().mockRejectedValue(new Error('SCAN failed')),
         info: jest.fn().mockRejectedValue(new Error('INFO failed')),
       };
       mockRedisService.getClient.mockReturnValue(mockClient);
 
-      const stats = await service.stats();
+      await expect(service.stats()).rejects.toThrow('SCAN failed');
+    });
 
-      expect(stats.size).toBe(0);
-      expect(stats.evictions).toBe(0);
-      expect(stats.hits).toBe(0);
-      expect(stats.misses).toBe(0);
+    it('should serve cached size and evictions within the memo TTL without re-scanning (PERF-13)', async () => {
+      const mockClient = {
+        scan: jest.fn()
+          .mockResolvedValueOnce(['42', ['cache:user:1', 'cache:user:2']])
+          .mockResolvedValueOnce(['0', []]),
+        info: jest.fn().mockResolvedValue('evicted_keys:5\r\n'),
+      };
+      mockRedisService.getClient.mockReturnValue(mockClient);
+
+      const first = await service.stats();
+      const second = await service.stats();
+
+      expect(first.size).toBe(2);
+      expect(second.size).toBe(2);
+      expect(mockClient.scan).toHaveBeenCalledTimes(2); // both SCAN batches of the first call only
+    });
+
+    it('should refresh the memoized metrics after the TTL expires (PERF-13)', async () => {
+      const clock = jest.spyOn(Date, 'now');
+      const mockClient = {
+        scan: jest.fn()
+          .mockResolvedValue(['0', ['cache:user:1']])
+          .mockResolvedValueOnce(['0', ['cache:user:1', 'cache:user:2']])
+          .mockResolvedValueOnce(['0', ['cache:user:1']]),
+        info: jest.fn().mockResolvedValue('evicted_keys:7\r\n'),
+      };
+      mockRedisService.getClient.mockReturnValue(mockClient);
+
+      await service.stats();
+      clock.mockReturnValue(Date.now() + 61_000);
+      const refreshed = await service.stats();
+
+      expect(refreshed.size).toBe(1);
+      expect(mockClient.info).toHaveBeenCalledTimes(2);
+      clock.mockRestore();
     });
 
     it('should calculate correct hit rate', async () => {
@@ -348,6 +392,10 @@ describe(CacheService.name, () => {
         .mockResolvedValueOnce(JSON.stringify(hitEntry))
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(JSON.stringify(hitEntry));
+      mockRedisService.getClient.mockReturnValue({
+        scan: jest.fn().mockResolvedValue(['0', []]),
+        info: jest.fn().mockResolvedValue('evicted_keys:0\r\n'),
+      });
 
       await service.get('key1');
       await service.get('key2');
@@ -363,6 +411,57 @@ describe(CacheService.name, () => {
   describe(`${CacheService.name} periodic metrics logging (PERF-13)`, () => {
     afterEach(() => {
       jest.useRealTimers();
+    });
+
+    it('should treat an invalid interval as the default 15 minutes (PERF-13)', async () => {
+      jest.useFakeTimers();
+      mockConfigService.get.mockImplementation((key: string) =>
+        key === 'CACHE_METRICS_LOG_INTERVAL_MINUTES' ? 0 : undefined,
+      );
+
+      const freshModule: TestingModule = await Test.createTestingModule({
+        providers: [
+          CacheService,
+          { provide: RedisService, useValue: mockRedisService },
+          { provide: ConfigService, useValue: mockConfigService },
+        ],
+      }).compile();
+      const freshService = freshModule.get<CacheService>(CacheService);
+      const logSpy = jest.spyOn((freshService as any).logger, 'log');
+
+      jest.advanceTimersByTime(14 * 60_000);
+      expect(logSpy).not.toHaveBeenCalled();
+
+      jest.advanceTimersByTime(60_000);
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('hits'));
+
+      freshService.onModuleDestroy();
+      mockConfigService.get.mockClear();
+      mockConfigService.get.mockImplementation((key: string, defaultValue?: unknown) => defaultValue);
+    });
+
+    it('should clamp a fractional interval to one minute (PERF-13)', async () => {
+      jest.useFakeTimers();
+      mockConfigService.get.mockImplementation((key: string) =>
+        key === 'CACHE_METRICS_LOG_INTERVAL_MINUTES' ? 0.5 : undefined,
+      );
+
+      const freshModule: TestingModule = await Test.createTestingModule({
+        providers: [
+          CacheService,
+          { provide: RedisService, useValue: mockRedisService },
+          { provide: ConfigService, useValue: mockConfigService },
+        ],
+      }).compile();
+      const freshService = freshModule.get<CacheService>(CacheService);
+      const logSpy = jest.spyOn((freshService as any).logger, 'log');
+
+      jest.advanceTimersByTime(60_000);
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('hits'));
+
+      freshService.onModuleDestroy();
+      mockConfigService.get.mockClear();
+      mockConfigService.get.mockImplementation((key: string, defaultValue?: unknown) => defaultValue);
     });
 
     it('should log hit/miss rate every CACHE_METRICS_LOG_INTERVAL_MINUTES (default 15)', async () => {
@@ -417,6 +516,10 @@ describe(CacheService.name, () => {
     it('should reset all counters to zero', async () => {
       const entry = { data: 1, expiresAt: null };
       mockRedisService.get.mockResolvedValue(JSON.stringify(entry));
+      mockRedisService.getClient.mockReturnValue({
+        scan: jest.fn().mockResolvedValue(['0', []]),
+        info: jest.fn().mockResolvedValue('evicted_keys:0\r\n'),
+      });
       await service.get('some-key');
 
       service.resetStats();

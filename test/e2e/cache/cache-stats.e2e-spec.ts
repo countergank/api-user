@@ -47,16 +47,16 @@ describe('Cache Admin (e2e)', () => {
     userToken = userLogin.body.accessToken;
   }, 30000);
 
-  describe('S7: Unauthenticated requests', () => {
-    it('should return 401 for GET /admin/cache/stats without auth', async () => {
+  describe('S3: Unauthenticated requests', () => {
+    it('should return 401 for GET /admin/cache/stats without auth (S3)', async () => {
       await request(app.getHttpServer())
         .get('/admin/cache/stats')
         .expect(401);
     });
   });
 
-  describe('S7: Non-admin user', () => {
-    it('should return 403 for GET /admin/cache/stats with non-admin user', async () => {
+  describe('S3: Non-admin user', () => {
+    it('should return 403 for GET /admin/cache/stats with non-admin user (S3)', async () => {
       await request(app.getHttpServer())
         .get('/admin/cache/stats')
         .set('Authorization', `Bearer ${userToken}`)
@@ -65,7 +65,7 @@ describe('Cache Admin (e2e)', () => {
   });
 
   describe('S4: Admin metrics', () => {
-    it('should return 200 with all five metrics for admin', async () => {
+    it('should return 200 with all five metrics for admin (S4)', async () => {
       const res = await request(app.getHttpServer())
         .get('/admin/cache/stats')
         .set('Authorization', `Bearer ${adminToken}`)
