@@ -26,6 +26,7 @@ export const DEFAULT_PERMISSIONS = [
   { name: 'permission:delete', description: 'Delete permissions', category: PermissionCategory.SYSTEM },
   { name: 'parameter:read', description: 'Read system parameters', category: PermissionCategory.SYSTEM },
   { name: 'parameter:update', description: 'Update system parameters', category: PermissionCategory.SYSTEM },
+  { name: 'cache:read', description: 'Read cache metrics', category: PermissionCategory.SYSTEM },
   { name: 'audit:read', description: 'Read audit logs', category: PermissionCategory.SYSTEM },
   { name: 'email:read', description: 'Read email templates', category: PermissionCategory.SYSTEM },
   { name: 'email:create', description: 'Create email templates', category: PermissionCategory.SYSTEM },

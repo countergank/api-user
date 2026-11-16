@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { OnEvent } from '@nestjs/event-emitter';
 import { RedisService } from '../redis/redis.service';
 
@@ -6,6 +7,7 @@ const DEFAULT_PREFIX = 'cache:';
 const DEFAULT_TTL_SECONDS = 300; // 5 minutes
 const SCAN_COUNT = 100;
 const CLEANUP_INTERVAL_MS = 60_000; // 1 minute
+const DEFAULT_METRICS_LOG_INTERVAL_MINUTES = 15;
 
 interface CacheEntry<T> {
   data: T;
@@ -16,15 +18,27 @@ export interface CacheInvalidationPayload {
   pattern: string;
 }
 
+export interface CacheStats {
+  hits: number;
+  misses: number;
+  hitRate: number;
+  size: number;
+  evictions: number;
+}
+
 @Injectable()
 export class CacheService implements OnModuleDestroy {
   private readonly logger = new Logger(CacheService.name);
   private readonly cleanupTimer: ReturnType<typeof setInterval> | null = null;
+  private readonly metricsTimer: ReturnType<typeof setInterval> | null = null;
 
   private hits = 0;
   private misses = 0;
 
-  constructor(private readonly redisService: RedisService) {
+  constructor(
+    private readonly redisService: RedisService,
+    configService: ConfigService,
+  ) {
     this.cleanupTimer = setInterval(() => {
       this.cleanupExpired().catch((err) => {
         this.logger.error(`Cleanup error: ${(err as Error).message}`);
@@ -34,11 +48,26 @@ export class CacheService implements OnModuleDestroy {
     if (this.cleanupTimer.unref) {
       this.cleanupTimer.unref();
     }
+
+    const minutes = Math.max(1, Number(configService.get('CACHE_METRICS_LOG_INTERVAL_MINUTES', DEFAULT_METRICS_LOG_INTERVAL_MINUTES)) || DEFAULT_METRICS_LOG_INTERVAL_MINUTES);
+    this.metricsTimer = setInterval(() => {
+      const { hits, misses, hitRate } = this.currentCounters();
+      this.logger.log(
+        `Cache metrics — hits: ${hits}, misses: ${misses}, hitRate: ${(hitRate * 100).toFixed(1)}%`,
+      );
+    }, minutes * 60_000);
+
+    if (this.metricsTimer.unref) {
+      this.metricsTimer.unref();
+    }
   }
 
   async onModuleDestroy() {
     if (this.cleanupTimer) {
       clearInterval(this.cleanupTimer);
+    }
+    if (this.metricsTimer) {
+      clearInterval(this.metricsTimer);
     }
   }
 
@@ -154,18 +183,61 @@ return deleted`;
     }
   }
 
-  stats(): { hits: number; misses: number; hitRate: number } {
+  async stats(): Promise<CacheStats> {
+    const total = this.hits + this.misses;
+    const [size, evictions] = await Promise.all([this.countKeys(), this.readEvictions()]);
+    return {
+      hits: this.hits,
+      misses: this.misses,
+      hitRate: total > 0 ? this.hits / total : 0,
+      size,
+      evictions,
+    };
+  }
+
+  private async countKeys(): Promise<number> {
+    try {
+      const client = this.redisService.getClient();
+      let cursor = '0';
+      let count = 0;
+
+      do {
+        const [nextCursor, keys] = await client.scan(cursor, 'MATCH', `${DEFAULT_PREFIX}*`, 'COUNT', SCAN_COUNT);
+        cursor = nextCursor;
+        count += keys.length;
+      } while (cursor !== '0');
+
+      return count;
+    } catch (error) {
+      this.logger.error(`Cache size count error: ${(error as Error).message}`);
+      return 0;
+    }
+  }
+
+  private async readEvictions(): Promise<number> {
+    try {
+      const client = this.redisService.getClient();
+      const info = (await client.info('stats')) as string;
+      const match = info.match(/evicted_keys:(\d+)/);
+      return match ? Number.parseInt(match[1], 10) : 0;
+    } catch (error) {
+      this.logger.error(`Cache evictions read error: ${(error as Error).message}`);
+      return 0;
+    }
+  }
+
+  resetStats(): void {
+    this.hits = 0;
+    this.misses = 0;
+  }
+
+  private currentCounters(): { hits: number; misses: number; hitRate: number } {
     const total = this.hits + this.misses;
     return {
       hits: this.hits,
       misses: this.misses,
       hitRate: total > 0 ? this.hits / total : 0,
     };
-  }
-
-  resetStats(): void {
-    this.hits = 0;
-    this.misses = 0;
   }
 
   private prefixedKey(key: string): string {

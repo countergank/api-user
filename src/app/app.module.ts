@@ -14,6 +14,7 @@ import { DynamicThrottlerGuard } from '../config/throttle/dynamic-throttler.guar
 import { ExampleMicroservice } from '../config/custom-providers/microservices';
 import { RedisModule } from '../config/redis/redis.module';
 import { CacheModule } from '../config/cache/cache.module';
+import { CacheAdminModule } from '../config/cache/cache-admin.module';
 import { ParameterModule } from '../config/parameters/parameter.module';
 import { ParameterAdminModule } from '../config/parameters/parameter-admin.module';
 import { UserModule } from '../user/user.module';
@@ -70,6 +71,7 @@ import { AppService } from './service/app.service';
     TerminusModule,
     RedisModule,
     CacheModule,
+    CacheAdminModule,
     ParameterModule,
     ParameterAdminModule,
     I18nModule,
