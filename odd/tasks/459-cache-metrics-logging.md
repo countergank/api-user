@@ -12,14 +12,15 @@ Branch: `feature/459-cache-metrics-logging` (base `origin/develop`)
 
 ## Tasks
 
-- **T1** (S4): extender `CacheService` con `size` y `evictions` en `stats()`. Ruta: inline. **Hecho**: 30/30 unit (RED observado TS2339 → GREEN). Commit: _pendiente_.
-- **T2** (S1): log periódico de hit/miss rate cada N minutos en `CacheService` (timer con `unref()`, intervalo por config con default, sin logs duplicados). Ruta: inline. **Hecho**: 30/30 unit; `CACHE_METRICS_LOG_INTERVAL_MINUTES` default 15. Commit: _pendiente_.
-- **T3** (S2, S3): `CacheAdminController` con `GET /admin/cache/stats` — guards JWT + PermissionGuard + RolesGuard, `@Roles(ADMIN)`, `@RequirePermissions('cache:read')` (nuevo permiso seeded, ADMIN lo hereda por `ADMIN_PERMISSIONS=['*']`), `@AuditAction({ action: 'cache.stats.view', resource: 'cache' })`, DTO de respuesta, Swagger. Ruta: inline. **Hecho**: tsc limpio. Commit: _pendiente_.
-- **T4** (S1–S4): e2e en `test/e2e/cache/cache-stats.e2e-spec.ts` — 401 sin auth, 403 usuario no admin, 200 admin con los cinco campos. Ruta: inline. Commit: _pendiente_.
+- **T1** (S4): extender `CacheService` con `size` y `evictions` en `stats()`. Ruta: inline. **Hecho**: 30/30 unit (RED observado TS2339 → GREEN). Commit: `9f432c2`.
+- **T2** (S1): log periódico de hit/miss rate cada N minutos en `CacheService` (timer con `unref()`, intervalo por config con default, sin logs duplicados). Ruta: inline. **Hecho**: 30/30 unit; `CACHE_METRICS_LOG_INTERVAL_MINUTES` default 15. Commit: `9f432c2`.
+- **T3** (S2, S3): `CacheAdminController` con `GET /admin/cache/stats` — guards JWT + PermissionGuard + RolesGuard, `@Roles(ADMIN)`, `@RequirePermissions('cache:read')` (nuevo permiso seeded, ADMIN lo hereda por `ADMIN_PERMISSIONS=['*']`), `@AuditAction({ action: 'cache.stats.view', resource: 'cache' })`, DTO de respuesta, Swagger. Ruta: inline. **Hecho**: tsc limpio. Commit: `9f432c2`.
+- **T4** (S1–S4): e2e en `test/e2e/cache/cache-stats.e2e-spec.ts` — 401 sin auth, 403 usuario no admin, 200 admin con los cinco campos. Ruta: inline. **Escrito y commiteado** (`9f432c2`); ejecución **pendiente** de infra (MongoDB/Redis locales caídos).
 
 ## Log
 
 - **L1** — "usa la skill kickoff" → issue #459 elegido, estimate 3, board `In Progress`, rama `feature/459-cache-metrics-logging` creada.
 - **L2** — Decisión del usuario sobre S2: "Auditar el acceso al endpoint" (no snapshots periódicos en audit).
+- **L5** — Commit autorizado por el usuario y ejecutado: `9f432c2` (`feat(cache): add admin metrics endpoint and periodic logging`, 10 archivos, +396/−8). Pre-commit corrió la suite completa: 88 suites, 1105/1105. Pendiente: ejecutar e2e cuando exista Mongo/Redis local; push y PR son decisión del usuario.
 - **L4** — Evidence T4: e2e `test/e2e/cache/cache-stats.e2e-spec.ts` escrito (401/403/200 + shape de cinco campos) pero **no ejecutable**: MongoDB y Redis no disponibles localmente (Docker Desktop caído, sin binarios nativos). Suite unit completa: 1 fallo en primer run = flake Mongo documentado (COU-343), segundo run 1105/1105; suites rbac+config+app 284/284. tsc --noEmit limpio.
 - **L3** — Evidence: `AuditAspectInterceptor` está registrado global (`APP_INTERCEPTOR` en `app.module.ts`) y lee metadata del handler, por lo que `@AuditAction` aplica directo en el método del controller. Patrón de admin controller: `src/config/parameters/parameter-admin.controller.ts`. Patrón e2e: `test/e2e/parameters/parameters.e2e-spec.ts`.
