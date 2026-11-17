@@ -98,7 +98,7 @@ export class EmailListener {
   async handleEmailChangeConfirmed(payload: EmailChangeConfirmedEvent): Promise<void> {
     try {
       await this.emailService.sendBySlug(
-        'password-changed',
+        'email-change-confirmed',
         payload.email,
         {
           userName: payload.name,

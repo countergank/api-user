@@ -72,6 +72,7 @@
     "password_changed_subject": "Sua senha foi alterada",
     "email_change_code_subject": "Seu código de verificação para mudar o email",
     "email_change_old_notice_subject": "O email da sua conta foi alterado",
+    "email_change_confirmed_subject": "O email da sua conta foi alterado",
     "email_change_reverted_subject": "A mudança de email foi revertida"
   },
   "messages": {
