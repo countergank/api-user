@@ -63,6 +63,13 @@ const DEFAULT_TEMPLATES: DefaultTemplate[] = [
     variables: ['userName', 'newEmail', 'revertLink'],
   },
   {
+    slug: 'email-change-confirmed',
+    name: 'Email Change Confirmed Notification',
+    subject: 'Tu email fue cambiado a esta dirección',
+    contentFile: 'email-change-confirmed.html',
+    variables: ['userName'],
+  },
+  {
     slug: 'email-change-reverted',
     name: 'Email Change Reverted Notification',
     subject: 'El cambio de email fue revertido',

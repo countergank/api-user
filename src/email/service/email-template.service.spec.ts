@@ -344,13 +344,16 @@ describe(EmailTemplateService.name, () => {
 
       await service.seedDefaults();
 
-      expect(mockRepository.create).toHaveBeenCalledTimes(7);
+      expect(mockRepository.create).toHaveBeenCalledTimes(8);
       expect(mockRepository.create).toHaveBeenCalledWith(expect.objectContaining({ slug: 'welcome', content: html }));
       expect(mockRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({ slug: 'email-change-code', content: html }),
       );
       expect(mockRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({ slug: 'email-change-old-notice', content: html }),
+      );
+      expect(mockRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ slug: 'email-change-confirmed', content: html }),
       );
       expect(mockRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({ slug: 'email-change-reverted', content: html }),

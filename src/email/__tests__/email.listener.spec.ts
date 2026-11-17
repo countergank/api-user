@@ -136,6 +136,24 @@ describe(EmailListener.name, () => {
     });
   });
 
+  describe('handleEmailChangeConfirmed', () => {
+    it('should notify the new address that the account email was changed (#554)', async () => {
+      await listener.handleEmailChangeConfirmed({
+        userId: 'user-1',
+        email: 'new@example.com',
+        name: 'John',
+        lang: 'es',
+      });
+
+      expect(mockEmailService.sendBySlug).toHaveBeenCalledWith(
+        'email-change-confirmed',
+        'new@example.com',
+        { userName: 'John' },
+        'es',
+      );
+    });
+  });
+
   describe('handleEmailChangeCodeRequested', () => {
     it('should send the six digit code to the address the account already has', async () => {
       await listener.handleEmailChangeCodeRequested({
