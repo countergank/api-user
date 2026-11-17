@@ -65,7 +65,7 @@ const DEFAULT_TEMPLATES: DefaultTemplate[] = [
   {
     slug: 'email-change-confirmed',
     name: 'Email Change Confirmed Notification',
-    subject: 'El email de tu cuenta fue cambiado',
+    subject: 'Tu email fue cambiado a esta dirección',
     contentFile: 'email-change-confirmed.html',
     variables: ['userName'],
   },
