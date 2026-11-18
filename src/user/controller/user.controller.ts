@@ -24,6 +24,7 @@ import { PaginatedResponseDTO } from '../../common/dto/paginated-response.dto';
 import { I18nService } from '../../common/i18n/i18n.service';
 import { EmailEvents } from '../../email/constants/email.events';
 import {
+  AdminCancelEmailChangeDoc,
   AdminChangeEmailDoc,
   CreateUserDoc,
   DeleteUserDoc,
@@ -242,6 +243,34 @@ export class UserController {
       lang,
     });
 
+    // S8: the CURRENT mailbox is told an admin started the change; identity is
+    // proven on the new address, this is purely informational.
+    this.eventEmitter.emit(EmailEvents.EMAIL_CHANGE_ADMIN_REQUESTED, {
+      userId: user.id,
+      email: user.email,
+      newEmail: dto.email,
+      name: user.name,
+      pendingEmailToken: token,
+      lang,
+    });
+
     return { message: await this.t('messages.email_change_sent', lang), userId: id };
+  }
+
+  @AdminCancelEmailChangeDoc()
+  @RequirePermissions('user:update')
+  @AuditAction({
+    action: 'admin.cancel-email-change',
+    resource: 'user',
+    getResourceId: (_result: unknown, args: unknown[]) => args[0] as string,
+  })
+  @Delete(':id/change-email')
+  async adminCancelEmailChange(
+    @Param('id') id: string,
+    @CurrentUser() admin: User,
+    @RequestLang() lang: string | undefined,
+  ): Promise<{ message: string; userId: string }> {
+    await this.userService.adminCancelEmailChange(id, admin.id);
+    return { message: await this.t('messages.email_change_canceled', lang), userId: id };
   }
 }

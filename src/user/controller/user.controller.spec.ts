@@ -336,7 +336,7 @@ describe(UserController.name, () => {
       jest.restoreAllMocks();
     });
 
-    it('starts the change via the service with the admin id and emits the confirmation event to the new mailbox', async () => {
+    it('starts the change via the service with the admin id and emits to the new mailbox plus the current-mailbox notice (issue #556 S8)', async () => {
       const spy = jest
         .spyOn(userService, 'adminRequestEmailChange')
         .mockResolvedValue({ token, expires: new Date(), user });
@@ -348,6 +348,14 @@ describe(UserController.name, () => {
       expect(spy).toHaveBeenCalledWith(user.id, 'new@example.com', admin.id);
       expect(emitter.emit).toHaveBeenCalledWith(EmailEvents.EMAIL_CHANGE_REQUESTED, {
         userId: user.id,
+        newEmail: 'new@example.com',
+        name: user.name,
+        pendingEmailToken: token,
+        lang: 'es',
+      });
+      expect(emitter.emit).toHaveBeenCalledWith(EmailEvents.EMAIL_CHANGE_ADMIN_REQUESTED, {
+        userId: user.id,
+        email: user.email,
         newEmail: 'new@example.com',
         name: user.name,
         pendingEmailToken: token,
@@ -365,6 +373,33 @@ describe(UserController.name, () => {
       });
     });
   });
+  describe(`${UserController.name}.${UserController.prototype.adminCancelEmailChange.name} (issue #556)`, () => {
+    const user = new UserMock();
+    const admin = new UserMock();
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('cancels via the service with the path id and the admin id, and returns the i18n message', async () => {
+      const spy = jest.spyOn(userService, 'adminCancelEmailChange').mockResolvedValue(undefined);
+
+      const result = await controller.adminCancelEmailChange(user.id, admin, 'es');
+
+      expect(spy).toHaveBeenCalledWith(user.id, admin.id);
+      expect(result).toEqual({ message: 'messages.email_change_canceled', userId: user.id });
+    });
+
+    it('requires user:update and registers the audit action', () => {
+      const handler = UserController.prototype.adminCancelEmailChange;
+      expect(Reflect.getMetadata(PERMISSIONS_KEY, handler)).toEqual(['user:update']);
+      expect(Reflect.getMetadata(AUDIT_ACTION_KEY, handler)).toMatchObject({
+        action: 'admin.cancel-email-change',
+        resource: 'user',
+      });
+    });
+  });
+
   describe(`${UserController.name}.${UserController.prototype.resetPassword.name} (issue #533)`, () => {
     const user = new UserMock();
 

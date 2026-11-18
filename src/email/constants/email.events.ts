@@ -10,6 +10,8 @@ export const EmailEvents = {
   EMAIL_CHANGE_REQUESTED_OLD: 'user.email-change-requested-old',
   /** The change was undone from the revert link; both addresses are told (S5). */
   EMAIL_CHANGE_REVERTED: 'user.email-change-reverted',
+  /** Informational notice to the current address when an admin starts the change (issue #556 S8). */
+  EMAIL_CHANGE_ADMIN_REQUESTED: 'user.email-change-admin-requested',
   RESEND_VERIFICATION: 'auth.resend-verification',
 } as const;
 

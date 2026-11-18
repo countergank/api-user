@@ -225,7 +225,7 @@ export function AdminChangeEmailDoc() {
       },
     }),
     ApiResponse({
-      status: 200,
+      status: 201,
       description: 'Cambio iniciado; el nuevo buzón recibe el link de confirmación',
       schema: {
         example: {
@@ -236,6 +236,33 @@ export function AdminChangeEmailDoc() {
     }),
     ApiBadRequestResponse({ description: 'Email inválido o igual al actual', type: BadRequestDTO }),
     ApiResponse({ status: 400, description: 'El email ya pertenece a otro usuario' }),
+    ApiResponse({ status: 404, description: 'Usuario no encontrado' }),
+    ApiResponse({ status: 403, description: 'Acceso denegado. Se requiere rol admin.' }),
+    ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
+  );
+}
+
+export function AdminCancelEmailChangeDoc() {
+  return applyDecorators(
+    ApiTags('users'),
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Cancelar el cambio de email pendiente de un usuario (Admin)',
+      description:
+        'Cancela el cambio de email en curso de un usuario (sea self-service o iniciado por otro administrador) ' +
+        'limpiando el estado pendiente. Idempotente: si no hay cambio pendiente responde 200 sin modificar nada.\n\n' +
+        '**i18n Support**: Use `Accept-Language` header (es, en, pt) to receive messages in your preferred language.',
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Cambio pendiente cancelado (o no había ninguno)',
+      schema: {
+        example: {
+          message: 'Pending email change canceled',
+          userId: '507f191e810c19729de860ea',
+        },
+      },
+    }),
     ApiResponse({ status: 404, description: 'Usuario no encontrado' }),
     ApiResponse({ status: 403, description: 'Acceso denegado. Se requiere rol admin.' }),
     ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),

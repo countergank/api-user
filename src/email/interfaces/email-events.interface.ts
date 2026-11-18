@@ -70,6 +70,20 @@ export interface EmailChangeRevertedEvent {
   lang?: string;
 }
 
+/**
+ * Informational notice to the current address when an administrator started the
+ * change (issue #556 S8). No action is required from this mailbox: identity is
+ * proven on the NEW address via the confirmation link.
+ */
+export interface EmailChangeAdminRequestedEvent {
+  userId: string;
+  email: string;
+  newEmail: string;
+  name: string;
+  pendingEmailToken: string;
+  lang?: string;
+}
+
 export interface ResendVerificationEvent {
   userId: string;
   email: string;

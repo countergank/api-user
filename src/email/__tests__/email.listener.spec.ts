@@ -222,6 +222,30 @@ describe(EmailListener.name, () => {
     });
   });
 
+  describe('handleEmailChangeAdminRequested', () => {
+    it('should notify the current mailbox that an admin started the change (issue #556 S8)', async () => {
+      await listener.handleEmailChangeAdminRequested({
+        userId: 'user-1',
+        email: 'current@example.com',
+        newEmail: 'new@example.com',
+        name: 'John',
+        pendingEmailToken: 'pending123',
+        lang: 'en',
+      });
+
+      expect(mockEmailService.sendBySlug).toHaveBeenCalledWith(
+        'email-change-admin-notice',
+        'current@example.com',
+        {
+          userName: 'John',
+          newEmail: 'new@example.com',
+          confirmationLink: 'https://app.example.com/confirm-email?token=pending123',
+        },
+        'en',
+      );
+    });
+  });
+
   describe('handleEmailChangeReverted', () => {
     it('should notify the given address that the change was reverted', async () => {
       await listener.handleEmailChangeReverted({

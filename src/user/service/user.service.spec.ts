@@ -483,6 +483,55 @@ describe(UserService.name, () => {
     });
   });
 
+  describe(`${UserService.name}.${UserService.prototype.adminCancelEmailChange.name}`, () => {
+    const user = new UserMock();
+    const adminId = 'admin-1';
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      user.email = 'current@example.com';
+      user.pendingEmail = undefined;
+      user.pendingEmailToken = undefined;
+      user.emailChangeInitiatedBy = undefined;
+      (user as unknown as Record<string, unknown>).id = 'user-1';
+    });
+
+    it('should clear the pending change state when one is in flight', async () => {
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(
+        Object.assign(user, {
+          pendingEmail: 'new@example.com',
+          pendingEmailToken: 'token-1',
+          emailChangeInitiatedBy: adminId,
+        }),
+      );
+      jest.spyOn(userRepository, 'unsetFields').mockResolvedValue(user);
+
+      await service.adminCancelEmailChange(user.id, adminId);
+
+      expect(userRepository.unsetFields).toHaveBeenCalledWith(
+        user.id,
+        ['pendingEmail', 'pendingEmailToken', 'pendingEmailExpires', 'emailChangeInitiatedBy'],
+        undefined,
+      );
+    });
+
+    it('should be idempotent when no change is pending', async () => {
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(user);
+
+      await expect(service.adminCancelEmailChange(user.id, adminId)).resolves.toBeUndefined();
+
+      expect(userRepository.unsetFields).not.toHaveBeenCalled();
+    });
+
+    it('should throw USER_NOT_FOUND for an unknown id', async () => {
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(null);
+
+      await expect(service.adminCancelEmailChange('missing-id', adminId)).rejects.toMatchObject({
+        kind: expect.objectContaining({ kind: 'USER_NOT_FOUND' }),
+      });
+    });
+  });
+
   describe(`${UserService.name}.${UserService.prototype.createWithRole.name}`, () => {
     const baseData = {
       email: 'admin-created@example.com',

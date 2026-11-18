@@ -437,6 +437,39 @@ export class UserService {
   }
 
   /**
+   * Cancels a user's in-flight email change on behalf of an administrator.
+   *
+   * Idempotent, mirroring revertEmailChange: with no pending change there is
+   * nothing to undo and no client mistake to report, so the call succeeds without
+   * touching the document. A pending change is cleared together with its
+   * initiator marker, so the document never carries half a state.
+   *
+   * @throws DomainError USER_NOT_FOUND for an unknown id.
+   */
+  @AuditAction({
+    action: 'admin.cancel-email-change',
+    resource: 'user',
+    getResourceId: (_result: unknown, args: unknown[]) => args[0] as string,
+    getBefore: (_result: unknown, args: unknown[]) => ({ canceledByAdmin: args[1] }),
+  })
+  async adminCancelEmailChange(userId: string, _adminId: string): Promise<void> {
+    const user = await this.findById(userId);
+
+    if (!user.pendingEmail) {
+      return;
+    }
+
+    await this.unsetFields(userId, [
+      'pendingEmail',
+      'pendingEmailToken',
+      'pendingEmailExpires',
+      'emailChangeInitiatedBy',
+    ]);
+
+    this.invalidateUserCache(userId);
+  }
+
+  /**
    * Validates the identity-proof code against the stored hash (S1, S2, S11).
    *
    * Every failure increments the attempt counter and, once the budget is spent,
