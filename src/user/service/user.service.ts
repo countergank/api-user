@@ -372,9 +372,67 @@ export class UserService {
       pendingEmail: data.email,
       pendingEmailToken: token,
       pendingEmailExpires: expires,
+      emailChangeInitiatedBy: 'self',
     });
 
     this.invalidateUserCache(userId);
+    return { token, expires, user };
+  }
+
+  /**
+   * Starts an email change on behalf of a user, requested by an administrator.
+   *
+   * The admin never proves control of any mailbox: the confirmation link goes
+   * to the NEW address (the user proves control there by clicking) and the
+   * current address gets an informational notice (S7/S8), so identity is only
+   * established by the existing /auth/confirm-email-change flow.
+   *
+   * The EMAIL_CHANGE_REQUESTED event is emitted by the controller (with lang
+   * and the user's display name), following the same split as the self-service
+   * flow.
+   *
+   * An in-flight self-service change is replaced: `pendingEmail*` is a single
+   * pending state, the newest request wins.
+   *
+   * @throws DomainError USER_NOT_FOUND for an unknown id, VALIDATION_ERROR when
+   * the target email equals the current one, EMAIL_ALREADY_EXISTS when taken.
+   */
+  @AuditAction({
+    action: 'admin.request-email-change',
+    resource: 'user',
+    getResourceId: (result) => (result as { user: User }).user._id.toString(),
+    getBefore: (...args) => ({ userId: args[0], newEmail: args[1], initiatedByAdmin: args[2] }),
+  })
+  async adminRequestEmailChange(
+    userId: string,
+    newEmail: string,
+    adminId: string,
+  ): Promise<{ token: string; expires: Date; user: User }> {
+    const user = await this.findById(userId);
+
+    if (user.email === newEmail) {
+      throw DomainError.fromKind('VALIDATION_ERROR', {
+        message: 'The new email must be different from the current one',
+      });
+    }
+
+    const existing = await this.findByEmail(newEmail);
+    if (existing) {
+      throw DomainError.fromKind('EMAIL_ALREADY_EXISTS');
+    }
+
+    const token = randomUUID();
+    const expires = new Date(Date.now() + EMAIL_CHANGE_CONFIRMATION_TTL_MS);
+
+    await this.update(userId, {
+      pendingEmail: newEmail,
+      pendingEmailToken: token,
+      pendingEmailExpires: expires,
+      emailChangeInitiatedBy: adminId,
+    });
+
+    this.invalidateUserCache(userId);
+
     return { token, expires, user };
   }
 

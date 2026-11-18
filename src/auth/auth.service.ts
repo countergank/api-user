@@ -1,23 +1,23 @@
+import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { JwtService } from '@nestjs/jwt';
 import { InjectConnection } from '@nestjs/mongoose';
 import { Connection } from 'mongoose';
-import { randomUUID } from 'node:crypto';
-import { EmailEvents } from '../email/constants/email.events';
-import { User, UserRole } from '../user/entities/user.entity';
-import { UserService } from '../user/service/user.service';
-import { RoleService } from '../rbac/services/role.service';
-import { mergeEffectivePermissions } from '../rbac/services/effective-permissions';
-import { DomainError } from '../common/errors/domain.error';
 import { AuditAction } from '../common/audit/audit.decorator';
+import { SessionContext as SessionContextBase } from '../common/decorators/extract-session-context.helper';
+import { DomainError } from '../common/errors/domain.error';
 import { runInTransaction } from '../common/utils/transaction';
 import { CacheService } from '../config/cache';
-import { SessionRevocationService } from '../session/session-revocation.service';
+import { EmailEvents } from '../email/constants/email.events';
+import { mergeEffectivePermissions } from '../rbac/services/effective-permissions';
+import { RoleService } from '../rbac/services/role.service';
 import { ActiveSessionService } from '../session/active-session.service';
-import { SessionContext as SessionContextBase } from '../common/decorators/extract-session-context.helper';
+import { SessionRevocationService } from '../session/session-revocation.service';
+import { User, UserRole } from '../user/entities/user.entity';
 import { EMAIL_REVERT_WINDOW_MS } from '../user/service/email-change-code';
+import { UserService } from '../user/service/user.service';
 
 export interface JwtPayload {
   sub: string;
@@ -304,10 +304,7 @@ export class AuthService {
 
     await runInTransaction(this.connection, async () => {
       await this.userService.update(user.id, { isActive: true } as any);
-      await this.userService.unsetFields(user.id, [
-        'emailVerificationToken',
-        'emailVerificationExpires',
-      ]);
+      await this.userService.unsetFields(user.id, ['emailVerificationToken', 'emailVerificationExpires']);
     });
   }
 
@@ -348,7 +345,7 @@ export class AuthService {
       );
       await this.userService.unsetFields(
         user.id,
-        ['pendingEmail', 'pendingEmailToken', 'pendingEmailExpires'],
+        ['pendingEmail', 'pendingEmailToken', 'pendingEmailExpires', 'emailChangeInitiatedBy'],
         session,
       );
       await this.userService.bumpSessionEpoch(user.id, session);
@@ -414,7 +411,7 @@ export class AuthService {
       await this.userService.update(user.id, { email: restoredEmail } as any, session);
       await this.userService.unsetFields(
         user.id,
-        ['previousEmail', 'pendingEmail', 'pendingEmailToken', 'pendingEmailExpires'],
+        ['previousEmail', 'pendingEmail', 'pendingEmailToken', 'pendingEmailExpires', 'emailChangeInitiatedBy'],
         session,
       );
       await this.userService.bumpSessionEpoch(user.id, session);
@@ -622,7 +619,12 @@ export class AuthService {
     session?: SessionContext,
   ): Promise<string> {
     if (session?.rotateFromSessionId) {
-      const rotated = await this.activeSession.rotateBySessionId(user.id, session.rotateFromSessionId, refreshJti, refreshExpiresAt);
+      const rotated = await this.activeSession.rotateBySessionId(
+        user.id,
+        session.rotateFromSessionId,
+        refreshJti,
+        refreshExpiresAt,
+      );
       if (rotated) {
         return rotated;
       }

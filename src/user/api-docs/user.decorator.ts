@@ -61,9 +61,7 @@ export function FindByIdUserDoc() {
       status: 200,
       description: 'Usuario encontrado con sus permisos efectivos',
       schema: {
-        allOf: [
-          { $ref: getSchemaPath(AdminUserDetailDTO) },
-        ],
+        allOf: [{ $ref: getSchemaPath(AdminUserDetailDTO) }],
       },
     }),
     ApiResponse({ status: 404, description: 'Usuario no encontrado' }),
@@ -146,7 +144,8 @@ export function ExportUserDoc() {
       name: 'search',
       required: false,
       type: String,
-      description: 'Same text search as the list (name, lastName, email, userName; leading `@` adds a userName lookup).',
+      description:
+        'Same text search as the list (name, lastName, email, userName; leading `@` adds a userName lookup).',
       example: 'ana',
     }),
     ApiBadRequestResponse({ description: 'Bad Request', type: BadRequestDTO }),
@@ -201,6 +200,43 @@ export function UnlockUserDoc() {
       },
     }),
     ApiBadRequestResponse({ description: 'Usuario no encontrado', type: BadRequestDTO }),
+    ApiResponse({ status: 403, description: 'Acceso denegado. Se requiere rol admin.' }),
+    ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
+  );
+}
+
+export function AdminChangeEmailDoc() {
+  return applyDecorators(
+    ApiTags('users'),
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Iniciar cambio de email de un usuario (Admin)',
+      description:
+        'Un administrador inicia el cambio de email de otro usuario. El link de confirmación viaja al ' +
+        'NUEVO buzón (el usuario confirma con el flujo existente /auth/confirm-email-change) y el buzón ' +
+        'actual recibe un aviso informativo. El token nunca se devuelve en la respuesta.\n\n' +
+        '**i18n Support**: Use `Accept-Language` header (es, en, pt) to receive messages in your preferred language.',
+    }),
+    ApiBody({
+      schema: {
+        type: 'object',
+        required: ['email'],
+        properties: { email: { type: 'string', example: 'new-address@example.com' } },
+      },
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Cambio iniciado; el nuevo buzón recibe el link de confirmación',
+      schema: {
+        example: {
+          message: 'Email change confirmation sent',
+          userId: '507f191e810c19729de860ea',
+        },
+      },
+    }),
+    ApiBadRequestResponse({ description: 'Email inválido o igual al actual', type: BadRequestDTO }),
+    ApiResponse({ status: 400, description: 'El email ya pertenece a otro usuario' }),
+    ApiResponse({ status: 404, description: 'Usuario no encontrado' }),
     ApiResponse({ status: 403, description: 'Acceso denegado. Se requiere rol admin.' }),
     ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
   );
