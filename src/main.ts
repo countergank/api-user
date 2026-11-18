@@ -9,7 +9,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { apiReference } from '@scalar/nestjs-api-reference';
 import { Logger } from 'nestjs-pino';
 import hyperid from 'hyperid';
-import path from 'path';
+import path from 'node:path';
 import { HttpAdapterHost } from '@nestjs/core';
 import { AppModule } from './app/app.module';
 

@@ -1,4 +1,5 @@
 import { SmtpProvider } from '../providers/smtp.provider';
+import { unsetEnv } from '../../test-utils';
 
 describe('SmtpProvider', () => {
   const OLD_ENV = process.env;
@@ -25,7 +26,7 @@ describe('SmtpProvider', () => {
   });
 
   it('should throw when EMAIL_USER is missing', () => {
-    delete process.env.EMAIL_USER;
+    unsetEnv('EMAIL_USER');
     expect(
       () =>
         new SmtpProvider({
@@ -38,7 +39,7 @@ describe('SmtpProvider', () => {
   });
 
   it('should throw when EMAIL_PASS is missing', () => {
-    delete process.env.EMAIL_PASS;
+    unsetEnv('EMAIL_PASS');
     expect(
       () =>
         new SmtpProvider({

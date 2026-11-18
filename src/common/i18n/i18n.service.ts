@@ -69,10 +69,12 @@ export class I18nService implements II18nService, OnModuleInit {
     this.translations.clear();
 
     for (const doc of docs) {
-      if (!this.translations.has(doc.lang)) {
-        this.translations.set(doc.lang, {});
+      let langMap = this.translations.get(doc.lang);
+      if (!langMap) {
+        langMap = {};
+        this.translations.set(doc.lang, langMap);
       }
-      this.setNested(this.translations.get(doc.lang)!, doc.key, doc.value);
+      this.setNested(langMap, doc.key, doc.value);
     }
 
     this.logger.log(`Loaded ${docs.length} translations from MongoDB`);
@@ -84,12 +86,13 @@ export class I18nService implements II18nService, OnModuleInit {
   /** Merge new keys from JSON files without overwriting MongoDB values */
   private async mergeJsonKeys(): Promise<void> {
     for (const [lang, data] of this.loadedJsonCache.entries()) {
-      if (!this.translations.has(lang)) {
+      const existing = this.translations.get(lang);
+      if (!existing) {
         this.translations.set(lang, data);
         continue;
       }
       // Deep merge: JSON keys don't overwrite existing MongoDB keys
-      this.deepMerge(this.translations.get(lang)!, data);
+      this.deepMerge(existing, data);
     }
 
     // Also attempt to insert new keys into MongoDB

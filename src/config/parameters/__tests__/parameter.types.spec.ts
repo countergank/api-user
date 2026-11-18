@@ -26,8 +26,8 @@ describe('ParameterDefinition type', () => {
       validate: (v) => (v as number) > 0 && (v as number) <= 100,
     };
     expect(param.validate).toBeDefined();
-    expect(param.validate!(10)).toBe(true);
-    expect(param.validate!(-1)).toBe(false);
+    expect(param.validate?.(10)).toBe(true);
+    expect(param.validate?.(-1)).toBe(false);
   });
 
   it('should accept boolean type', () => {

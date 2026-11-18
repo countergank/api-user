@@ -89,3 +89,14 @@ export const createConnection = async (label: string) => {
     mongoConnection,
   };
 };
+
+/**
+ * Removes an environment variable so a spec can exercise the "not set" branch.
+ *
+ * Assigning `undefined` would store the string "undefined" (Node coerces env
+ * values to strings), so `Reflect.deleteProperty` is the only correct way to
+ * unset; it also keeps the `noDelete` lint rule away from the call sites.
+ */
+export const unsetEnv = (key: string): void => {
+  Reflect.deleteProperty(process.env, key);
+};

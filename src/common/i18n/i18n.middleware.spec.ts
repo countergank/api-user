@@ -5,7 +5,6 @@ import { NextFunction, Response } from 'express';
 
 describe('I18nMiddleware (unit)', () => {
   let middleware: I18nMiddleware;
-  let i18nService: I18nService;
   let mockNext: NextFunction;
   let mockResponse: Response;
 
@@ -25,7 +24,6 @@ describe('I18nMiddleware (unit)', () => {
     }).compile();
 
     middleware = module.get<I18nMiddleware>(I18nMiddleware);
-    i18nService = module.get<I18nService>(I18nService);
     mockNext = jest.fn();
     mockResponse = {} as Response;
   });

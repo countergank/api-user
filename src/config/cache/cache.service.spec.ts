@@ -16,7 +16,7 @@ describe(CacheService.name, () => {
   };
 
   const mockConfigService = {
-    get: jest.fn((key: string, defaultValue?: unknown) => defaultValue),
+    get: jest.fn((_key: string, defaultValue?: unknown) => defaultValue),
   };
 
   beforeEach(async () => {
@@ -437,7 +437,7 @@ describe(CacheService.name, () => {
 
       freshService.onModuleDestroy();
       mockConfigService.get.mockClear();
-      mockConfigService.get.mockImplementation((key: string, defaultValue?: unknown) => defaultValue);
+      mockConfigService.get.mockImplementation((_key: string, defaultValue?: unknown) => defaultValue);
     });
 
     it('should clamp a fractional interval to one minute (PERF-13)', async () => {
@@ -461,7 +461,7 @@ describe(CacheService.name, () => {
 
       freshService.onModuleDestroy();
       mockConfigService.get.mockClear();
-      mockConfigService.get.mockImplementation((key: string, defaultValue?: unknown) => defaultValue);
+      mockConfigService.get.mockImplementation((_key: string, defaultValue?: unknown) => defaultValue);
     });
 
     it('should log hit/miss rate every CACHE_METRICS_LOG_INTERVAL_MINUTES (default 15)', async () => {
@@ -508,7 +508,7 @@ describe(CacheService.name, () => {
       expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('hits'));
       freshService.onModuleDestroy();
       mockConfigService.get.mockClear();
-      mockConfigService.get.mockImplementation((key: string, defaultValue?: unknown) => defaultValue);
+      mockConfigService.get.mockImplementation((_key: string, defaultValue?: unknown) => defaultValue);
     });
   });
 

@@ -58,7 +58,6 @@ describe(PasswordStrengthValidator.name, () => {
     });
 
     describe('Rule 5: At least 1 special character', () => {
-      const specialChars = PASSWORD_RULES.SPECIAL_CHARS.split('');
 
       it('should accept passwords with @', () => {
         expect(validator.validate('Xyzdefg1@')).toBe(true);
@@ -134,7 +133,6 @@ describe(PasswordStrengthValidator.name, () => {
     });
 
     describe('Rule 8: No common sequences', () => {
-      const commonSequences = PASSWORD_RULES.COMMON_SEQUENCES;
 
       it('should accept passwords without common sequences', () => {
         expect(validator.validate('Xyzdefg1@')).toBe(true);
