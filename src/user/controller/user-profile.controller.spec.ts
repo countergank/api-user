@@ -5,6 +5,8 @@ import { DomainError } from '../../common/errors/domain.error';
 import { I18nService } from '../../common/i18n/i18n.service';
 import { EmailEvents } from '../../email/constants/email.events';
 import { AuthService } from '../../auth/auth.service';
+import { AUDIT_ACTION_KEY } from '../../common/audit/audit.decorator';
+import { Reflector } from '@nestjs/core';
 import { ChangePasswordDTO } from '../dto/change-password.dto';
 import { UserMock } from '../mocks/user.mock';
 import { UserService } from '../service/user.service';
@@ -36,6 +38,7 @@ describe(UserProfileController.name, () => {
   const mockUserService = {
     update: jest.fn().mockResolvedValue(user),
     updateProfilePhoto: jest.fn(),
+    deleteProfilePhoto: jest.fn(),
     changePassword: jest.fn().mockResolvedValue(undefined),
     requestEmailChange: jest.fn().mockResolvedValue({ token: 'token', expires: new Date(), user }),
     requestEmailChangeCode: jest
@@ -206,6 +209,48 @@ describe(UserProfileController.name, () => {
         controller.updateProfilePhoto(user as any, requestWithPart(undefined) as any),
       ).rejects.toBeInstanceOf(DomainError);
       expect(mockUserService.updateProfilePhoto).not.toHaveBeenCalled();
+    });
+  });
+
+  describe(`${UserProfileController.prototype.deleteProfilePhoto.name}`, () => {
+    it('delegates to the service and returns the profile with avatarUrl null (S2, S3)', async () => {
+      mockUserService.deleteProfilePhoto.mockResolvedValue(
+        Object.assign(new UserMock(), { id: user.id }),
+      );
+
+      const result = await controller.deleteProfilePhoto(user as any);
+
+      expect(mockUserService.deleteProfilePhoto).toHaveBeenCalledWith(user.id);
+      expect(result).toEqual({
+        name: user.name,
+        lastName: user.lastName,
+        email: user.email,
+        avatarUrl: null,
+      });
+    });
+
+    it('returns avatarUrl null when the user had no photo (S2)', async () => {
+      mockUserService.deleteProfilePhoto.mockResolvedValue(new UserMock());
+
+      const result = await controller.deleteProfilePhoto(user as any);
+
+      expect(result.avatarUrl).toBeNull();
+    });
+
+    it('propagates service rejections (S2)', async () => {
+      mockUserService.deleteProfilePhoto.mockRejectedValueOnce(DomainError.fromKind('USER_NOT_FOUND'));
+
+      await expect(controller.deleteProfilePhoto(user as any)).rejects.toBeInstanceOf(DomainError);
+    });
+
+    it('registers the business audit action on the handler (S4)', () => {
+      const config = new Reflector().get(
+        AUDIT_ACTION_KEY,
+        UserProfileController.prototype.deleteProfilePhoto,
+      );
+
+      expect(config?.action).toBe('user.delete-profile-photo');
+      expect(config?.resource).toBe('user');
     });
   });
 

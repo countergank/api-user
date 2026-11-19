@@ -973,6 +973,14 @@ describe(UserService.name, () => {
       expect(userRepository.update).not.toHaveBeenCalled();
     });
 
+    it('invalidates the cached user document after a photo update (PERF-12)', async () => {
+      await service.updateProfilePhoto(user.id, photoFile(PNG));
+
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith('cache.invalidate.user', {
+        pattern: `cache:user:${user.id}`,
+      });
+    });
+
     it('replacing the photo deletes the previously referenced file (S5)', async () => {
       const OLD_URL = '/uploads/avatars/user-1-old.png';
       jest.spyOn(userRepository, 'findById').mockResolvedValue(
@@ -1064,6 +1072,92 @@ describe(UserService.name, () => {
 
       expect(userRepository.update).toHaveBeenCalledWith(user.id, { avatarUrl: NEW_KEY });
       expect(mockStorage.delete).toHaveBeenCalledWith(OLD_KEY);
+    });
+  });
+
+  describe(`${UserService.name}.${UserService.prototype.deleteProfilePhoto.name}`, () => {
+    const PHOTO_KEY = 'avatar/user-1-1700000000000.png';
+    const user = Object.assign(new UserMock(), { id: 'user-1' });
+
+    const userWithPhoto = () => Object.assign(new UserMock(), { id: user.id, avatarUrl: PHOTO_KEY });
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      mockStorage.delete.mockResolvedValue(undefined);
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(userWithPhoto());
+      jest.spyOn(userRepository, 'unsetFields').mockResolvedValue(
+        Object.assign(new UserMock(), { id: user.id }),
+      );
+    });
+
+    it('clears the stored reference and removes the file (S1)', async () => {
+      await service.deleteProfilePhoto(user.id);
+
+      expect(userRepository.unsetFields).toHaveBeenCalledWith(user.id, ['avatarUrl']);
+      expect(mockStorage.delete).toHaveBeenCalledWith(PHOTO_KEY);
+    });
+
+    it('removes the file only after the reference is cleared (S1)', async () => {
+      await service.deleteProfilePhoto(user.id);
+
+      expect(userRepository.unsetFields.mock.invocationCallOrder[0]).toBeLessThan(
+        mockStorage.delete.mock.invocationCallOrder[0],
+      );
+    });
+
+    it('returns the updated profile without the avatar reference (S1, S2)', async () => {
+      const result = await service.deleteProfilePhoto(user.id);
+
+      expect(result.id).toBe(user.id);
+      expect(result.avatarUrl).toBeUndefined();
+    });
+
+    it('invalidates the cached user document after clearing the reference (PERF-12)', async () => {
+      await service.deleteProfilePhoto(user.id);
+
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith('cache.invalidate.user', {
+        pattern: `cache:user:${user.id}`,
+      });
+    });
+
+    it('is idempotent without a photo: no write and no storage call (S2)', async () => {
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(
+        Object.assign(new UserMock(), { id: user.id }),
+      );
+
+      const result = await service.deleteProfilePhoto(user.id);
+
+      expect(userRepository.unsetFields).not.toHaveBeenCalled();
+      expect(mockStorage.delete).not.toHaveBeenCalled();
+      expect(mockEventEmitter.emit).not.toHaveBeenCalled();
+      expect(result.avatarUrl).toBeUndefined();
+    });
+
+    it('a failed file removal does not fail the committed deletion (S1)', async () => {
+      mockStorage.delete.mockRejectedValueOnce(new Error('EACCES'));
+      const warnSpy = jest.spyOn(service['logger'], 'warn').mockImplementation(() => undefined);
+
+      const result = await service.deleteProfilePhoto(user.id);
+
+      expect(result.avatarUrl).toBeUndefined();
+      expect(mockStorage.delete).toHaveBeenCalledWith(PHOTO_KEY);
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Failed to remove deleted photo'));
+    });
+
+    it('a failed reference update leaves the file in place (S1)', async () => {
+      jest.spyOn(userRepository, 'unsetFields').mockRejectedValueOnce(new Error('db down'));
+
+      await expect(service.deleteProfilePhoto(user.id)).rejects.toBeInstanceOf(Error);
+      expect(mockStorage.delete).not.toHaveBeenCalled();
+    });
+
+    it('rejects with USER_NOT_FOUND for an unknown user (S2)', async () => {
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(null);
+
+      await expect(service.deleteProfilePhoto('missing')).rejects.toMatchObject({
+        kind: expect.objectContaining({ kind: 'USER_NOT_FOUND' }),
+      });
+      expect(mockStorage.delete).not.toHaveBeenCalled();
     });
   });
 });

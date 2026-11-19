@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Inject, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Inject, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
@@ -17,6 +17,7 @@ import { RequestLang } from '../../common/decorators/request-lang.decorator';
 import {
   ApplyChangeEmailDoc,
   ApplyChangePasswordDoc,
+  ApplyDeleteProfilePhotoDoc,
   ApplyGetProfileDoc,
   ApplyRequestEmailChangeCodeDoc,
   ApplyUpdateProfileDoc,
@@ -115,6 +116,25 @@ export class UserProfileController {
     });
 
     return { avatarUrl };
+  }
+
+  @Delete('profile/photo')
+  @ApplyDeleteProfilePhotoDoc()
+  @AuditAction({
+    action: 'user.delete-profile-photo',
+    resource: 'user',
+    getResourceId: (_result: unknown, args: unknown[]) => (args[0] as User)?.id,
+    getAfter: () => ({ photoDeleted: true }),
+  })
+  async deleteProfilePhoto(@CurrentUser() user: User) {
+    const updated = await this.userService.deleteProfilePhoto(user.id);
+
+    return {
+      name: updated.name,
+      lastName: updated.lastName,
+      email: updated.email,
+      avatarUrl: this.avatarUrlResolver.resolve(updated.avatarUrl) ?? null,
+    };
   }
 
   @Post('change-password')

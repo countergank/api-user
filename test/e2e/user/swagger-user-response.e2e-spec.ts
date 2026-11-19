@@ -87,6 +87,22 @@ describe('UserResponse OpenAPI schema (e2e)', () => {
     expect(avatarUrl.nullable).toBe(true);
     expect(avatarUrl.description).toContain('URL pública de la foto de perfil');
   });
+
+  it('documents DELETE /users/profile/photo with a nullable avatarUrl profile (issue #557)', () => {
+    const paths = document.paths as unknown as Record<string, Record<string, unknown>>;
+    const operation = paths['/users/profile/photo']?.delete as
+      | { responses?: Record<string, { content?: Record<string, { schema?: { $ref?: string } }> }> }
+      | undefined;
+    expect(operation).toBeDefined();
+
+    const schema = operation?.responses?.['200']?.content?.['application/json']?.schema;
+    expect(schema?.$ref).toContain('DeleteProfilePhotoResponse');
+
+    const response = (document.components?.schemas as Record<string, SchemaLike>)?.DeleteProfilePhotoResponse;
+    expect(response).toBeDefined();
+    const avatarUrl = response?.properties?.avatarUrl as SchemaLike;
+    expect(avatarUrl.nullable).toBe(true);
+  });
 });
 
 /**
