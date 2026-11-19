@@ -1,22 +1,23 @@
-import { Body, Controller, Get, HttpCode, Inject, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Inject, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { FastifyRequest } from 'fastify';
 import { AuthService } from '../../auth/auth.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { DomainError } from '../../common/errors/domain.error';
-import { EmailEvents } from '../../email/constants/email.events';
-import { I18nService } from '../../common/i18n/i18n.service';
 import { AuditAction } from '../../common/audit/audit.decorator';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { CurrentSessionId } from '../../common/decorators/current-session-id.decorator';
-import { SessionContext as SessionContextParam } from '../../common/decorators/session-context.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { SessionContext } from '../../common/decorators/extract-session-context.helper';
 import { RequestLang } from '../../common/decorators/request-lang.decorator';
+import { SessionContext as SessionContextParam } from '../../common/decorators/session-context.decorator';
+import { DomainError } from '../../common/errors/domain.error';
+import { I18nService } from '../../common/i18n/i18n.service';
+import { EmailEvents } from '../../email/constants/email.events';
 import {
   ApplyChangeEmailDoc,
   ApplyChangePasswordDoc,
+  ApplyDeleteProfilePhotoDoc,
   ApplyGetProfileDoc,
   ApplyRequestEmailChangeCodeDoc,
   ApplyUpdateProfileDoc,
@@ -24,10 +25,10 @@ import {
 } from '../api-docs';
 import { ChangePasswordDTO } from '../dto/change-password.dto';
 import { RequestEmailChangeDTO } from '../dto/request-email-change.dto';
+import { User } from '../entities/user.entity';
 import { UserService } from '../service/user.service';
 import { ProfilePhotoUrlResolver } from '../storage/profile-photo-url.resolver';
 import { missingPhotoPartError } from '../storage/user-profile-photo.errors';
-import { User } from '../entities/user.entity';
 
 /**
  * Controller para gestión del perfil del usuario autenticado.
@@ -115,6 +116,24 @@ export class UserProfileController {
     });
 
     return { avatarUrl };
+  }
+
+  @Delete('profile/photo')
+  @ApplyDeleteProfilePhotoDoc()
+  @AuditAction({
+    action: 'user.delete-profile-photo',
+    resource: 'user',
+    getAfter: () => ({ photoDeleted: true }),
+  })
+  async deleteProfilePhoto(@CurrentUser() user: User) {
+    const updated = await this.userService.deleteProfilePhoto(user.id);
+
+    return {
+      name: updated.name,
+      lastName: updated.lastName,
+      email: updated.email,
+      avatarUrl: this.avatarUrlResolver.resolve(updated.avatarUrl) ?? null,
+    };
   }
 
   @Post('change-password')

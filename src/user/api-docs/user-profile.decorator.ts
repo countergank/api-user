@@ -15,6 +15,7 @@ import {
 import { BadRequestDTO } from '../../common/dto/bad-request.dto';
 import { InternalErrorDTO } from '../../common/dto/internal-error.dto';
 import { GetProfileResponse } from './examples/get-profile.response';
+import { DeleteProfilePhotoResponse } from './examples/delete-photo.response';
 import { UploadProfilePhotoResponse } from './examples/upload-photo.response';
 import { UpdateProfileRequest } from './examples/update-profile.request';
 import { ChangePasswordRequest, ChangePasswordResponse } from './examples/change-password.request';
@@ -70,6 +71,27 @@ export function ApplyUploadProfilePhotoDoc() {
         required: ['file'],
       },
     }),
+  );
+}
+
+export function ApplyDeleteProfilePhotoDoc() {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Eliminar foto de perfil',
+      description:
+        'Elimina la foto de perfil del usuario autenticado y retorna el perfil actualizado con `avatarUrl` en null. Idempotente: si ya no hay foto, responde igual con el perfil actualizado.',
+    }),
+    ApiBearerAuth(),
+    ApiExtraModels(DeleteProfilePhotoResponse),
+    ApiResponse({
+      status: 200,
+      description: 'Foto eliminada (o inexistente); perfil actualizado',
+      schema: {
+        $ref: getSchemaPath(DeleteProfilePhotoResponse),
+      },
+    }),
+    ApiUnauthorizedResponse({ description: 'No autenticado' }),
+    ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
   );
 }
 
