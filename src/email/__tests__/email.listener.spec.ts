@@ -223,13 +223,12 @@ describe(EmailListener.name, () => {
   });
 
   describe('handleEmailChangeAdminRequested', () => {
-    it('should notify the current mailbox that an admin started the change (issue #556 S8)', async () => {
+    it('should notify the current mailbox that an admin started the change without carrying the confirmation token (issue #556 S8, R1)', async () => {
       await listener.handleEmailChangeAdminRequested({
         userId: 'user-1',
         email: 'current@example.com',
         newEmail: 'new@example.com',
         name: 'John',
-        pendingEmailToken: 'pending123',
         lang: 'en',
       });
 
@@ -239,9 +238,30 @@ describe(EmailListener.name, () => {
         {
           userName: 'John',
           newEmail: 'new@example.com',
-          confirmationLink: 'https://app.example.com/confirm-email?token=pending123',
         },
         'en',
+      );
+    });
+  });
+
+  describe('handleEmailChangeCanceled', () => {
+    it('should notify the current mailbox that the pending change was canceled (issue #556 R3-cancel-no-notice)', async () => {
+      await listener.handleEmailChangeCanceled({
+        userId: 'user-1',
+        email: 'current@example.com',
+        canceledEmail: 'new@example.com',
+        name: 'John',
+        lang: 'es',
+      });
+
+      expect(mockEmailService.sendBySlug).toHaveBeenCalledWith(
+        'email-change-canceled',
+        'current@example.com',
+        {
+          userName: 'John',
+          canceledEmail: 'new@example.com',
+        },
+        'es',
       );
     });
   });

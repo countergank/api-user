@@ -358,7 +358,6 @@ describe(UserController.name, () => {
         email: user.email,
         newEmail: 'new@example.com',
         name: user.name,
-        pendingEmailToken: token,
         lang: 'es',
       });
       expect(result).toEqual({ message: 'messages.email_change_sent', userId: user.id });

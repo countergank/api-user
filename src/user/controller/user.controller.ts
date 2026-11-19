@@ -244,13 +244,13 @@ export class UserController {
     });
 
     // S8: the CURRENT mailbox is told an admin started the change; identity is
-    // proven on the new address, this is purely informational.
+    // proven on the new address, this is purely informational. The token stays
+    // out of this event (review R1): it only travels to the new mailbox.
     this.eventEmitter.emit(EmailEvents.EMAIL_CHANGE_ADMIN_REQUESTED, {
       userId: user.id,
       email: user.email,
       newEmail: dto.email,
       name: user.name,
-      pendingEmailToken: token,
       lang,
     });
 

@@ -170,10 +170,12 @@ describe('Admin email change (e2e)', () => {
       expect(response.body.userId).toBe(pendingUserId);
     });
 
-    it('clears the pending state so the confirmation token is dead', async () => {
+    it('clears the pending state so the confirmation token is dead and the user is told at the current address', async () => {
       await admin('post', `/admin/users/${pendingUserId}/change-email`)
         .send({ email: pendingNewEmail })
         .expect(201);
+
+      const canceledEvents = captureEvents(EmailEvents.EMAIL_CHANGE_CANCELED);
 
       await admin('delete', `/admin/users/${pendingUserId}/change-email`).expect(200);
 
@@ -183,10 +185,9 @@ describe('Admin email change (e2e)', () => {
       expect(stored?.pendingEmailToken).toBeUndefined();
       expect(stored?.emailChangeInitiatedBy).toBeUndefined();
 
-      // The cleared token no longer confirms anything.
-      const userModel2 = app.get<Model<User>>(getModelToken(User.name));
-      const deadToken = (await userModel2.findById(pendingUserId).exec())?.pendingEmailToken;
-      expect(deadToken).toBeUndefined();
+      // S9 + R3-cancel-no-notice: the current mailbox learns the change is off.
+      expect(canceledEvents).toHaveLength(1);
+      expect(canceledEvents[0]).toMatchObject({ email: pendingUser.email, canceledEmail: pendingNewEmail });
     });
 
     it('requires user:update: 401 without JWT', async () => {

@@ -75,7 +75,8 @@
     "email_change_old_notice_subject": "The email of your account was changed",
     "email_change_confirmed_subject": "Your email was changed to this address",
     "email_change_reverted_subject": "The email change was reverted",
-    "email_change_admin_notice_subject": "An administrator started an email change on your account"
+    "email_change_admin_notice_subject": "An administrator started an email change on your account",
+    "email_change_canceled_subject": "The pending email change was canceled"
   },
   "messages": {
     "welcome": "Welcome, {{username}}!",

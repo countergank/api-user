@@ -12,6 +12,8 @@ export const EmailEvents = {
   EMAIL_CHANGE_REVERTED: 'user.email-change-reverted',
   /** Informational notice to the current address when an admin starts the change (issue #556 S8). */
   EMAIL_CHANGE_ADMIN_REQUESTED: 'user.email-change-admin-requested',
+  /** The pending change was canceled by an admin before confirmation (issue #556 S9). */
+  EMAIL_CHANGE_CANCELED: 'user.email-change-canceled',
   RESEND_VERIFICATION: 'auth.resend-verification',
 } as const;
 

@@ -74,7 +74,8 @@
     "email_change_old_notice_subject": "O email da sua conta foi alterado",
     "email_change_confirmed_subject": "Seu email foi alterado para este endereço",
     "email_change_reverted_subject": "A mudança de email foi revertida",
-    "email_change_admin_notice_subject": "Um administrador iniciou a mudança de email da sua conta"
+    "email_change_admin_notice_subject": "Um administrador iniciou a mudança de email da sua conta",
+    "email_change_canceled_subject": "A mudança de email pendente foi cancelada"
   },
   "messages": {
     "welcome": "Bem-vindo, {{username}}!",

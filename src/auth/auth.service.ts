@@ -19,6 +19,16 @@ import { User, UserRole } from '../user/entities/user.entity';
 import { EMAIL_REVERT_WINDOW_MS } from '../user/service/email-change-code';
 import { UserService } from '../user/service/user.service';
 
+/**
+ * Detects a MongoDB duplicate-key error (code `11000`) thrown by the unique
+ * email index. The pre-write uniqueness check is only advisory: two racing
+ * changes targeting the same free address both pass it, and the index is what
+ * actually rejects the loser — mapped here to the domain conflict instead of
+ * surfacing as a 500 (issue #556 review R3-uniqueness-tocou).
+ */
+const isDuplicateKeyError = (error: unknown): boolean =>
+  typeof error === 'object' && error !== null && (error as { code?: number }).code === 11000;
+
 export interface JwtPayload {
   sub: string;
   email: string;
@@ -332,24 +342,31 @@ export class AuthService {
 
     // S4 + S17: an email change invalidates every session opened with the old
     // identity, in the same transaction as the new email and the revert state.
-    await runInTransaction(this.connection, async (session) => {
-      await this.userService.update(
-        user.id,
-        {
-          email: newEmail,
-          previousEmail,
-          emailRevertToken: revertToken,
-          emailRevertExpires: revertExpires,
-        } as any,
-        session,
-      );
-      await this.userService.unsetFields(
-        user.id,
-        ['pendingEmail', 'pendingEmailToken', 'pendingEmailExpires', 'emailChangeInitiatedBy'],
-        session,
-      );
-      await this.userService.bumpSessionEpoch(user.id, session);
-    });
+    try {
+      await runInTransaction(this.connection, async (session) => {
+        await this.userService.update(
+          user.id,
+          {
+            email: newEmail,
+            previousEmail,
+            emailRevertToken: revertToken,
+            emailRevertExpires: revertExpires,
+          } as any,
+          session,
+        );
+        await this.userService.unsetFields(
+          user.id,
+          ['pendingEmail', 'pendingEmailToken', 'pendingEmailExpires', 'emailChangeInitiatedBy'],
+          session,
+        );
+        await this.userService.bumpSessionEpoch(user.id, session);
+      });
+    } catch (error) {
+      if (isDuplicateKeyError(error)) {
+        throw DomainError.fromKind('EMAIL_ALREADY_EXISTS');
+      }
+      throw error;
+    }
 
     // S4/S12: the new address is told the change landed…
     this.eventEmitter.emit(EmailEvents.EMAIL_CHANGE_CONFIRMED, {
@@ -407,15 +424,24 @@ export class AuthService {
 
     // S5: restoring the address and killing every session opened with the
     // reverted identity commit together, or not at all.
-    await runInTransaction(this.connection, async (session) => {
-      await this.userService.update(user.id, { email: restoredEmail } as any, session);
-      await this.userService.unsetFields(
-        user.id,
-        ['previousEmail', 'pendingEmail', 'pendingEmailToken', 'pendingEmailExpires', 'emailChangeInitiatedBy'],
-        session,
-      );
-      await this.userService.bumpSessionEpoch(user.id, session);
-    });
+    try {
+      await runInTransaction(this.connection, async (session) => {
+        await this.userService.update(user.id, { email: restoredEmail } as any, session);
+        await this.userService.unsetFields(
+          user.id,
+          ['previousEmail', 'pendingEmail', 'pendingEmailToken', 'pendingEmailExpires', 'emailChangeInitiatedBy'],
+          session,
+        );
+        await this.userService.bumpSessionEpoch(user.id, session);
+      });
+    } catch (error) {
+      // Another account took the restored address while the window was open:
+      // the unique index is the only thing that can still catch it.
+      if (isDuplicateKeyError(error)) {
+        throw DomainError.fromKind('EMAIL_ALREADY_EXISTS');
+      }
+      throw error;
+    }
 
     // S5/S12: both addresses are notified.
     for (const email of [restoredEmail, revertedEmail]) {

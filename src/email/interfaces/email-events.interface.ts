@@ -73,14 +73,28 @@ export interface EmailChangeRevertedEvent {
 /**
  * Informational notice to the current address when an administrator started the
  * change (issue #556 S8). No action is required from this mailbox: identity is
- * proven on the NEW address via the confirmation link.
+ * proven on the NEW address via the confirmation link. The confirmation token
+ * deliberately does not travel here (review R1): the notice is informational
+ * and the token must only reach the new mailbox.
  */
 export interface EmailChangeAdminRequestedEvent {
   userId: string;
   email: string;
   newEmail: string;
   name: string;
-  pendingEmailToken: string;
+  lang?: string;
+}
+
+/**
+ * Notice to the current address when an administrator canceled the pending
+ * change before it was confirmed (issue #556 S9). The account keeps this
+ * address; no action is required.
+ */
+export interface EmailChangeCanceledEvent {
+  userId: string;
+  email: string;
+  canceledEmail: string;
+  name: string;
   lang?: string;
 }
 

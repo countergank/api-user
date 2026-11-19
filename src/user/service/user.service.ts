@@ -397,12 +397,6 @@ export class UserService {
    * @throws DomainError USER_NOT_FOUND for an unknown id, VALIDATION_ERROR when
    * the target email equals the current one, EMAIL_ALREADY_EXISTS when taken.
    */
-  @AuditAction({
-    action: 'admin.request-email-change',
-    resource: 'user',
-    getResourceId: (result) => (result as { user: User }).user._id.toString(),
-    getBefore: (...args) => ({ userId: args[0], newEmail: args[1], initiatedByAdmin: args[2] }),
-  })
   async adminRequestEmailChange(
     userId: string,
     newEmail: string,
@@ -442,22 +436,19 @@ export class UserService {
    * Idempotent, mirroring revertEmailChange: with no pending change there is
    * nothing to undo and no client mistake to report, so the call succeeds without
    * touching the document. A pending change is cleared together with its
-   * initiator marker, so the document never carries half a state.
+   * initiator marker, so the document never carries half a state, and the user
+   * is told at their current address that the change is off.
    *
    * @throws DomainError USER_NOT_FOUND for an unknown id.
    */
-  @AuditAction({
-    action: 'admin.cancel-email-change',
-    resource: 'user',
-    getResourceId: (_result: unknown, args: unknown[]) => args[0] as string,
-    getBefore: (_result: unknown, args: unknown[]) => ({ canceledByAdmin: args[1] }),
-  })
   async adminCancelEmailChange(userId: string, _adminId: string): Promise<void> {
     const user = await this.findById(userId);
 
     if (!user.pendingEmail) {
       return;
     }
+
+    const canceledEmail = user.pendingEmail;
 
     await this.unsetFields(userId, [
       'pendingEmail',
@@ -467,6 +458,13 @@ export class UserService {
     ]);
 
     this.invalidateUserCache(userId);
+
+    this.eventEmitter.emit(EmailEvents.EMAIL_CHANGE_CANCELED, {
+      userId,
+      email: user.email,
+      canceledEmail,
+      name: user.name,
+    });
   }
 
   /**

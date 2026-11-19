@@ -398,6 +398,17 @@ describe(AuthService.name, () => {
       await expectDomainError(service.confirmEmailChange('valid-token'), 'NO_PENDING_EMAIL_CHANGE');
     });
 
+    it('should throw EMAIL_ALREADY_EXISTS when the write collides with a concurrent taker of the email (issue #556 R3-uniqueness-tocou)', async () => {
+      const user = pendingChangeUser();
+
+      jest.spyOn(userService, 'findByPendingEmailToken').mockResolvedValue(user);
+      jest.spyOn(userService, 'update').mockRejectedValue(Object.assign(new Error('E11000 duplicate key error collection'), { code: 11000 }));
+      jest.spyOn(userService, 'unsetFields').mockResolvedValue(user);
+      jest.spyOn(userService, 'bumpSessionEpoch').mockResolvedValue(1);
+
+      await expectDomainError(service.confirmEmailChange('valid-token'), 'EMAIL_ALREADY_EXISTS');
+    });
+
     it('should revoke every session by bumping the durable epoch inside the email-change transaction (S4, S17)', async () => {
       const user = new UserMock();
       user.pendingEmail = 'new@test.com';

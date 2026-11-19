@@ -344,7 +344,7 @@ describe(EmailTemplateService.name, () => {
 
       await service.seedDefaults();
 
-      expect(mockRepository.create).toHaveBeenCalledTimes(9);
+      expect(mockRepository.create).toHaveBeenCalledTimes(10);
       expect(mockRepository.create).toHaveBeenCalledWith(expect.objectContaining({ slug: 'welcome', content: html }));
       expect(mockRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({ slug: 'email-change-code', content: html }),
