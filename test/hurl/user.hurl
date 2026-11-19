@@ -605,3 +605,80 @@ HTTP 404
 POST {{baseUrl}}/admin/users/000000000000000000000000/reset-password
 Authorization: Bearer {{adminToken}}
 HTTP 404
+
+
+# ======================================================================
+# 30 — POST/DELETE /admin/users/:id/change-email (admin, user:update):
+# cambio de email iniciado por admin y su cancelación (issue #556).
+
+POST {{baseUrl}}/admin/users
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+{
+  "email": "hurl-email-change@test.com",
+  "userName": "hurl-email-change",
+  "password": "{{flowPassword}}",
+  "name": "Hurl",
+  "lastName": "EmailChange",
+  "role": "user",
+  "isActive": true
+}
+HTTP 201
+[Captures]
+emailChangeId: jsonpath "$.id"
+
+# Positivo: admin inicia el cambio → 201, mensaje i18n y sin token en el cuerpo.
+POST {{baseUrl}}/admin/users/{{emailChangeId}}/change-email
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+{
+  "email": "hurl-email-change-new@test.com"
+}
+HTTP 201
+[Asserts]
+jsonpath "$.userId" == "{{emailChangeId}}"
+jsonpath "$.message" exists
+
+# Negativo: el nuevo email igual al actual → 400.
+POST {{baseUrl}}/admin/users/{{emailChangeId}}/change-email
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+{
+  "email": "hurl-email-change@test.com"
+}
+HTTP 400
+
+# Cancelación del cambio pendiente → 200; idempotente en una segunda llamada.
+DELETE {{baseUrl}}/admin/users/{{emailChangeId}}/change-email
+Authorization: Bearer {{adminToken}}
+HTTP 200
+[Asserts]
+jsonpath "$.userId" == "{{emailChangeId}}"
+
+DELETE {{baseUrl}}/admin/users/{{emailChangeId}}/change-email
+Authorization: Bearer {{adminToken}}
+HTTP 200
+
+# Negativo: usuario sin rol admin → 403 FORBIDDEN.
+POST {{baseUrl}}/admin/users/{{emailChangeId}}/change-email
+Authorization: Bearer {{viewerToken}}
+Content-Type: application/json
+{
+  "email": "hurl-email-change-new@test.com"
+}
+HTTP 403
+[Asserts]
+jsonpath "$.code" == "UA-SEC-002"
+
+# Negativo: admin con id inexistente → 404.
+POST {{baseUrl}}/admin/users/000000000000000000000000/change-email
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+{
+  "email": "hurl-email-change-new@test.com"
+}
+HTTP 404
+
+DELETE {{baseUrl}}/admin/users/000000000000000000000000/change-email
+Authorization: Bearer {{adminToken}}
+HTTP 404

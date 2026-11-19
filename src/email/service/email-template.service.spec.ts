@@ -336,7 +336,7 @@ describe(EmailTemplateService.name, () => {
   });
 
   describe('seedDefaults', () => {
-    it('should create missing default templates, including the three email-change ones (COU-263)', async () => {
+    it('should create missing default templates, including the four email-change ones (COU-263)', async () => {
       mockRepository.existsBySlug.mockResolvedValue(false);
       const html = '<h1>Default</h1>';
       mockedFs.existsSync.mockReturnValue(true);
@@ -344,7 +344,7 @@ describe(EmailTemplateService.name, () => {
 
       await service.seedDefaults();
 
-      expect(mockRepository.create).toHaveBeenCalledTimes(8);
+      expect(mockRepository.create).toHaveBeenCalledTimes(10);
       expect(mockRepository.create).toHaveBeenCalledWith(expect.objectContaining({ slug: 'welcome', content: html }));
       expect(mockRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({ slug: 'email-change-code', content: html }),

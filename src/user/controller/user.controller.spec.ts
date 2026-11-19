@@ -1,14 +1,14 @@
 import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
 import { Test, TestingModule } from '@nestjs/testing';
-import { PROFILE_PHOTO_STORAGE } from '../storage/profile-photo-storage';
+import { PERMISSIONS_KEY } from '../../auth/decorators/permissions.decorator';
 import { AUDIT_ACTION_KEY } from '../../common/audit/audit.decorator';
 import { PaginatedResponseDTO } from '../../common/dto/paginated-response.dto';
-import { PERMISSIONS_KEY } from '../../auth/decorators/permissions.decorator';
+import { EmailEvents } from '../../email/constants/email.events';
 import { Permission } from '../../rbac/entities/permission.entity';
 import { Role } from '../../rbac/entities/role.entity';
 import { Mock } from '../../test-utils';
-import { AdminUserDTO } from '../dto/admin-user.dto';
 import { AdminUserDetailDTO } from '../dto/admin-user-detail.dto';
+import { AdminUserDTO } from '../dto/admin-user.dto';
 import { CreateUserResponseDTO } from '../dto/create-user-response.dto';
 import { PaginationQueryDTO } from '../dto/pagination-query.dto';
 import { UpdateUserDTO } from '../dto/update-user.dto';
@@ -17,6 +17,7 @@ import { CreateUserDTOMock } from '../mocks/create-user-dto.mock';
 import { UpdateUserDTOMock } from '../mocks/update-user-dto.mock';
 import { UserMock } from '../mocks/user.mock';
 import { UserService } from '../service/user.service';
+import { PROFILE_PHOTO_STORAGE } from '../storage/profile-photo-storage';
 import { UserController } from './user.controller';
 
 describe(UserController.name, () => {
@@ -104,9 +105,7 @@ describe(UserController.name, () => {
       });
       jest.spyOn(userService, 'findById').mockResolvedValue(user);
       jest.spyOn(userService, 'getEffectivePermissions').mockResolvedValue([]);
-      const resolve = jest
-        .fn()
-        .mockReturnValue('/uploads/avatars/507f1f77bcf86cd799439011-1700000000000.png');
+      const resolve = jest.fn().mockReturnValue('/uploads/avatars/507f1f77bcf86cd799439011-1700000000000.png');
       (controller as any).avatarUrlResolver = { resolve };
 
       const dto = await controller.findById(user.id);
@@ -232,16 +231,12 @@ describe(UserController.name, () => {
       });
       jest.spyOn(userService, 'assertPermissionsAssignable').mockResolvedValue([]);
       jest.spyOn(userService, 'updateUser').mockResolvedValue(withPhoto);
-      const resolve = jest
-        .fn()
-        .mockReturnValue('/uploads/avatars/507f1f77bcf86cd799439011-1700000000000.png');
+      const resolve = jest.fn().mockReturnValue('/uploads/avatars/507f1f77bcf86cd799439011-1700000000000.png');
       (controller as any).avatarUrlResolver = { resolve };
 
       const dto = await controller.update(user.id, updateDto);
 
-      expect(dto.avatarUrl).toBe(
-        '/uploads/avatars/507f1f77bcf86cd799439011-1700000000000.png',
-      );
+      expect(dto.avatarUrl).toBe('/uploads/avatars/507f1f77bcf86cd799439011-1700000000000.png');
       expect(resolve).toHaveBeenCalledWith('avatar/507f1f77bcf86cd799439011-1700000000000.png');
     });
 
@@ -332,6 +327,78 @@ describe(UserController.name, () => {
     });
   });
 
+  describe(`${UserController.name}.${UserController.prototype.adminChangeEmail.name} (issue #556)`, () => {
+    const user = new UserMock();
+    const admin = new UserMock();
+    const token = 'pending-token-uuid';
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('starts the change via the service with the admin id and emits to the new mailbox plus the current-mailbox notice (issue #556 S8)', async () => {
+      const spy = jest
+        .spyOn(userService, 'adminRequestEmailChange')
+        .mockResolvedValue({ token, expires: new Date(), user });
+      const emitter = (controller as any).eventEmitter as { emit: jest.Mock };
+      emitter.emit = jest.fn();
+
+      const result = await controller.adminChangeEmail(user.id, { email: 'new@example.com' }, admin, 'es');
+
+      expect(spy).toHaveBeenCalledWith(user.id, 'new@example.com', admin.id);
+      expect(emitter.emit).toHaveBeenCalledWith(EmailEvents.EMAIL_CHANGE_REQUESTED, {
+        userId: user.id,
+        newEmail: 'new@example.com',
+        name: user.name,
+        pendingEmailToken: token,
+        lang: 'es',
+      });
+      expect(emitter.emit).toHaveBeenCalledWith(EmailEvents.EMAIL_CHANGE_ADMIN_REQUESTED, {
+        userId: user.id,
+        email: user.email,
+        newEmail: 'new@example.com',
+        name: user.name,
+        lang: 'es',
+      });
+      expect(result).toEqual({ message: 'messages.email_change_sent', userId: user.id });
+    });
+
+    it('requires user:update and registers the audit action', () => {
+      const handler = UserController.prototype.adminChangeEmail;
+      expect(Reflect.getMetadata(PERMISSIONS_KEY, handler)).toEqual(['user:update']);
+      expect(Reflect.getMetadata(AUDIT_ACTION_KEY, handler)).toMatchObject({
+        action: 'admin.request-email-change',
+        resource: 'user',
+      });
+    });
+  });
+  describe(`${UserController.name}.${UserController.prototype.adminCancelEmailChange.name} (issue #556)`, () => {
+    const user = new UserMock();
+    const admin = new UserMock();
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('cancels via the service with the path id and the admin id, and returns the i18n message', async () => {
+      const spy = jest.spyOn(userService, 'adminCancelEmailChange').mockResolvedValue(undefined);
+
+      const result = await controller.adminCancelEmailChange(user.id, admin, 'es');
+
+      expect(spy).toHaveBeenCalledWith(user.id, admin.id);
+      expect(result).toEqual({ message: 'messages.email_change_canceled', userId: user.id });
+    });
+
+    it('requires user:update and registers the audit action', () => {
+      const handler = UserController.prototype.adminCancelEmailChange;
+      expect(Reflect.getMetadata(PERMISSIONS_KEY, handler)).toEqual(['user:update']);
+      expect(Reflect.getMetadata(AUDIT_ACTION_KEY, handler)).toMatchObject({
+        action: 'admin.cancel-email-change',
+        resource: 'user',
+      });
+    });
+  });
+
   describe(`${UserController.name}.${UserController.prototype.resetPassword.name} (issue #533)`, () => {
     const user = new UserMock();
 
@@ -383,9 +450,7 @@ describe(UserController.name, () => {
 
       const dto = await controller.toggleActive(user.id);
 
-      expect(dto.avatarUrl).toBe(
-        '/uploads/avatars/507f1f77bcf86cd799439011-1700000000000.png',
-      );
+      expect(dto.avatarUrl).toBe('/uploads/avatars/507f1f77bcf86cd799439011-1700000000000.png');
     });
   });
 });

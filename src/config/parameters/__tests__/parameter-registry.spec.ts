@@ -308,12 +308,12 @@ describe('ParameterRegistry', () => {
       );
       for (const param of throttleNumberParams) {
         // Should accept valid values
-        expect(param.validate!(1)).toBe(true);
-        expect(param.validate!(100)).toBe(true);
+        expect(param.validate?.(1)).toBe(true);
+        expect(param.validate?.(100)).toBe(true);
         // Should reject invalid values
-        expect(param.validate!(0)).toBe(false);
-        expect(param.validate!(-1)).toBe(false);
-        expect(param.validate!(1.5)).toBe(false);
+        expect(param.validate?.(0)).toBe(false);
+        expect(param.validate?.(-1)).toBe(false);
+        expect(param.validate?.(1.5)).toBe(false);
       }
     });
 

@@ -74,7 +74,9 @@ function joinPublicBase(base: string | undefined, pathValue: string): string {
  * log lines, and the result is capped to keep entries readable.
  */
 export function sanitizeLogValue(value: string, maxLength = 200): string {
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: the control characters ARE the point — stripping ANSI and control bytes from hostile driver messages (issue #546).
   const withoutAnsi = value.replace(/\u001b\[[0-9;]*[A-Za-z]/g, '');
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: flattening C0/C1 control characters to spaces is the sanitizer's purpose (issue #546).
   const flattened = withoutAnsi.replace(/[\u0000-\u001f\u007f]+/g, ' ').trim();
   return flattened.length > maxLength ? `${flattened.slice(0, maxLength)}...` : flattened;
 }

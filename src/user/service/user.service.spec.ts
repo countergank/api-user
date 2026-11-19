@@ -383,6 +383,10 @@ describe(UserService.name, () => {
 
       expect(result.user).toBe(user);
       expect(result.token).toBeDefined();
+      const updateCall = userRepository.update.mock.calls.find(
+        ([id, data]) => id === user.id && (data as Record<string, unknown>).pendingEmail,
+      ) as unknown as [string, Record<string, unknown>];
+      expect(updateCall[1]).toMatchObject({ emailChangeInitiatedBy: 'self' });
     });
 
     it('should reject the current email with 400 without spending the code (S7)', async () => {
@@ -394,6 +398,137 @@ describe(UserService.name, () => {
       });
 
       expect(unsetSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe(`${UserService.name}.${UserService.prototype.adminRequestEmailChange.name}`, () => {
+    const user = new UserMock();
+    const adminId = 'admin-1';
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      user.email = 'current@example.com';
+      (user as unknown as Record<string, unknown>).id = 'user-1';
+    });
+
+    it('should set pendingEmail state and mark the admin initiator', async () => {
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(user);
+      jest.spyOn(userRepository, 'findByEmail').mockResolvedValue(null);
+      jest.spyOn(userRepository, 'update').mockResolvedValue(user);
+
+      const result = await service.adminRequestEmailChange(user.id, 'new@example.com', adminId);
+
+      expect(result.user).toBe(user);
+      expect(result.token).toBeDefined();
+      const updateCall = userRepository.update.mock.calls.find(
+        ([id]) => id === user.id,
+      ) as unknown as [string, Record<string, unknown>];
+      expect(updateCall[1]).toMatchObject({
+        pendingEmail: 'new@example.com',
+        emailChangeInitiatedBy: adminId,
+      });
+      expect(updateCall[1].pendingEmailToken).toEqual(expect.any(String));
+      expect(updateCall[1].pendingEmailExpires).toEqual(expect.any(Date));
+    });
+
+    it('should reject the current email with 400 (S7 parity)', async () => {
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(user);
+
+      await expect(
+        service.adminRequestEmailChange(user.id, user.email, adminId),
+      ).rejects.toMatchObject({
+        kind: expect.objectContaining({ kind: 'VALIDATION_ERROR' }),
+      });
+
+      expect(userRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('should throw DomainError when the target email is taken (S5)', async () => {
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(user);
+      jest.spyOn(userRepository, 'findByEmail').mockResolvedValue(user);
+
+      await expect(
+        service.adminRequestEmailChange(user.id, 'taken@example.com', adminId),
+      ).rejects.toMatchObject({
+        kind: expect.objectContaining({ kind: 'EMAIL_ALREADY_EXISTS' }),
+      });
+
+      expect(userRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('should throw USER_NOT_FOUND for an unknown id (S5)', async () => {
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(null);
+
+      await expect(
+        service.adminRequestEmailChange('missing-id', 'new@example.com', adminId),
+      ).rejects.toMatchObject({
+        kind: expect.objectContaining({ kind: 'USER_NOT_FOUND' }),
+      });
+    });
+
+    it('should replace an in-flight self-service change with the admin-initiated one', async () => {
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(
+        Object.assign(user, { pendingEmail: 'old-pending@example.com' }),
+      );
+      jest.spyOn(userRepository, 'findByEmail').mockResolvedValue(null);
+      jest.spyOn(userRepository, 'update').mockResolvedValue(user);
+
+      const result = await service.adminRequestEmailChange(user.id, 'new@example.com', adminId);
+
+      const updateCall = userRepository.update.mock.calls.find(
+        ([id]) => id === user.id,
+      ) as unknown as [string, Record<string, unknown>];
+      expect(updateCall[1]).toMatchObject({ pendingEmail: 'new@example.com' });
+      expect(result.token).toEqual(expect.any(String));
+    });
+  });
+
+  describe(`${UserService.name}.${UserService.prototype.adminCancelEmailChange.name}`, () => {
+    const user = new UserMock();
+    const adminId = 'admin-1';
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      user.email = 'current@example.com';
+      user.pendingEmail = undefined;
+      user.pendingEmailToken = undefined;
+      user.emailChangeInitiatedBy = undefined;
+      (user as unknown as Record<string, unknown>).id = 'user-1';
+    });
+
+    it('should clear the pending change state when one is in flight', async () => {
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(
+        Object.assign(user, {
+          pendingEmail: 'new@example.com',
+          pendingEmailToken: 'token-1',
+          emailChangeInitiatedBy: adminId,
+        }),
+      );
+      jest.spyOn(userRepository, 'unsetFields').mockResolvedValue(user);
+
+      await service.adminCancelEmailChange(user.id, adminId);
+
+      expect(userRepository.unsetFields).toHaveBeenCalledWith(
+        user.id,
+        ['pendingEmail', 'pendingEmailToken', 'pendingEmailExpires', 'emailChangeInitiatedBy'],
+        undefined,
+      );
+    });
+
+    it('should be idempotent when no change is pending', async () => {
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(user);
+
+      await expect(service.adminCancelEmailChange(user.id, adminId)).resolves.toBeUndefined();
+
+      expect(userRepository.unsetFields).not.toHaveBeenCalled();
+    });
+
+    it('should throw USER_NOT_FOUND for an unknown id', async () => {
+      jest.spyOn(userRepository, 'findById').mockResolvedValue(null);
+
+      await expect(service.adminCancelEmailChange('missing-id', adminId)).rejects.toMatchObject({
+        kind: expect.objectContaining({ kind: 'USER_NOT_FOUND' }),
+      });
     });
   });
 

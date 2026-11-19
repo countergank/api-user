@@ -103,15 +103,15 @@ describe(UserRepository.name, () => {
       const user = await repository.create(new UserMock());
       const found = await repository.findById(user.id);
       expect(found).toBeDefined();
-      expect(found!.password).toBeUndefined();
+      expect(found?.password).toBeUndefined();
     });
 
     it('should include password when includePassword is true', async () => {
       const user = await repository.create(new UserMock());
       const found = await repository.findById(user.id, { includePassword: true });
       expect(found).toBeDefined();
-      expect(found!.password).toBeDefined();
-      expect(found!.password).toBeTruthy();
+      expect(found?.password).toBeDefined();
+      expect(found?.password).toBeTruthy();
     });
   });
 
@@ -137,15 +137,15 @@ describe(UserRepository.name, () => {
       const user = await repository.create(new UserMock());
       const found = await repository.findByEmail(user.email);
       expect(found).toBeDefined();
-      expect(found!.password).toBeUndefined();
+      expect(found?.password).toBeUndefined();
     });
 
     it('should include password when includePassword is true', async () => {
       const user = await repository.create(new UserMock());
       const found = await repository.findByEmail(user.email, { includePassword: true });
       expect(found).toBeDefined();
-      expect(found!.password).toBeDefined();
-      expect(found!.password).toBeTruthy();
+      expect(found?.password).toBeDefined();
+      expect(found?.password).toBeTruthy();
     });
   });
 

@@ -73,7 +73,9 @@
     "email_change_code_subject": "Seu código de verificação para mudar o email",
     "email_change_old_notice_subject": "O email da sua conta foi alterado",
     "email_change_confirmed_subject": "Seu email foi alterado para este endereço",
-    "email_change_reverted_subject": "A mudança de email foi revertida"
+    "email_change_reverted_subject": "A mudança de email foi revertida",
+    "email_change_admin_notice_subject": "Um administrador iniciou a mudança de email da sua conta",
+    "email_change_canceled_subject": "A mudança de email pendente foi cancelada"
   },
   "messages": {
     "welcome": "Bem-vindo, {{username}}!",
@@ -85,6 +87,7 @@
     "email_changed": "Email alterado com sucesso",
     "password_changed": "Senha alterada com sucesso",
     "email_change_sent": "Email de confirmação enviado para o novo endereço",
+    "email_change_canceled": "Alteração de email pendente cancelada",
     "verification_resent": "Se o email existir, um link de verificação foi enviado",
     "account_unlocked": "Conta desbloqueada",
     "user_deleted": "Usuário excluído",

@@ -107,7 +107,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
    * so we fall back to the original message in that case.
    */
   private async tryTranslate(key: string, fallback: string, lang?: string): Promise<string> {
-    const translated = await this.i18n!.translate(key, lang);
+    const i18n = this.i18n;
+    if (!i18n) {
+      return fallback;
+    }
+    const translated = await i18n.translate(key, lang);
     return translated !== key ? translated : fallback;
   }
 

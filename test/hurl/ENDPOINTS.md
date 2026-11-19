@@ -19,6 +19,8 @@ lo que crea lo borra, y lo que muta lo restaura. Total: **45 endpoints en 11 arc
 | `user.hurl` | PATCH | `/admin/users/:id` | 200 | admin + user:unlock | `UpdateUserDTO` |
 | `user.hurl` | PATCH | `/admin/users/:id/active` | 200 | admin + user:update | — |
 | `user.hurl` | PATCH | `/admin/users/:id/unlock` | 200 | admin + user:read | — |
+| `user.hurl` | POST | `/admin/users/:id/change-email` | 201* | admin + user:update | `AdminRequestEmailChangeDTO` |
+| `user.hurl` | DELETE | `/admin/users/:id/change-email` | 200 | admin + user:update | — |
 | `auth.hurl` | POST | `/auth/confirm-email-change` | 200 | jwt | — |
 | `auth.hurl` | POST | `/auth/forgot-password` | 200 | jwt | — |
 | `auth.hurl` | POST | `/auth/login` | 200 | jwt | — |

@@ -372,10 +372,99 @@ export class UserService {
       pendingEmail: data.email,
       pendingEmailToken: token,
       pendingEmailExpires: expires,
+      emailChangeInitiatedBy: 'self',
     });
 
     this.invalidateUserCache(userId);
     return { token, expires, user };
+  }
+
+  /**
+   * Starts an email change on behalf of a user, requested by an administrator.
+   *
+   * The admin never proves control of any mailbox: the confirmation link goes
+   * to the NEW address (the user proves control there by clicking) and the
+   * current address gets an informational notice (S7/S8), so identity is only
+   * established by the existing /auth/confirm-email-change flow.
+   *
+   * The EMAIL_CHANGE_REQUESTED event is emitted by the controller (with lang
+   * and the user's display name), following the same split as the self-service
+   * flow.
+   *
+   * An in-flight self-service change is replaced: `pendingEmail*` is a single
+   * pending state, the newest request wins.
+   *
+   * @throws DomainError USER_NOT_FOUND for an unknown id, VALIDATION_ERROR when
+   * the target email equals the current one, EMAIL_ALREADY_EXISTS when taken.
+   */
+  async adminRequestEmailChange(
+    userId: string,
+    newEmail: string,
+    adminId: string,
+  ): Promise<{ token: string; expires: Date; user: User }> {
+    const user = await this.findById(userId);
+
+    if (user.email === newEmail) {
+      throw DomainError.fromKind('VALIDATION_ERROR', {
+        message: 'The new email must be different from the current one',
+      });
+    }
+
+    const existing = await this.findByEmail(newEmail);
+    if (existing) {
+      throw DomainError.fromKind('EMAIL_ALREADY_EXISTS');
+    }
+
+    const token = randomUUID();
+    const expires = new Date(Date.now() + EMAIL_CHANGE_CONFIRMATION_TTL_MS);
+
+    await this.update(userId, {
+      pendingEmail: newEmail,
+      pendingEmailToken: token,
+      pendingEmailExpires: expires,
+      emailChangeInitiatedBy: adminId,
+    });
+
+    this.invalidateUserCache(userId);
+
+    return { token, expires, user };
+  }
+
+  /**
+   * Cancels a user's in-flight email change on behalf of an administrator.
+   *
+   * Idempotent, mirroring revertEmailChange: with no pending change there is
+   * nothing to undo and no client mistake to report, so the call succeeds without
+   * touching the document. A pending change is cleared together with its
+   * initiator marker, so the document never carries half a state, and the user
+   * is told at their current address that the change is off.
+   *
+   * @throws DomainError USER_NOT_FOUND for an unknown id.
+   */
+  async adminCancelEmailChange(userId: string, _adminId: string): Promise<void> {
+    const user = await this.findById(userId);
+
+    if (!user.pendingEmail) {
+      return;
+    }
+
+    const canceledEmail = user.pendingEmail;
+
+    await this.unsetFields(userId, [
+      'pendingEmail',
+      'pendingEmailToken',
+      'pendingEmailExpires',
+      'emailChangeInitiatedBy',
+    ]);
+
+    this.invalidateUserCache(userId);
+
+    this.eventEmitter.emit(EmailEvents.EMAIL_CHANGE_CANCELED, {
+      userId,
+      email: user.email,
+      canceledEmail,
+      name: user.name,
+    });
   }
 
   /**

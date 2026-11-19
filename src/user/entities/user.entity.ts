@@ -83,6 +83,17 @@ export class User extends Base {
   pendingEmailExpires?: Date;
 
   /**
+   * Who started the in-flight email change: 'self' (the user proved control of
+   * the current mailbox with the 6-digit code) or the admin's user id (an admin
+   * opened the change without touching any mailbox). Set together with
+   * `pendingEmail*` and cleared with them, so a pending change always carries
+   * its initiator. Optional: changes opened before this field existed are
+   * treated as 'self'.
+   */
+  @Prop()
+  emailChangeInitiatedBy?: string;
+
+  /**
    * Identity-proof code state (S2/S11). The code itself is never persisted:
    * only its sha256 hash (salted with the user id) is stored, so a database dump
    * cannot be replayed against `POST /users/change-email`.

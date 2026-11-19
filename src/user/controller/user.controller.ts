@@ -1,36 +1,54 @@
-import { Body, Controller, Delete, Get, Inject, Param, Patch, Post, Query, StreamableFile, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Inject,
+  Param,
+  Patch,
+  Post,
+  Query,
+  StreamableFile,
+  UseGuards,
+} from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { RequirePermissions } from '../../auth/decorators/permissions.decorator';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { PermissionGuard } from '../../auth/guards/permissions.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { AuditAction } from '../../common/audit/audit.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestLang } from '../../common/decorators/request-lang.decorator';
 import { PaginatedResponseDTO } from '../../common/dto/paginated-response.dto';
 import { I18nService } from '../../common/i18n/i18n.service';
+import { EmailEvents } from '../../email/constants/email.events';
 import {
+  AdminCancelEmailChangeDoc,
+  AdminChangeEmailDoc,
   CreateUserDoc,
   DeleteUserDoc,
+  ExportUserDoc,
   FindAllUserDoc,
   FindByIdUserDoc,
   MetricsUserDoc,
+  ResendVerificationDoc,
+  ResetPasswordDoc,
   ToggleActiveDoc,
   UnlockUserDoc,
   UpdateUserDoc,
-  ExportUserDoc,
-  ResetPasswordDoc,
-  ResendVerificationDoc,
 } from '../api-docs/user.decorator';
-import { AdminUserDTO } from '../dto/admin-user.dto';
+import { AdminRequestEmailChangeDTO } from '../dto/admin-request-email-change.dto';
 import { AdminUserDetailDTO } from '../dto/admin-user-detail.dto';
+import { AdminUserDTO } from '../dto/admin-user.dto';
 import { CreateUserResponseDTO } from '../dto/create-user-response.dto';
 import { CreateUserDTO } from '../dto/create-user.dto';
 import { PaginationQueryDTO } from '../dto/pagination-query.dto';
 import { UpdateUserDTO } from '../dto/update-user.dto';
 import { UserMetricsResponseDTO } from '../dto/user-metrics.dto';
 import { User, UserRole } from '../entities/user.entity';
-import { ProfilePhotoUrlResolver } from '../storage/profile-photo-url.resolver';
 import { UserService } from '../service/user.service';
+import { ProfilePhotoUrlResolver } from '../storage/profile-photo-url.resolver';
 
 /**
  * Controller para gestión de usuarios (ADMIN).
@@ -44,6 +62,7 @@ import { UserService } from '../service/user.service';
 export class UserController {
   constructor(
     private readonly userService: UserService,
+    private readonly eventEmitter: EventEmitter2,
     @Inject(I18nService) private i18n: I18nService,
     private readonly avatarUrlResolver: ProfilePhotoUrlResolver,
   ) {}
@@ -104,11 +123,7 @@ export class UserController {
   async findById(@Param('id') id: string): Promise<AdminUserDetailDTO> {
     const user: User = await this.userService.findById(id);
     const permissions = await this.userService.getEffectivePermissions(user);
-    return AdminUserDetailDTO.ofDetail(
-      user,
-      permissions,
-      this.avatarUrlResolver.resolve(user.avatarUrl),
-    );
+    return AdminUserDetailDTO.ofDetail(user, permissions, this.avatarUrlResolver.resolve(user.avatarUrl));
   }
 
   @UnlockUserDoc()
@@ -200,5 +215,62 @@ export class UserController {
   ): Promise<{ message: string; userId: string }> {
     await this.userService.adminResetPassword(id, lang);
     return { message: await this.t('messages.forgot_password_sent', lang), userId: id };
+  }
+
+  @AdminChangeEmailDoc()
+  @RequirePermissions('user:update')
+  @AuditAction({
+    action: 'admin.request-email-change',
+    resource: 'user',
+    // args[0] is the route id (@Param), args[1] the body: the id is the audited target.
+    getResourceId: (_result: unknown, args: unknown[]) => args[0] as string,
+    getBefore: (_result: unknown, args: unknown[]) => ({ newEmail: (args[1] as AdminRequestEmailChangeDTO)?.email }),
+  })
+  @Post(':id/change-email')
+  async adminChangeEmail(
+    @Param('id') id: string,
+    @Body() dto: AdminRequestEmailChangeDTO,
+    @CurrentUser() admin: User,
+    @RequestLang() lang: string | undefined,
+  ): Promise<{ message: string; userId: string }> {
+    const { token, user } = await this.userService.adminRequestEmailChange(id, dto.email, admin.id);
+
+    this.eventEmitter.emit(EmailEvents.EMAIL_CHANGE_REQUESTED, {
+      userId: user.id,
+      newEmail: dto.email,
+      name: user.name,
+      pendingEmailToken: token,
+      lang,
+    });
+
+    // S8: the CURRENT mailbox is told an admin started the change; identity is
+    // proven on the new address, this is purely informational. The token stays
+    // out of this event (review R1): it only travels to the new mailbox.
+    this.eventEmitter.emit(EmailEvents.EMAIL_CHANGE_ADMIN_REQUESTED, {
+      userId: user.id,
+      email: user.email,
+      newEmail: dto.email,
+      name: user.name,
+      lang,
+    });
+
+    return { message: await this.t('messages.email_change_sent', lang), userId: id };
+  }
+
+  @AdminCancelEmailChangeDoc()
+  @RequirePermissions('user:update')
+  @AuditAction({
+    action: 'admin.cancel-email-change',
+    resource: 'user',
+    getResourceId: (_result: unknown, args: unknown[]) => args[0] as string,
+  })
+  @Delete(':id/change-email')
+  async adminCancelEmailChange(
+    @Param('id') id: string,
+    @CurrentUser() admin: User,
+    @RequestLang() lang: string | undefined,
+  ): Promise<{ message: string; userId: string }> {
+    await this.userService.adminCancelEmailChange(id, admin.id);
+    return { message: await this.t('messages.email_change_canceled', lang), userId: id };
   }
 }

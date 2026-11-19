@@ -76,6 +76,20 @@ const DEFAULT_TEMPLATES: DefaultTemplate[] = [
     contentFile: 'email-change-reverted.html',
     variables: ['userName'],
   },
+  {
+    slug: 'email-change-admin-notice',
+    name: 'Email Change Started by Admin Notice',
+    subject: 'Un administrador inició el cambio de email de tu cuenta',
+    contentFile: 'email-change-admin-notice.html',
+    variables: ['userName', 'newEmail'],
+  },
+  {
+    slug: 'email-change-canceled',
+    name: 'Email Change Canceled Notice',
+    subject: 'El cambio de email pendiente fue cancelado',
+    contentFile: 'email-change-canceled.html',
+    variables: ['userName', 'canceledEmail'],
+  },
 ];
 
 @Injectable()

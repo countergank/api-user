@@ -1,4 +1,5 @@
 import { buildLoggerConfig } from './logger-config';
+import { unsetEnv } from '../test-utils';
 
 describe('buildLoggerConfig', () => {
   const originalEnv = process.env;
@@ -34,7 +35,7 @@ describe('buildLoggerConfig', () => {
 
   it('should default to info level when LOG_LEVEL is not set', () => {
     process.env.NODE_ENV = 'development';
-    delete process.env.LOG_LEVEL;
+    unsetEnv('LOG_LEVEL');
     const config = buildLoggerConfig();
 
     expect(config.pinoHttp.level).toBe('info');
@@ -42,8 +43,8 @@ describe('buildLoggerConfig', () => {
 
   it('should set silent level in test env when DEBUG is not true', () => {
     process.env.NODE_ENV = 'test';
-    delete process.env.DEBUG;
-    delete process.env.LOG_LEVEL;
+    unsetEnv('DEBUG');
+    unsetEnv('LOG_LEVEL');
     const config = buildLoggerConfig();
 
     expect(config.pinoHttp.level).toBe('silent');
@@ -61,7 +62,7 @@ describe('buildLoggerConfig', () => {
   it('should default to info in test env when DEBUG=true but LOG_LEVEL not set', () => {
     process.env.NODE_ENV = 'test';
     process.env.DEBUG = 'true';
-    delete process.env.LOG_LEVEL;
+    unsetEnv('LOG_LEVEL');
     const config = buildLoggerConfig();
 
     expect(config.pinoHttp.level).toBe('info');

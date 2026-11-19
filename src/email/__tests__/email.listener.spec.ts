@@ -222,6 +222,50 @@ describe(EmailListener.name, () => {
     });
   });
 
+  describe('handleEmailChangeAdminRequested', () => {
+    it('should notify the current mailbox that an admin started the change without carrying the confirmation token (issue #556 S8, R1)', async () => {
+      await listener.handleEmailChangeAdminRequested({
+        userId: 'user-1',
+        email: 'current@example.com',
+        newEmail: 'new@example.com',
+        name: 'John',
+        lang: 'en',
+      });
+
+      expect(mockEmailService.sendBySlug).toHaveBeenCalledWith(
+        'email-change-admin-notice',
+        'current@example.com',
+        {
+          userName: 'John',
+          newEmail: 'new@example.com',
+        },
+        'en',
+      );
+    });
+  });
+
+  describe('handleEmailChangeCanceled', () => {
+    it('should notify the current mailbox that the pending change was canceled (issue #556 R3-cancel-no-notice)', async () => {
+      await listener.handleEmailChangeCanceled({
+        userId: 'user-1',
+        email: 'current@example.com',
+        canceledEmail: 'new@example.com',
+        name: 'John',
+        lang: 'es',
+      });
+
+      expect(mockEmailService.sendBySlug).toHaveBeenCalledWith(
+        'email-change-canceled',
+        'current@example.com',
+        {
+          userName: 'John',
+          canceledEmail: 'new@example.com',
+        },
+        'es',
+      );
+    });
+  });
+
   describe('handleEmailChangeReverted', () => {
     it('should notify the given address that the change was reverted', async () => {
       await listener.handleEmailChangeReverted({

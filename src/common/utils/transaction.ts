@@ -17,17 +17,16 @@ export async function runInTransaction<T>(
   callback: (session: import('mongoose').ClientSession) => Promise<T>,
   logger?: Logger,
 ): Promise<T> {
-  let session: import('mongoose').ClientSession | undefined;
-
+  let session: import('mongoose').ClientSession;
   try {
     session = await connection.startSession();
-  } catch (err) {
+  } catch {
     logger?.warn('startSession failed — falling back to non-transactional execution');
     return callback(undefined as any);
   }
 
   try {
-    return await session.withTransaction(() => callback(session!));
+    return await session.withTransaction(() => callback(session));
   } finally {
     await session.endSession();
   }

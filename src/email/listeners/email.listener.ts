@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { EmailEvents } from '../constants/email.events';
 import {
+  EmailChangeAdminRequestedEvent,
+  EmailChangeCanceledEvent,
   EmailChangeCodeRequestedEvent,
   EmailChangeConfirmedEvent,
   EmailChangeRequestedEvent,
@@ -91,6 +93,40 @@ export class EmailListener {
       );
     } catch (error) {
       this.logger.error(`Failed to send email change confirmation to ${payload.newEmail}: ${(error as Error).message}`);
+    }
+  }
+
+  @OnEvent(EmailEvents.EMAIL_CHANGE_ADMIN_REQUESTED)
+  async handleEmailChangeAdminRequested(payload: EmailChangeAdminRequestedEvent): Promise<void> {
+    try {
+      await this.emailService.sendBySlug(
+        'email-change-admin-notice',
+        payload.email,
+        {
+          userName: payload.name,
+          newEmail: payload.newEmail,
+        },
+        payload.lang,
+      );
+    } catch (error) {
+      this.logger.error(`Failed to send admin email change notice to ${payload.email}: ${(error as Error).message}`);
+    }
+  }
+
+  @OnEvent(EmailEvents.EMAIL_CHANGE_CANCELED)
+  async handleEmailChangeCanceled(payload: EmailChangeCanceledEvent): Promise<void> {
+    try {
+      await this.emailService.sendBySlug(
+        'email-change-canceled',
+        payload.email,
+        {
+          userName: payload.name,
+          canceledEmail: payload.canceledEmail,
+        },
+        payload.lang,
+      );
+    } catch (error) {
+      this.logger.error(`Failed to send email change canceled notice to ${payload.email}: ${(error as Error).message}`);
     }
   }
 

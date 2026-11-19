@@ -1,4 +1,5 @@
 import { ConfigService } from '@nestjs/config';
+import { unsetEnv } from '../../test-utils';
 import { MongooseModuleOption } from './mongoose-module-option';
 
 describe(MongooseModuleOption.name, () => {
@@ -7,7 +8,7 @@ describe(MongooseModuleOption.name, () => {
   afterEach(() => {
     // Restore JEST_WORKER_ID so one test's env mutation cannot leak into siblings
     if (originalJestWorkerId === undefined) {
-      delete process.env.JEST_WORKER_ID;
+      unsetEnv('JEST_WORKER_ID');
     } else {
       process.env.JEST_WORKER_ID = originalJestWorkerId;
     }
@@ -24,7 +25,7 @@ describe(MongooseModuleOption.name, () => {
 
   describe('production/dev mode (no JEST_WORKER_ID)', () => {
     beforeEach(() => {
-      delete process.env.JEST_WORKER_ID;
+      unsetEnv('JEST_WORKER_ID');
     });
 
     it('should build MongoDB URI with replicaSet when not under Jest', () => {
