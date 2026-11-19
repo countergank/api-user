@@ -69,6 +69,22 @@ export class UserService {
   }
 
   /**
+   * Post-commit variant for the photo flows: the reference already persisted,
+   * so an invalidation failure must neither fail the request nor reach the
+   * caller's error handling (in updateProfilePhoto it would be mistaken for a
+   * failed commit and trigger orphan cleanup of the referenced file).
+   */
+  private invalidateUserCacheSafe(userId: string): void {
+    try {
+      this.invalidateUserCache(userId);
+    } catch (error) {
+      this.logger.warn(
+        `Failed to invalidate user cache for ${sanitizeLogValue(userId)}: ${sanitizeLogValue(error instanceof Error ? error.message : String(error))}`,
+      );
+    }
+  }
+
+  /**
    * Purges every cached user document. Used when a role's permissions change
    * so the effective permissions are re-resolved on the next authenticated
    * request, whichever user holds the role.
@@ -777,7 +793,7 @@ export class UserService {
     try {
       key = await this.photoStorage.save(userId, file.buffer, extension);
       const updated = await this.userRepository.update(userId, { avatarUrl: key });
-      this.invalidateUserCache(userId);
+      this.invalidateUserCacheSafe(userId);
       if (previous) {
         // Best effort: once the new reference committed, a failed removal of
         // the replaced object must not turn a successful update into an error;
@@ -829,9 +845,11 @@ export class UserService {
 
     const previous = user.avatarUrl;
     const updated = await this.userRepository.unsetFields(userId, ['avatarUrl']);
-    this.invalidateUserCache(userId);
+    this.invalidateUserCacheSafe(userId);
 
-    await this.photoStorage.delete(previous).catch((cleanupError: unknown) => {
+    // Fire and forget: the reference is already gone, so the request must not
+    // wait for the driver's removal; a failure stays a warning.
+    void this.photoStorage.delete(previous).catch((cleanupError: unknown) => {
       this.logger.warn(
         `Failed to remove deleted photo ${sanitizeLogValue(previous)} for user ${sanitizeLogValue(userId)}: ${sanitizeLogValue(cleanupError instanceof Error ? cleanupError.message : String(cleanupError))}`,
       );

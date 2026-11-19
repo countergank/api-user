@@ -981,6 +981,19 @@ describe(UserService.name, () => {
       });
     });
 
+    it('a throwing cache invalidation does not fail the update nor trigger orphan cleanup (R3-update-invalidate-throw)', async () => {
+      mockEventEmitter.emit.mockImplementationOnce(() => {
+        throw new Error('emit boom');
+      });
+      const warnSpy = jest.spyOn(service['logger'], 'warn').mockImplementation(() => undefined);
+
+      const result = await service.updateProfilePhoto(user.id, photoFile(PNG));
+
+      expect(result).toMatchObject({ avatarUrl: '/uploads/avatars/user-1-1700000000000.png' });
+      expect(mockStorage.delete).not.toHaveBeenCalled();
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Failed to invalidate user cache'));
+    });
+
     it('replacing the photo deletes the previously referenced file (S5)', async () => {
       const OLD_URL = '/uploads/avatars/user-1-old.png';
       jest.spyOn(userRepository, 'findById').mockResolvedValue(
@@ -1120,6 +1133,42 @@ describe(UserService.name, () => {
       });
     });
 
+    it('emits the invalidation only after the reference clears and never on a failed write (PERF-12, R3-invalidation-order-unpinned)', async () => {
+      await service.deleteProfilePhoto(user.id);
+
+      expect(userRepository.unsetFields.mock.invocationCallOrder[0]).toBeLessThan(
+        mockEventEmitter.emit.mock.invocationCallOrder[0],
+      );
+
+      jest.spyOn(userRepository, 'unsetFields').mockRejectedValueOnce(new Error('db down'));
+      mockEventEmitter.emit.mockClear();
+
+      await expect(service.deleteProfilePhoto(user.id)).rejects.toBeInstanceOf(Error);
+      expect(mockEventEmitter.emit).not.toHaveBeenCalled();
+    });
+
+    it('a throwing cache invalidation stays a warning and keeps the committed deletion (R3-delete-invalidate-throw)', async () => {
+      mockEventEmitter.emit.mockImplementationOnce(() => {
+        throw new Error('emit boom');
+      });
+      const warnSpy = jest.spyOn(service['logger'], 'warn').mockImplementation(() => undefined);
+
+      const result = await service.deleteProfilePhoto(user.id);
+
+      expect(result.avatarUrl).toBeUndefined();
+      expect(mockStorage.delete).toHaveBeenCalledWith(PHOTO_KEY);
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Failed to invalidate user cache'));
+    });
+
+    it('does not wait for the file cleanup to settle (R3-blocking-storage-cleanup)', async () => {
+      mockStorage.delete.mockReturnValueOnce(new Promise<void>(() => {}));
+
+      const result = await service.deleteProfilePhoto(user.id);
+
+      expect(result.avatarUrl).toBeUndefined();
+      expect(mockStorage.delete).toHaveBeenCalledWith(PHOTO_KEY);
+    });
+
     it('is idempotent without a photo: no write and no storage call (S2)', async () => {
       jest.spyOn(userRepository, 'findById').mockResolvedValue(
         Object.assign(new UserMock(), { id: user.id }),
@@ -1138,6 +1187,8 @@ describe(UserService.name, () => {
       const warnSpy = jest.spyOn(service['logger'], 'warn').mockImplementation(() => undefined);
 
       const result = await service.deleteProfilePhoto(user.id);
+
+      await new Promise((resolve) => setImmediate(resolve));
 
       expect(result.avatarUrl).toBeUndefined();
       expect(mockStorage.delete).toHaveBeenCalledWith(PHOTO_KEY);

@@ -120,10 +120,12 @@ export class UserProfileController {
 
   @Delete('profile/photo')
   @ApplyDeleteProfilePhotoDoc()
+  // No getResourceId: the aspect interceptor builds its hooks' args from
+  // route params and body, and this route has neither; the affected user is
+  // the actor the interceptor already records from the request context.
   @AuditAction({
     action: 'user.delete-profile-photo',
     resource: 'user',
-    getResourceId: (_result: unknown, args: unknown[]) => (args[0] as User)?.id,
     getAfter: () => ({ photoDeleted: true }),
   })
   async deleteProfilePhoto(@CurrentUser() user: User) {

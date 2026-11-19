@@ -243,6 +243,17 @@ describe(UserProfileController.name, () => {
       await expect(controller.deleteProfilePhoto(user as any)).rejects.toBeInstanceOf(DomainError);
     });
 
+    it('resolves a stored avatar key to its public URL and never leaks the raw key (S3, R3-resolver-undefined-unpinned)', async () => {
+      const KEY = 'avatar/user-1-1700000000000.png';
+      mockUserService.deleteProfilePhoto.mockResolvedValue(
+        Object.assign(new UserMock(), { id: user.id, avatarUrl: KEY }),
+      );
+
+      const result = await controller.deleteProfilePhoto(user as any);
+
+      expect(result.avatarUrl).toBe('/uploads/avatars/user-1-1700000000000.png');
+    });
+
     it('registers the business audit action on the handler (S4)', () => {
       const config = new Reflector().get(
         AUDIT_ACTION_KEY,
@@ -251,6 +262,7 @@ describe(UserProfileController.name, () => {
 
       expect(config?.action).toBe('user.delete-profile-photo');
       expect(config?.resource).toBe('user');
+      expect(config?.getAfter?.()).toEqual({ photoDeleted: true });
     });
   });
 
