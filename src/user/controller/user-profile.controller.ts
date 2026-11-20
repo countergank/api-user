@@ -34,7 +34,7 @@ import { missingPhotoPartError } from '../storage/user-profile-photo.errors';
  * Controller para gestión del perfil del usuario autenticado.
  * @public
  */
-@ApiTags('users')
+@ApiTags('Profile')
 @ApiBearerAuth()
 @Controller('users')
 @UseGuards(JwtAuthGuard)

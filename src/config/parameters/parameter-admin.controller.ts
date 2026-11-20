@@ -9,7 +9,11 @@ import { AuditAction } from '../../common/audit/audit.decorator';
 import { CollectionPaginationQueryDTO } from '../../common/dto/collection-pagination-query.dto';
 import { PaginatedResponseDTO } from '../../common/dto/paginated-response.dto';
 import { UserRole } from '../../user/entities/user.entity';
-import { ApplyFindAllParametersDoc, ApplyFindByGroupParametersDoc } from './api-docs/parameter.decorator';
+import {
+  ApplyFindByGroupParametersDoc,
+  ApplyFindAllParametersDoc,
+  ApplyUpdateParameterDoc,
+} from './api-docs/parameter.decorator';
 import { UpdateParameterDto } from './dto/update-parameter.dto';
 import { ParameterService } from './parameter.service';
 import { ParameterEntry } from './parameter.types';
@@ -39,6 +43,7 @@ export class ParameterAdminController {
     return this.parameterService.findPaginated({ group, page: query.page, limit: query.limit });
   }
 
+  @ApplyUpdateParameterDoc()
   @Put(':key')
   @RequirePermissions('parameter:update')
   @Throttle({ default: { limit: 10, ttl: 60 } })

@@ -18,7 +18,7 @@ import { ActiveSessionDTO } from '../dto/active-session.dto';
  */
 export function ListSessionsDoc() {
   return applyDecorators(
-    ApiTags('users'),
+    ApiTags('Admin Sessions'),
     ApiBearerAuth(),
     ApiOperation({
       summary: 'Listar sesiones activas de un usuario (Admin)',
@@ -42,7 +42,7 @@ export function ListSessionsDoc() {
 
 export function RevokeSessionDoc() {
   return applyDecorators(
-    ApiTags('users'),
+    ApiTags('Admin Sessions'),
     ApiBearerAuth(),
     ApiOperation({
       summary: 'Revocar una sesión activa (Admin)',
@@ -64,7 +64,7 @@ export function RevokeSessionDoc() {
 
 export function LogoutAllSessionsDoc() {
   return applyDecorators(
-    ApiTags('users'),
+    ApiTags('Admin Sessions'),
     ApiBearerAuth(),
     ApiOperation({
       summary: 'Cerrar todas las sesiones de un usuario (Admin)',

@@ -25,7 +25,7 @@ import { UserResponse } from './examples/user.examples';
 
 export function CreateUserDoc() {
   return applyDecorators(
-    ApiTags('users'),
+    ApiTags('Admin Users'),
     ApiBearerAuth(),
     ApiOperation({
       summary: 'Crear nuevo usuario (Admin)',
@@ -49,7 +49,7 @@ export function CreateUserDoc() {
 
 export function FindByIdUserDoc() {
   return applyDecorators(
-    ApiTags('users'),
+    ApiTags('Admin Users'),
     ApiBearerAuth(),
     ApiOperation({
       summary: 'Obtener usuario por ID (Admin)',
@@ -72,7 +72,7 @@ export function FindByIdUserDoc() {
 
 export function FindAllUserDoc() {
   return applyDecorators(
-    ApiTags('users'),
+    ApiTags('Admin Users'),
     ApiBearerAuth(),
     ApiOperation({
       summary: 'Listar todos los usuarios (Admin)',
@@ -115,7 +115,7 @@ export function FindAllUserDoc() {
 
 export function ExportUserDoc() {
   return applyDecorators(
-    ApiTags('users'),
+    ApiTags('Admin Users'),
     ApiBearerAuth(),
     ApiOperation({
       summary: 'Exportar la lista de usuarios a CSV (Admin)',
@@ -156,7 +156,7 @@ export function ExportUserDoc() {
 
 export function MetricsUserDoc() {
   return applyDecorators(
-    ApiTags('users'),
+    ApiTags('Admin Users'),
     ApiBearerAuth(),
     ApiOperation({
       summary: 'KPIs globales de usuarios (Admin)',
@@ -182,7 +182,7 @@ export function MetricsUserDoc() {
 
 export function UnlockUserDoc() {
   return applyDecorators(
-    ApiTags('users'),
+    ApiTags('Admin Users'),
     ApiBearerAuth(),
     ApiOperation({
       summary: 'Desbloquear cuenta de usuario (Admin)',
@@ -207,7 +207,7 @@ export function UnlockUserDoc() {
 
 export function AdminChangeEmailDoc() {
   return applyDecorators(
-    ApiTags('users'),
+    ApiTags('Admin Users'),
     ApiBearerAuth(),
     ApiOperation({
       summary: 'Iniciar cambio de email de un usuario (Admin)',
@@ -244,7 +244,7 @@ export function AdminChangeEmailDoc() {
 
 export function AdminCancelEmailChangeDoc() {
   return applyDecorators(
-    ApiTags('users'),
+    ApiTags('Admin Users'),
     ApiBearerAuth(),
     ApiOperation({
       summary: 'Cancelar el cambio de email pendiente de un usuario (Admin)',
@@ -271,7 +271,7 @@ export function AdminCancelEmailChangeDoc() {
 
 export function ResetPasswordDoc() {
   return applyDecorators(
-    ApiTags('users'),
+    ApiTags('Admin Users'),
     ApiBearerAuth(),
     ApiOperation({
       summary: 'Iniciar reset de contraseña de un usuario (Admin)',
@@ -299,7 +299,7 @@ export function ResetPasswordDoc() {
 
 export function ResendVerificationDoc() {
   return applyDecorators(
-    ApiTags('users'),
+    ApiTags('Admin Users'),
     ApiBearerAuth(),
     ApiOperation({
       summary: 'Reenviar verificación de email (Admin)',
@@ -330,7 +330,7 @@ export function ResendVerificationDoc() {
 
 export function UpdateUserDoc() {
   return applyDecorators(
-    ApiTags('users'),
+    ApiTags('Admin Users'),
     ApiBearerAuth(),
     ApiOperation({
       summary: 'Actualizar usuario (Admin)',
@@ -360,7 +360,7 @@ export function UpdateUserDoc() {
 
 export function DeleteUserDoc() {
   return applyDecorators(
-    ApiTags('users'),
+    ApiTags('Admin Users'),
     ApiBearerAuth(),
     ApiOperation({
       summary: 'Eliminar usuario (Admin)',
@@ -385,7 +385,7 @@ export function DeleteUserDoc() {
 
 export function ToggleActiveDoc() {
   return applyDecorators(
-    ApiTags('users'),
+    ApiTags('Admin Users'),
     ApiBearerAuth(),
     ApiOperation({
       summary: 'Activar/desactivar usuario (Admin)',
