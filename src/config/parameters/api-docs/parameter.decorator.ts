@@ -45,7 +45,7 @@ export function ApplyUpdateParameterDoc() {
     ApiOperation({
       summary: 'Actualizar el valor de un parámetro',
       description:
-        'Valida, coercion a al tipo del registro y persiste el nuevo valor. ' +
+        'Valida, coacciona al tipo del registro y persiste el nuevo valor. ' +
         'Rechaza claves inexistentes (UA-PAR-001), parámetros sobrescritos por el entorno (UA-PAR-002) ' +
         'y valores inválidos para el tipo del parámetro (UA-PAR-003).',
     }),
