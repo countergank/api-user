@@ -33,6 +33,9 @@ describe('OpenAPI tags per user controller (e2e)', () => {
     ['GET', '/admin/users', 'Admin Users'],
     ['GET', '/admin/users/{id}/sessions', 'Admin Sessions'],
     ['GET', '/users/profile', 'Profile'],
+    ['GET', '/admin/parameters', 'parameters'],
+    ['GET', '/admin/parameters/{group}', 'parameters'],
+    ['PUT', '/admin/parameters/{key}', 'parameters'],
   ])('tags %s %s as %s (issue #558)', (method, path, tag) => {
     expect(operation(document, path, method.toLowerCase()).tags).toEqual([tag]);
   });
