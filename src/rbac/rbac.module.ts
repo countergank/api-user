@@ -6,6 +6,7 @@ import { Permission, PermissionSchema } from './entities/permission.entity';
 import { Role, RoleSchema } from './entities/role.entity';
 import { PermissionService } from './services/permission.service';
 import { RoleService } from './services/role.service';
+import { AdminPermissionController } from './controllers/admin-permission.controller';
 import { PermissionController } from './controllers/permission.controller';
 import { RoleController } from './controllers/role.controller';
 
@@ -18,7 +19,7 @@ import { RoleController } from './controllers/role.controller';
     I18nModule,
     UserModule,
   ],
-  controllers: [PermissionController, RoleController],
+  controllers: [AdminPermissionController, PermissionController, RoleController],
   providers: [PermissionService, RoleService],
   exports: [PermissionService, RoleService],
 })
