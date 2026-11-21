@@ -21,7 +21,7 @@ physical delete, seed stays the source of base permissions).
 | T2 | S1, S2, S4 | inline — CreatePermissionDTO/UpdatePermissionDTO, AdminPermissionController, module registration, unit tests | b156342 |
 | T3 | S6 | inline — ApplyCreatePermissionDoc/ApplyUpdatePermissionDoc + request example | b156342 |
 | T4 | S1–S6 | inline — e2e acceptance spec over HTTP | 3e6d71d |
-| T5 | review follow-ups | inline — fix R1/R3 advisories: 11000→409 race guard, malformed id→404, e2e residue, empty-patch pin | pending |
+| T5 | review follow-ups | inline — fix R1/R3 advisories: 11000→409 race guard, malformed id→404, e2e residue, empty-patch pin | aca2729 |
 ## Log
 
 - L1: «vamos» — implements GitHub issue #561 after kickoff (board `In Progress`, branch `feature/561-gestion-permisos-admin`, base `origin/develop`).
