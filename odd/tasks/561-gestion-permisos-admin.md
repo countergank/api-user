@@ -17,10 +17,10 @@ physical delete, seed stays the source of base permissions).
 
 | ID | Spec | Route | Commit |
 |----|------|-------|--------|
-| T1 | S1, S2, S4, S5 | inline — PermissionService: duplicate guard on create + update method, unit tests | pending |
-| T2 | S1, S2, S4 | inline — CreatePermissionDTO/UpdatePermissionDTO, AdminPermissionController, module registration, unit tests | pending |
-| T3 | S6 | inline — ApplyCreatePermissionDoc/ApplyUpdatePermissionDoc + request example | pending |
-| T4 | S1–S6 | inline — e2e acceptance spec over HTTP | pending |
+| T1 | S1, S2, S4, S5 | inline — PermissionService: duplicate guard on create + update method, unit tests | b156342 |
+| T2 | S1, S2, S4 | inline — CreatePermissionDTO/UpdatePermissionDTO, AdminPermissionController, module registration, unit tests | b156342 |
+| T3 | S6 | inline — ApplyCreatePermissionDoc/ApplyUpdatePermissionDoc + request example | b156342 |
+| T4 | S1–S6 | inline — e2e acceptance spec over HTTP | this commit |
 ## Log
 
 - L1: «vamos» — implements GitHub issue #561 after kickoff (board `In Progress`, branch `feature/561-gestion-permisos-admin`, base `origin/develop`).

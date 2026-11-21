@@ -53,6 +53,13 @@ const FAILED_ATTEMPTS = 5;
 export const HURL_ROLE_NAMES = ['hurl-role-temp'] as const;
 
 /**
+ * Nombres de permiso que la suite crea de verdad (POST /admin/permissions en
+ * admin-permission.hurl). La API no tiene DELETE de permisos (baja lógica), así que
+ * sin esta purga la corrida siguiente chocaría con 409 en el alta.
+ */
+export const HURL_PERMISSION_NAMES = ['hurl-perm-temp'] as const;
+
+/**
  * Slugs de plantilla que la suite crea de verdad (POST /email/templates en
  * email-template.hurl). Mismo criterio que HURL_ROLE_NAMES.
  */
@@ -93,6 +100,7 @@ export function hurlUserEmails(): string[] {
 export async function purgeHurlResidues(connection: Connection, userModel: Model<User>): Promise<void> {
   await userModel.deleteMany({ email: { $in: hurlUserEmails() } }).exec();
   await connection.collection('roles').deleteMany({ name: { $in: [...HURL_ROLE_NAMES] } });
+  await connection.collection('permissions').deleteMany({ name: { $in: [...HURL_PERMISSION_NAMES] } });
   await connection.collection('emailtemplates').deleteMany({ slug: { $in: [...HURL_TEMPLATE_SLUGS] } });
 }
 

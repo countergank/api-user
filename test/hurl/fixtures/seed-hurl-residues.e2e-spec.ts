@@ -26,6 +26,9 @@ const SUITE_ROLE_NAME = 'hurl-role-temp';
 /** Slug de plantilla que la suite crea de verdad (POST /email/templates en email-template.hurl). */
 const SUITE_TEMPLATE_SLUG = 'hurl-template-temp';
 
+/** Permiso que la suite crea de verdad (POST /admin/permissions en admin-permission.hurl). */
+const SUITE_PERMISSION_NAME = 'hurl-perm-temp';
+
 /** Email ajeno a la suite que empieza con `hurl.`, como el que crearía una persona. */
 const FOREIGN_USER_EMAIL = 'hurl.mine@dev.local';
 
@@ -34,6 +37,9 @@ const FOREIGN_ROLE_NAME = 'hurl-my-role';
 
 /** Slug ajeno a la suite que empieza con `hurl-`. */
 const FOREIGN_TEMPLATE_SLUG = 'hurl-my-template';
+
+/** Permiso ajeno a la suite que empieza con `hurl-`. */
+const FOREIGN_PERMISSION_NAME = 'hurl-my-permission';
 
 
 describe('purga de residuos de la suite Hurl (COU-341)', () => {
@@ -56,6 +62,9 @@ describe('purga de residuos de la suite Hurl (COU-341)', () => {
     await connection
       .collection('emailtemplates')
       .deleteMany({ slug: { $in: [SUITE_TEMPLATE_SLUG, FOREIGN_TEMPLATE_SLUG] } });
+    await connection
+      .collection('permissions')
+      .deleteMany({ name: { $in: [SUITE_PERMISSION_NAME, FOREIGN_PERMISSION_NAME] } });
 
     // Residuo real de la suite: los tres tipos de documento que crea una corrida.
     await connection.collection('users').insertMany([
@@ -123,6 +132,22 @@ describe('purga de residuos de la suite Hurl (COU-341)', () => {
         version: 1,
       },
     ]);
+    await connection.collection('permissions').insertMany([
+      {
+        name: SUITE_PERMISSION_NAME,
+        description: 'permiso temporal de admin-permission.hurl',
+        category: 'user',
+        isSystem: false,
+        isActive: true,
+      },
+      {
+        name: FOREIGN_PERMISSION_NAME,
+        description: 'permiso creado a mano, ajeno a la suite',
+        category: 'user',
+        isSystem: false,
+        isActive: true,
+      },
+    ]);
   });
 
   /**
@@ -136,6 +161,8 @@ describe('purga de residuos de la suite Hurl (COU-341)', () => {
     expect(roles.map((r) => r.name)).toEqual([FOREIGN_ROLE_NAME]);
     const templates = await connection.collection('emailtemplates').find({ slug: /^hurl/ }).toArray();
     expect(templates.map((t) => t.slug)).toEqual([FOREIGN_TEMPLATE_SLUG]);
+    const permissions = await connection.collection('permissions').find({ name: /^hurl/ }).toArray();
+    expect(permissions.map((p) => p.name)).toEqual([FOREIGN_PERMISSION_NAME]);
   }
 
   it('borra el residuo de la suite y conserva los documentos hurl-* ajenos (S1, S2)', async () => {
@@ -156,6 +183,7 @@ describe('purga de residuos de la suite Hurl (COU-341)', () => {
     await connection.collection('users').deleteMany({ email: FOREIGN_USER_EMAIL });
     await connection.collection('roles').deleteMany({ name: FOREIGN_ROLE_NAME });
     await connection.collection('emailtemplates').deleteMany({ slug: FOREIGN_TEMPLATE_SLUG });
+    await connection.collection('permissions').deleteMany({ name: FOREIGN_PERMISSION_NAME });
     await mongoose.disconnect();
   });
 });

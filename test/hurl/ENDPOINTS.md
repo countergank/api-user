@@ -1,7 +1,7 @@
 # Endpoints cubiertos por la suite Hurl
 
 Un archivo por controller. Cada archivo es autocontenido (hace su propio login) y re-ejecutable:
-lo que crea lo borra, y lo que muta lo restaura. Total: **45 endpoints en 11 archivos**.
+lo que crea lo borra, y lo que muta lo restaura. Total: **47 endpoints en 12 archivos**.
 
 | Archivo | Método | Ruta | Esperado | Acceso | DTO |
 |---|---|---|---|---|---|
@@ -43,6 +43,8 @@ lo que crea lo borra, y lo que muta lo restaura. Total: **45 endpoints en 11 arc
 | `app.hurl` | GET | `/health` | 200 | público | — |
 | `app.hurl` | POST | `/message-microservice/:message-pattern` | 201* | público | — |
 | `permission.hurl` | GET | `/permissions` | 200 | jwt + permission:read | — |
+| `admin-permission.hurl` | POST | `/admin/permissions` | 201* | admin + permission:create | `CreatePermissionDTO` |
+| `admin-permission.hurl` | PATCH | `/admin/permissions/:id` | 200 | admin + permission:update | `UpdatePermissionDTO` |
 | `role.hurl` | GET | `/roles` | 200 | admin + role:read | — |
 | `role.hurl` | POST | `/roles` | 201* | admin + role:read | — |
 | `role.hurl` | DELETE | `/roles/:id` | 200 | admin + role:delete | — |
