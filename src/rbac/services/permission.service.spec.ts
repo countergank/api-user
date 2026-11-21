@@ -32,7 +32,7 @@ describe(PermissionService.name, () => {
 
   const mockPermDoc = (overrides: Partial<Record<string, unknown>> = {}) =>
     ({
-      _id: { toString: () => 'perm-id-1' },
+      _id: { toString: () => '507f1f77bcf86cd799439011' },
       name: 'user:read',
       description: 'Read users',
       category: PermissionCategory.USER,
@@ -338,6 +338,65 @@ describe(PermissionService.name, () => {
       expect(mockInstance.save).not.toHaveBeenCalled();
       expect(mockEventEmitter.emit).not.toHaveBeenCalled();
     });
+
+    it('maps a concurrent duplicate-key error from save to 409 instead of surfacing a raw 500 (R1)', async () => {
+      const mockInstance = {
+        save: jest.fn().mockRejectedValue(Object.assign(new Error('E11000 duplicate key error'), { code: 11000 })),
+      };
+      mockPermissionModel.findOne.mockReturnValue(mockExec(null));
+
+      const module2: TestingModule = await Test.createTestingModule({
+        providers: [
+          PermissionService,
+          {
+            provide: getModelToken(Permission.name),
+            useValue: Object.assign(
+              jest.fn().mockImplementation(() => mockInstance),
+              { find: mockPermissionModel.find, findOne: mockPermissionModel.findOne },
+            ),
+          },
+          { provide: CacheService, useValue: mockCacheService },
+          { provide: EventEmitter2, useValue: mockEventEmitter },
+        ],
+      }).compile();
+
+      const createService = module2.get<PermissionService>(PermissionService);
+
+      await expect(
+        createService.create({ name: 'raced:perm', description: 'Race', category: PermissionCategory.USER }),
+      ).rejects.toMatchObject({ kind: expect.objectContaining({ kind: 'ENTITY_NAME_ALREADY_EXISTS', statusCode: 409 }) });
+
+      expect(mockEventEmitter.emit).not.toHaveBeenCalled();
+    });
+
+    it('re-throws a non-duplicate save error unchanged (R1)', async () => {
+      const failure = new Error('connection lost');
+      const mockInstance = {
+        save: jest.fn().mockRejectedValue(failure),
+      };
+      mockPermissionModel.findOne.mockReturnValue(mockExec(null));
+
+      const module2: TestingModule = await Test.createTestingModule({
+        providers: [
+          PermissionService,
+          {
+            provide: getModelToken(Permission.name),
+            useValue: Object.assign(
+              jest.fn().mockImplementation(() => mockInstance),
+              { find: mockPermissionModel.find, findOne: mockPermissionModel.findOne },
+            ),
+          },
+          { provide: CacheService, useValue: mockCacheService },
+          { provide: EventEmitter2, useValue: mockEventEmitter },
+        ],
+      }).compile();
+
+      const createService = module2.get<PermissionService>(PermissionService);
+
+      await expect(
+        createService.create({ name: 'doomed:perm', description: 'Doomed', category: PermissionCategory.USER }),
+      ).rejects.toBe(failure);
+    });
   });
 
   describe(`${PermissionService.name}.update`, () => {
@@ -345,14 +404,14 @@ describe(PermissionService.name, () => {
       const updated = mockPermDoc({ description: 'Rotated', isActive: false });
       mockPermissionModel.findByIdAndUpdate.mockReturnValue(mockExec(updated));
 
-      const result = await service.update('perm-id-1', {
+      const result = await service.update('507f1f77bcf86cd799439011', {
         description: 'Rotated',
         category: PermissionCategory.SYSTEM,
         isActive: false,
       });
 
       expect(mockPermissionModel.findByIdAndUpdate).toHaveBeenCalledWith(
-        'perm-id-1',
+        '507f1f77bcf86cd799439011',
         { description: 'Rotated', category: PermissionCategory.SYSTEM, isActive: false },
         { new: true },
       );
@@ -363,22 +422,43 @@ describe(PermissionService.name, () => {
       mockPermissionModel.findByIdAndUpdate.mockReturnValue(mockExec(null));
 
       await expect(
-        service.update('missing-id', { description: 'Ghost' }),
+        service.update('507f1f77bcf86cd799439012', { description: 'Ghost' }),
       ).rejects.toMatchObject({ kind: expect.objectContaining({ kind: 'ENTITY_NOT_FOUND', statusCode: 404 }) });
+    });
+
+    it('answers ENTITY_NOT_FOUND for a malformed non-ObjectId id instead of a raw 500 (R3)', async () => {
+      await expect(
+        service.update('not-an-object-id', { description: 'Ghost' }),
+      ).rejects.toMatchObject({ kind: expect.objectContaining({ kind: 'ENTITY_NOT_FOUND', statusCode: 404 }) });
+
+      expect(mockPermissionModel.findByIdAndUpdate).not.toHaveBeenCalled();
+    });
+
+    it('treats an empty patch as a no-op and returns the unchanged permission (R3)', async () => {
+      const unchanged = mockPermDoc();
+      mockPermissionModel.findByIdAndUpdate.mockReturnValue(mockExec(unchanged));
+
+      const result = await service.update('507f1f77bcf86cd799439011', {});
+
+      expect(mockPermissionModel.findByIdAndUpdate).toHaveBeenCalledWith('507f1f77bcf86cd799439011', {}, { new: true });
+      expect(result).toEqual(unchanged);
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith('cache.invalidate.rbac', {
+        pattern: 'cache:rbac:*',
+      });
     });
 
     it('applies only the editable fields and never writes `name` (S5)', async () => {
       const updated = mockPermDoc({ isActive: false });
       mockPermissionModel.findByIdAndUpdate.mockReturnValue(mockExec(updated));
 
-      await service.update('perm-id-1', {
+      await service.update('507f1f77bcf86cd799439011', {
         name: 'smuggled:name',
         description: 'Rotated',
         isActive: false,
       } as never);
 
       expect(mockPermissionModel.findByIdAndUpdate).toHaveBeenCalledWith(
-        'perm-id-1',
+        '507f1f77bcf86cd799439011',
         { description: 'Rotated', isActive: false },
         { new: true },
       );
@@ -387,7 +467,7 @@ describe(PermissionService.name, () => {
     it('invalidates the rbac cache after update (S5)', async () => {
       mockPermissionModel.findByIdAndUpdate.mockReturnValue(mockExec(mockPermDoc({ isActive: false })));
 
-      await service.update('perm-id-1', { isActive: false });
+      await service.update('507f1f77bcf86cd799439011', { isActive: false });
 
       expect(mockEventEmitter.emit).toHaveBeenCalledWith('cache.invalidate.rbac', {
         pattern: 'cache:rbac:*',

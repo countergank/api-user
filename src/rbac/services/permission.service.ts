@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { isValidObjectId, Model } from 'mongoose';
 import { Permission, PermissionCategory } from '../entities/permission.entity';
 import { AuditAction } from '../../common/audit/audit.decorator';
 import { DomainError } from '../../common/errors/domain.error';
@@ -176,7 +176,18 @@ export class PermissionService {
     }
 
     const permission = new this.permissionModel(permissionData);
-    const saved = await permission.save();
+
+    let saved: Permission;
+    try {
+      saved = await permission.save();
+    } catch (error) {
+      // A concurrent create can slip past the findByName check and collide
+      // with the unique index; the client still deserves the 409, not a raw 500.
+      if (isDuplicateKeyError(error)) {
+        throw DomainError.fromKind('ENTITY_NAME_ALREADY_EXISTS');
+      }
+      throw error;
+    }
 
     this.invalidatePermissionCaches('permission create');
 
@@ -199,6 +210,12 @@ export class PermissionService {
     permissionId: string,
     changes: Partial<Pick<Permission, 'description' | 'category' | 'isActive'>>,
   ): Promise<Permission> {
+    // A malformed id would reach Mongo as a CastError (500); it is still just
+    // a permission that does not exist.
+    if (!isValidObjectId(permissionId)) {
+      throw DomainError.fromKind('ENTITY_NOT_FOUND');
+    }
+
     const editable: Partial<Permission> = {};
     if (changes.description !== undefined) editable.description = changes.description;
     if (changes.category !== undefined) editable.category = changes.category;

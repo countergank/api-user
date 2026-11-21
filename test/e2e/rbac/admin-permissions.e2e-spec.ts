@@ -71,11 +71,13 @@ describe('Admin permissions management (e2e)', () => {
   describe('POST /admin/permissions', () => {
     it('creates a permission with name, description and category (S1)', async () => {
       const name = uniquePermissionName('create');
-      const response = await auth(request(app.getHttpServer()).post('/admin/permissions'))
-        .send({ name, description: 'Created by e2e', category: 'user' })
-        .expect(201);
+      const permission = await createPermission({
+        name,
+        description: 'Created by e2e',
+        category: 'user',
+      });
 
-      expect(response.body.permission).toMatchObject({
+      expect(permission).toMatchObject({
         name,
         description: 'Created by e2e',
         category: 'user',
@@ -160,6 +162,32 @@ describe('Admin permissions management (e2e)', () => {
         .expect(404);
 
       expect(response.body).toMatchObject({ code: 'UA-COM-002', statusCode: 404 });
+    });
+
+    it('returns 404 for a malformed non-ObjectId id instead of a raw 500 (R3)', async () => {
+      const response = await auth(request(app.getHttpServer()).patch('/admin/permissions/not-an-object-id'))
+        .send({ description: 'ghost' })
+        .expect(404);
+
+      expect(response.body).toMatchObject({ code: 'UA-COM-002', statusCode: 404 });
+    });
+
+    it('treats an empty body as a no-op and returns the unchanged permission (R3)', async () => {
+      const permission = await createPermission({
+        name: uniquePermissionName('empty-patch'),
+        description: 'Untouched',
+        category: 'user',
+      });
+
+      const response = await auth(request(app.getHttpServer()).patch(`/admin/permissions/${permission._id}`))
+        .send({})
+        .expect(200);
+
+      expect(response.body.permission).toMatchObject({
+        name: permission.name,
+        description: 'Untouched',
+        isActive: true,
+      });
     });
 
     it('does not accept `name` on patch', async () => {
