@@ -4,6 +4,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Permission, PermissionCategory } from '../entities/permission.entity';
 import { AuditAction } from '../../common/audit/audit.decorator';
+import { DomainError } from '../../common/errors/domain.error';
 import { CacheService } from '../../config/cache';
 
 const PERM_ALL_KEY = 'rbac:permissions:all';
@@ -167,12 +168,50 @@ export class PermissionService {
     },
   })
   async create(permissionData: Partial<Permission>): Promise<Permission> {
+    if (permissionData.name !== undefined) {
+      const existing = await this.findByName(permissionData.name);
+      if (existing) {
+        throw DomainError.fromKind('ENTITY_NAME_ALREADY_EXISTS');
+      }
+    }
+
     const permission = new this.permissionModel(permissionData);
     const saved = await permission.save();
 
     this.invalidatePermissionCaches('permission create');
 
     return saved;
+  }
+
+  /**
+   * Edits the documentation and the active flag of a permission (S4).
+   *
+   * Only `description`, `category` and `isActive` are writable: `name` is the
+   * identity roles reference, so a smuggled rename is dropped here instead of
+   * reaching the unique index as a raw 500. Role assignments are never touched
+   * by this update (S5); deactivating a permission only stops it from being
+   * granted anew.
+   *
+   * @throws DomainError ENTITY_NOT_FOUND (UA-COM-002, 404) when the permission
+   * does not exist.
+   */
+  async update(
+    permissionId: string,
+    changes: Partial<Pick<Permission, 'description' | 'category' | 'isActive'>>,
+  ): Promise<Permission> {
+    const editable: Partial<Permission> = {};
+    if (changes.description !== undefined) editable.description = changes.description;
+    if (changes.category !== undefined) editable.category = changes.category;
+    if (changes.isActive !== undefined) editable.isActive = changes.isActive;
+
+    const updated = await this.permissionModel.findByIdAndUpdate(permissionId, editable, { new: true }).exec();
+    if (!updated) {
+      throw DomainError.fromKind('ENTITY_NOT_FOUND');
+    }
+
+    this.invalidatePermissionCaches('permission update');
+
+    return updated;
   }
 
   async createMany(

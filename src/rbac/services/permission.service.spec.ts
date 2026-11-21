@@ -12,6 +12,7 @@ describe(PermissionService.name, () => {
   const mockPermissionModel = {
     find: jest.fn(),
     findOne: jest.fn(),
+    findByIdAndUpdate: jest.fn(),
     countDocuments: jest.fn(),
     insertMany: jest.fn(),
   };
@@ -243,6 +244,7 @@ describe(PermissionService.name, () => {
       const mockInstance = {
         save: jest.fn().mockResolvedValue(mockPermDoc({ name: 'new:perm' })),
       };
+      mockPermissionModel.findOne.mockReturnValue(mockExec(null));
 
       const module2: TestingModule = await Test.createTestingModule({
         providers: [
@@ -272,6 +274,7 @@ describe(PermissionService.name, () => {
       const mockInstance = {
         save: jest.fn().mockResolvedValue(saved),
       };
+      mockPermissionModel.findOne.mockReturnValue(mockExec(null));
 
       const module2: TestingModule = await Test.createTestingModule({
         providers: [
@@ -302,6 +305,93 @@ describe(PermissionService.name, () => {
         pattern: 'cache:rbac:*',
       });
       expect(errorSpy).not.toHaveBeenCalled();
+    });
+
+    it('rejects a name already held by another permission with ENTITY_NAME_ALREADY_EXISTS before saving (S2)', async () => {
+      mockPermissionModel.findOne.mockReturnValue(mockExec(mockPermDoc({ name: 'taken:perm' })));
+
+      const mockInstance = {
+        save: jest.fn().mockResolvedValue(mockPermDoc({ name: 'taken:perm' })),
+      };
+
+      const module2: TestingModule = await Test.createTestingModule({
+        providers: [
+          PermissionService,
+          {
+            provide: getModelToken(Permission.name),
+            useValue: Object.assign(
+              jest.fn().mockImplementation(() => mockInstance),
+              { find: mockPermissionModel.find, findOne: mockPermissionModel.findOne },
+            ),
+          },
+          { provide: CacheService, useValue: mockCacheService },
+          { provide: EventEmitter2, useValue: mockEventEmitter },
+        ],
+      }).compile();
+
+      const createService = module2.get<PermissionService>(PermissionService);
+
+      await expect(
+        createService.create({ name: 'taken:perm', description: 'Clash', category: PermissionCategory.USER }),
+      ).rejects.toMatchObject({ kind: expect.objectContaining({ kind: 'ENTITY_NAME_ALREADY_EXISTS', statusCode: 409 }) });
+
+      expect(mockInstance.save).not.toHaveBeenCalled();
+      expect(mockEventEmitter.emit).not.toHaveBeenCalled();
+    });
+  });
+
+  describe(`${PermissionService.name}.update`, () => {
+    it('applies description, category and isActive and returns the updated permission (S4)', async () => {
+      const updated = mockPermDoc({ description: 'Rotated', isActive: false });
+      mockPermissionModel.findByIdAndUpdate.mockReturnValue(mockExec(updated));
+
+      const result = await service.update('perm-id-1', {
+        description: 'Rotated',
+        category: PermissionCategory.SYSTEM,
+        isActive: false,
+      });
+
+      expect(mockPermissionModel.findByIdAndUpdate).toHaveBeenCalledWith(
+        'perm-id-1',
+        { description: 'Rotated', category: PermissionCategory.SYSTEM, isActive: false },
+        { new: true },
+      );
+      expect(result).toEqual(updated);
+    });
+
+    it('throws ENTITY_NOT_FOUND when the permission does not exist (S4)', async () => {
+      mockPermissionModel.findByIdAndUpdate.mockReturnValue(mockExec(null));
+
+      await expect(
+        service.update('missing-id', { description: 'Ghost' }),
+      ).rejects.toMatchObject({ kind: expect.objectContaining({ kind: 'ENTITY_NOT_FOUND', statusCode: 404 }) });
+    });
+
+    it('applies only the editable fields and never writes `name` (S5)', async () => {
+      const updated = mockPermDoc({ isActive: false });
+      mockPermissionModel.findByIdAndUpdate.mockReturnValue(mockExec(updated));
+
+      await service.update('perm-id-1', {
+        name: 'smuggled:name',
+        description: 'Rotated',
+        isActive: false,
+      } as never);
+
+      expect(mockPermissionModel.findByIdAndUpdate).toHaveBeenCalledWith(
+        'perm-id-1',
+        { description: 'Rotated', isActive: false },
+        { new: true },
+      );
+    });
+
+    it('invalidates the rbac cache after update (S5)', async () => {
+      mockPermissionModel.findByIdAndUpdate.mockReturnValue(mockExec(mockPermDoc({ isActive: false })));
+
+      await service.update('perm-id-1', { isActive: false });
+
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith('cache.invalidate.rbac', {
+        pattern: 'cache:rbac:*',
+      });
     });
   });
 

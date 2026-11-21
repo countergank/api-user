@@ -15,7 +15,7 @@ import { BadRequestDTO } from '../../common/dto/bad-request.dto';
 import { InternalErrorDTO } from '../../common/dto/internal-error.dto';
 import { PaginatedResponseDTO } from '../../common/dto/paginated-response.dto';
 import { paginatedSchema } from '../../common/dto/paginated-response.schema';
-import { PermissionResponse } from './examples/permission.examples';
+import { PermissionResponse, CreatePermissionRequest, UpdatePermissionRequest, PermissionMutationResponse } from './examples/permission.examples';
 import { RoleExample, RoleResponse, UpdateRolePermissionsRequest } from './examples/role.examples';
 import { CreateRoleRequest, DeleteRoleResponse, UpdateRoleRequest } from './examples/role.examples';
 
@@ -165,6 +165,54 @@ export function ApplyFindAllPermissionsDoc() {
       description: 'Página de permisos envuelta en el envelope de colección',
       schema: paginatedSchema(PermissionResponse),
     }),
+    ApiBadRequestResponse({ description: 'Bad Request', type: BadRequestDTO }),
+    ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
+  );
+}
+
+export function ApplyCreatePermissionDoc() {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Crear permiso',
+      description:
+        'Crea un permiso con `name`, `description` y `category`. El body es plano, sin envelope: ' +
+        'la clave `permission` es sólo del response. Un `name` duplicado responde 409. ' +
+        'El permiso creado aparece en `GET /permissions` y es asignable a roles vía `PUT /roles/:id/permissions`.',
+    }),
+    ApiBearerAuth(),
+    ApiExtraModels(CreatePermissionRequest, PermissionMutationResponse),
+    ApiBody({ schema: { $ref: getSchemaPath(CreatePermissionRequest) } }),
+    ApiResponse({
+      status: 201,
+      description: 'Permiso creado',
+      schema: { $ref: getSchemaPath(PermissionMutationResponse) },
+    }),
+    ApiResponse({ status: 403, description: 'Acceso denegado. Se requiere rol admin.' }),
+    ApiResponse({ status: 409, description: 'Ya existe un permiso con ese nombre (UA-COM-003)' }),
+    ApiBadRequestResponse({ description: 'Bad Request', type: BadRequestDTO }),
+    ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
+  );
+}
+
+export function ApplyUpdatePermissionDoc() {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Actualizar permiso',
+      description:
+        'Actualiza `description`, `category` e `isActive` de un permiso. Desactivar un permiso no altera ' +
+        'las asignaciones existentes en los roles. `name` e `isSystem` no son actualizables por API.',
+    }),
+    ApiBearerAuth(),
+    ApiParam({ name: 'id', description: 'ID del permiso', example: '675b1f2c9a1e4a0012ab34cd' }),
+    ApiExtraModels(UpdatePermissionRequest, PermissionMutationResponse),
+    ApiBody({ schema: { $ref: getSchemaPath(UpdatePermissionRequest) } }),
+    ApiResponse({
+      status: 200,
+      description: 'Permiso actualizado',
+      schema: { $ref: getSchemaPath(PermissionMutationResponse) },
+    }),
+    ApiResponse({ status: 403, description: 'Acceso denegado. Se requiere rol admin.' }),
+    ApiResponse({ status: 404, description: 'Permiso no encontrado (UA-COM-002)' }),
     ApiBadRequestResponse({ description: 'Bad Request', type: BadRequestDTO }),
     ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
   );
