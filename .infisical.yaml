@@ -1,0 +1,8 @@
+secrets-management:
+  project-id: dd3eb71d-1fb6-4fe7-a499-2d6a291a9f10
+  default-environment: dev
+  mappings:
+    git-branch-to-environment:
+      main: prod
+      staging: staging
+      develop: dev
