@@ -6,11 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Secrets management migrated from Doppler to Infisical Cloud (issue #531)** — `scripts/resolve-env.sh`, `make dev`, `make up`, `make docker:rebuild`, `make migrate*` and `make ghcr:up` now resolve environment secrets from Infisical (`infisical secrets-manager`) instead of Doppler. Resolution order: explicit `ENV_FILE` → Infisical (`--env=dev|staging|prod`) → local `.env.<env>`. The repo links to the Infisical project via the committed `.infisical.yaml`. Headless machines (servers) authenticate with a machine identity via `INFISICAL_TOKEN` + `INFISICAL_PROJECT_ID`; developer machines use `infisical login`. The three previously duplicated Doppler paths (resolver, `docker:rebuild`, `migrate*`) are consolidated into one, and rendered secret files now always use a `mktemp` directory with `chmod 600`.
+
 ### Added
 
 - **Admin avatar exposure (issue #548)** — `GET /admin/users`, `GET /admin/users/:id`, `PATCH /admin/users/:id` and `PATCH /admin/users/:id/active` now return `avatarUrl` resolved by the same driver as `/auth/me` (relative with the local driver, absolute with `STORAGE_PUBLIC_URL`). The raw stored object key is never exposed; users without a photo omit the field.
 - **Admin users CSV export** — the `GET /admin/users/export.csv` document gains a trailing `avatarUrl` column with the resolved public URL (empty cell for users without a photo). **Consumers parsing the CSV by column position must account for the new trailing column.**
-- **`make up` compose profiles bridge** — `COMPOSE_PROFILES` from the resolved environment source (Doppler, `.env.<env>` or explicit `ENV_FILE`) now reaches the compose process, so profile services like MinIO (`storage-s3`) start with `make up` as documented. The active profiles are logged on startup; a shell-exported `COMPOSE_PROFILES` is respected when the resolved source does not define one.
+- **`make up` compose profiles bridge** — `COMPOSE_PROFILES` from the resolved environment source (Infisical, `.env.<env>` or explicit `ENV_FILE`) now reaches the compose process, so profile services like MinIO (`storage-s3`) start with `make up` as documented. The active profiles are logged on startup; a shell-exported `COMPOSE_PROFILES` is respected when the resolved source does not define one.
 
 - **Rate Limiting** — All public auth endpoints are now protected by configurable rate limiting using `@nestjs/throttler`:
   - `POST /auth/login` — 5 requests per 60s (configurable via `LOGIN_THROTTLE_LIMIT` / `LOGIN_THROTTLE_TTL`)

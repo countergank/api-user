@@ -10,6 +10,10 @@
 ENV ?= development
 SHELL := /bin/bash
 
+# Env del repo → slug de entorno en Infisical (development→dev; staging y prod
+# ya coinciden). Lo consumen dev, migrate* y scripts/resolve-env.sh.
+INFISICAL_ENV = $(if $(filter development,$(ENV)),dev,$(ENV))
+
 # ==============================================================================
 # Default target
 # ==============================================================================
@@ -40,9 +44,14 @@ install:
 build:
 	npm run build
 
-## dev — Start development server (nest start --watch)
+## dev — Start development server (nest start --watch, secretos de Infisical)
+## Sin CLI de Infisical arranca igual y la app lee .env.<env> como siempre.
 dev:
-	npm run start:dev
+	@if command -v infisical >/dev/null 2>&1; then \
+		infisical secrets-manager run --env=$(INFISICAL_ENV) -- npm run start:dev; \
+	else \
+		npm run start:dev; \
+	fi
 
 ## start — Alias for dev
 start: dev
@@ -51,10 +60,10 @@ start: dev
 # Docker
 # ==============================================================================
 
-## up — Start Docker services (ENV=<env>, Doppler si tiene secretos, si no .env.<env>)
+## up — Start Docker services (ENV=<env>, Infisical si tiene secretos, si no .env.<env>)
 ## COU-312 + #548: el env resuelto entra al contenedor como `env_file`, pero
 ## COMPOSE_PROFILES la lee el propio proceso de compose: sin este puente, la
-## variable definida en Doppler nunca activa los perfiles (minio, mailpit).
+## variable definida en Infisical nunca activa los perfiles (minio, mailpit).
 ## Precedencia: si el env resuelto no define COMPOSE_PROFILES, se respeta la
 ## que el shell del invocador ya tenga exportada (comportamiento previo).
 up:
@@ -79,9 +88,14 @@ redeploy:
 logs:
 	@docker compose logs -f
 
-## ghcr:up — Start stack with GHCR image (VERSION=<version>)
+## ghcr:up — Start stack with GHCR image (VERSION=<version>, ENV=<env>)
+## Mismo resolver que `up`: login de la CLI en la máquina de desarrollo, o
+## machine identity en un servidor (INFISICAL_TOKEN + INFISICAL_PROJECT_ID).
 ghcr\:up:
-	VERSION=$(VERSION) docker compose -f docker-compose.yml -f docker-compose.ghcr.yml up -d --no-build
+	@set -e; \
+	file=$$(scripts/resolve-env.sh "$(ENV)"); \
+	case "$$file" in */api-user-env.*/*) trap 'rm -rf "$${file%/*}"' EXIT;; esac; \
+	VERSION=$(VERSION) ENV_FILE="$$file" docker compose -f docker-compose.yml -f docker-compose.ghcr.yml --env-file "$$file" up -d --no-build
 	@echo "GHCR image ghcr.io/countergank/api-user:v$(VERSION) started"
 
 ## ghcr:down — Stop GHCR stack
@@ -102,42 +116,39 @@ ghcr\:test:
 	@curl -s http://localhost:3000/ | head -1
 	@echo ""
 
-## docker:rebuild — Rebuild Docker images without cache (ENV=<env>, auto-detects Doppler)
+## docker:rebuild — Rebuild Docker images without cache (ENV=<env>, env de scripts/resolve-env.sh)
 docker\:rebuild:
-	@if command -v doppler >/dev/null 2>&1; then \
-		doppler secrets download --no-file --format=env > /tmp/api-user-env.$(ENV).tmp; \
-		NODE_ENV=$(ENV) docker compose --env-file /tmp/api-user-env.$(ENV).tmp build --no-cache; \
-		status=$$?; rm -f /tmp/api-user-env.$(ENV).tmp; exit $$status; \
-	else \
-		NODE_ENV=$(ENV) docker compose --env-file .env.$(ENV) build --no-cache; \
-	fi
+	@set -e; \
+	file=$$(scripts/resolve-env.sh "$(ENV)"); \
+	case "$$file" in */api-user-env.*/*) trap 'rm -rf "$${file%/*}"' EXIT;; esac; \
+	NODE_ENV=$(ENV) ENV_FILE="$$file" docker compose --env-file "$$file" build --no-cache
 
 # ==============================================================================
 # Migrations
 # ==============================================================================
 
-## migrate — Run pending migrations (ENV=<env>, auto-detects Doppler)
+## migrate — Run pending migrations (ENV=<env>, secretos de Infisical)
 migrate:
-	@if command -v doppler >/dev/null 2>&1; then \
-		doppler run -- env MONGODB_MIGRATE_URI="mongodb://$$DATABASE_USER:$$DATABASE_PASSWORD@localhost:$$DATABASE_PORT/$$DATABASE_NAME?authSource=admin" npx migrate-mongo up -f .migraterc.js; \
+	@if command -v infisical >/dev/null 2>&1; then \
+		infisical secrets-manager run --env=$(INFISICAL_ENV) --command 'env MONGODB_MIGRATE_URI="mongodb://$$DATABASE_USER:$$DATABASE_PASSWORD@localhost:$$DATABASE_PORT/$$DATABASE_NAME?authSource=admin" npx migrate-mongo up -f .migraterc.js'; \
 	else \
 		set -a && . .env.$(ENV) && set +a && \
 		MONGODB_MIGRATE_URI="mongodb://$$DATABASE_USER:$$DATABASE_PASSWORD@localhost:$$DATABASE_PORT/$$DATABASE_NAME?authSource=admin" npx migrate-mongo up -f .migraterc.js; \
 	fi
 
-## migrate:status — Show migration status (ENV=<env>, auto-detects Doppler)
+## migrate:status — Show migration status (ENV=<env>, secretos de Infisical)
 migrate\:status:
-	@if command -v doppler >/dev/null 2>&1; then \
-		doppler run -- env MONGODB_MIGRATE_URI="mongodb://$$DATABASE_USER:$$DATABASE_PASSWORD@localhost:$$DATABASE_PORT/$$DATABASE_NAME?authSource=admin" npx migrate-mongo status -f .migraterc.js; \
+	@if command -v infisical >/dev/null 2>&1; then \
+		infisical secrets-manager run --env=$(INFISICAL_ENV) --command 'env MONGODB_MIGRATE_URI="mongodb://$$DATABASE_USER:$$DATABASE_PASSWORD@localhost:$$DATABASE_PORT/$$DATABASE_NAME?authSource=admin" npx migrate-mongo status -f .migraterc.js'; \
 	else \
 		set -a && . .env.$(ENV) && set +a && \
 		MONGODB_MIGRATE_URI="mongodb://$$DATABASE_USER:$$DATABASE_PASSWORD@localhost:$$DATABASE_PORT/$$DATABASE_NAME?authSource=admin" npx migrate-mongo status -f .migraterc.js; \
 	fi
 
-## migrate:down — Roll back the last migration (ENV=<env>, auto-detects Doppler)
+## migrate:down — Roll back the last migration (ENV=<env>, secretos de Infisical)
 migrate\:down:
-	@if command -v doppler >/dev/null 2>&1; then \
-		doppler run -- env MONGODB_MIGRATE_URI="mongodb://$$DATABASE_USER:$$DATABASE_PASSWORD@localhost:$$DATABASE_PORT/$$DATABASE_NAME?authSource=admin" npx migrate-mongo down -f .migraterc.js; \
+	@if command -v infisical >/dev/null 2>&1; then \
+		infisical secrets-manager run --env=$(INFISICAL_ENV) --command 'env MONGODB_MIGRATE_URI="mongodb://$$DATABASE_USER:$$DATABASE_PASSWORD@localhost:$$DATABASE_PORT/$$DATABASE_NAME?authSource=admin" npx migrate-mongo down -f .migraterc.js'; \
 	else \
 		set -a && . .env.$(ENV) && set +a && \
 		MONGODB_MIGRATE_URI="mongodb://$$DATABASE_USER:$$DATABASE_PASSWORD@localhost:$$DATABASE_PORT/$$DATABASE_NAME?authSource=admin" npx migrate-mongo down -f .migraterc.js; \
