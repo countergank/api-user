@@ -412,8 +412,15 @@ describe(EmailTemplateService.name, () => {
       mockRepository.findActive.mockResolvedValue([{ id: 'tpl-1', slug: 'a' }, { id: 'tpl-2', slug: 'b' }]);
       mockCacheService.set.mockRejectedValueOnce(new Error('redis down'));
 
-      await expect(service.warmCache()).resolves.toBe(2);
+      await expect(service.warmCache()).resolves.toBe(1);
       expect(mockCacheService.set).toHaveBeenCalledTimes(2);
+    });
+
+    it('counts only the cache writes that succeeded', async () => {
+      mockRepository.findActive.mockResolvedValue([{ id: 'tpl-1', slug: 'a' }, { id: 'tpl-2', slug: 'b' }]);
+      mockCacheService.set.mockRejectedValueOnce(new Error('redis down'));
+
+      await expect(service.warmCache()).resolves.toBe(1);
     });
   });
 

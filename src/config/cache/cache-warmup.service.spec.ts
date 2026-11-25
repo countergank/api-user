@@ -72,4 +72,29 @@ describe(CacheWarmupService.name, () => {
 
     expect(mockPermissions.findAll).toHaveBeenCalledTimes(1);
   });
+
+  it('bounds each warm-up step with a timeout and keeps bootstrapping when it expires', async () => {
+    mockConfig.get.mockImplementation((key: string, defaultValue?: unknown) =>
+      key === 'CACHE_WARMUP_STEP_TIMEOUT_MS' ? 50 : defaultValue);
+    mockPermissions.findAll.mockImplementation(
+      () => new Promise((resolve) => setTimeout(resolve, 5_000, [])),
+    );
+    mockRoles.findAll.mockResolvedValue([]);
+    mockTemplates.warmCache.mockResolvedValue(0);
+
+    await expect(service.onApplicationBootstrap()).resolves.toBeUndefined();
+
+    expect(mockRoles.findAll).toHaveBeenCalledTimes(1);
+    expect(mockTemplates.warmCache).toHaveBeenCalledTimes(1);
+  }, 10_000);
+
+  it('logs a readable message when a step rejects with a non-Error value', async () => {
+    mockPermissions.findAll.mockRejectedValue('plain string failure');
+    mockRoles.findAll.mockResolvedValue([]);
+    mockTemplates.warmCache.mockResolvedValue(0);
+
+    await expect(service.onApplicationBootstrap()).resolves.toBeUndefined();
+
+    expect(mockRoles.findAll).toHaveBeenCalledTimes(1);
+  });
 });

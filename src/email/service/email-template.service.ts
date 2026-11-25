@@ -216,15 +216,20 @@ export class EmailTemplateService {
 
   async warmCache(): Promise<number> {
     const templates = await this.repository.findActive();
-    for (const template of templates) {
-      const cacheKey = `${TEMPLATE_CACHE_PREFIX}${template.slug}`;
-      try {
-        await this.cacheService.set(cacheKey, template, TEMPLATE_CACHE_TTL_MS);
-      } catch {
-        this.logger.warn(`Cache set failed for ${cacheKey}`);
+    const results = await Promise.allSettled(
+      templates.map((template) =>
+        this.cacheService.set(`${TEMPLATE_CACHE_PREFIX}${template.slug}`, template, TEMPLATE_CACHE_TTL_MS),
+      ),
+    );
+    let warmed = 0;
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        warmed += 1;
+      } else {
+        this.logger.warn(`Cache set failed for ${TEMPLATE_CACHE_PREFIX}${templates[index].slug}`);
       }
-    }
-    return templates.length;
+    });
+    return warmed;
   }
 
   render(template: EmailTemplate, variables: Record<string, string> = {}): { subject: string; html: string } {
