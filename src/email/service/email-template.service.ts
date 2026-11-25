@@ -10,6 +10,10 @@ import { CreateTemplateDto } from '../dto/create-template.dto';
 import { UpdateTemplateDto } from '../dto/update-template.dto';
 import { EmailTemplate } from '../entities/email-template.entity';
 import { EmailTemplateRepository } from '../repository/email-template.repository';
+import { CacheService } from '../../config/cache';
+
+const TEMPLATE_CACHE_PREFIX = 'cache:email-template:';
+const TEMPLATE_CACHE_TTL_MS = 900_000; // 15 minutes, aligned with the RBAC caches
 
 interface DefaultTemplate {
   slug: string;
@@ -101,11 +105,12 @@ export class EmailTemplateService {
     @Inject(I18nService)
     private readonly i18nService: I18nService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly cacheService: CacheService,
   ) {}
 
   /**
-   * Templates are not cached yet, but the invalidation is already
-   * wired so a future template cache never goes stale after a mutation.
+   * Template mutations emit a pattern invalidation so the slug cache
+   * below never serves a stale template after a write.
    */
   private invalidateTemplateCaches(operation: string): void {
     this.logger.debug(`Invalidating template cache after ${operation}`);
@@ -149,7 +154,7 @@ export class EmailTemplateService {
   }
 
   async findBySlug(slug: string): Promise<EmailTemplate> {
-    const template = await this.repository.findBySlug(slug);
+    const template = await this.findBySlugCached(slug);
     if (!template) {
       throw DomainError.fromKind('TEMPLATE_NOT_FOUND');
     }
@@ -176,7 +181,7 @@ export class EmailTemplateService {
   async resolve(slug: string, lang?: string): Promise<EmailTemplate> {
     const language = lang || this.i18nService.getLanguage() || DEFAULT_LANGUAGE;
 
-    const dbTemplate = await this.repository.findBySlug(slug);
+    const dbTemplate = await this.findBySlugCached(slug);
     if (dbTemplate && language === DEFAULT_LANGUAGE) {
       return dbTemplate;
     }
@@ -209,6 +214,24 @@ export class EmailTemplateService {
     } as EmailTemplate;
   }
 
+  async warmCache(): Promise<number> {
+    const templates = await this.repository.findActive();
+    const results = await Promise.allSettled(
+      templates.map((template) =>
+        this.cacheService.set(`${TEMPLATE_CACHE_PREFIX}${template.slug}`, template, TEMPLATE_CACHE_TTL_MS),
+      ),
+    );
+    let warmed = 0;
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        warmed += 1;
+      } else {
+        this.logger.warn(`Cache set failed for ${TEMPLATE_CACHE_PREFIX}${templates[index].slug}`);
+      }
+    });
+    return warmed;
+  }
+
   render(template: EmailTemplate, variables: Record<string, string> = {}): { subject: string; html: string } {
     const subject = this.substituteVariables(template.subject, variables);
     const html = this.substituteVariables(template.content, variables);
@@ -231,6 +254,26 @@ export class EmailTemplateService {
         });
       }
     }
+  }
+
+  private async findBySlugCached(slug: string): Promise<EmailTemplate | null> {
+    const cacheKey = `${TEMPLATE_CACHE_PREFIX}${slug}`;
+    try {
+      const cached = await this.cacheService.get<EmailTemplate | null>(cacheKey);
+      if (cached !== undefined) return cached;
+    } catch {
+      this.logger.warn(`Cache get failed for ${cacheKey}, falling back to DB`);
+    }
+
+    const template = await this.repository.findBySlug(slug);
+
+    try {
+      await this.cacheService.set(cacheKey, template, TEMPLATE_CACHE_TTL_MS);
+    } catch {
+      this.logger.warn(`Cache set failed for ${cacheKey}`);
+    }
+
+    return template;
   }
 
   private substituteVariables(text: string, variables: Record<string, string>): string {

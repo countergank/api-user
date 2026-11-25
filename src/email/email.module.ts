@@ -37,7 +37,7 @@ import { I18nModule } from '../common/i18n/i18n.module';
       inject: [EmailProviderFactory],
     },
   ],
-  exports: [EmailService],
+  exports: [EmailService, EmailTemplateService],
 })
 export class EmailModule implements OnModuleInit {
   constructor(private readonly templateService: EmailTemplateService) {}

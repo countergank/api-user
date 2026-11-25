@@ -7,6 +7,7 @@ import { CreateTemplateDto } from '../dto/create-template.dto';
 import { UpdateTemplateDto } from '../dto/update-template.dto';
 import { EmailTemplate } from '../entities/email-template.entity';
 import { EmailTemplateRepository } from '../repository/email-template.repository';
+import { CacheService } from '../../config/cache';
 import { EmailTemplateService } from './email-template.service';
 
 jest.mock('node:fs');
@@ -36,8 +37,14 @@ describe(EmailTemplateService.name, () => {
     emit: jest.fn(),
   };
 
+  const mockCacheService = {
+    get: jest.fn(),
+    set: jest.fn(),
+  };
+
   const mockRepository = {
     findBySlug: jest.fn(),
+    findActive: jest.fn(),
     existsBySlug: jest.fn(),
     create: jest.fn(),
     updateBySlug: jest.fn(),
@@ -58,6 +65,7 @@ describe(EmailTemplateService.name, () => {
     mockI18nService.translate.mockResolvedValue('Translated subject');
     mockedFs.existsSync.mockReturnValue(false);
     mockedFs.readFileSync.mockReturnValue('<h1>Default</h1>');
+    mockCacheService.get.mockResolvedValue(undefined);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -65,6 +73,7 @@ describe(EmailTemplateService.name, () => {
         { provide: EmailTemplateRepository, useValue: mockRepository },
         { provide: I18nService, useValue: mockI18nService },
         { provide: EventEmitter2, useValue: mockEventEmitter },
+        { provide: CacheService, useValue: mockCacheService },
       ],
     }).compile();
 
@@ -223,6 +232,48 @@ describe(EmailTemplateService.name, () => {
     });
   });
 
+  describe('template read cache (PERF-14)', () => {
+    it('returns the cached template without touching the repository', async () => {
+      const template = { id: 'tpl-1', slug: 'welcome' };
+      mockCacheService.get.mockResolvedValue(template);
+
+      await expect(service.findBySlug('welcome')).resolves.toBe(template);
+      expect(mockRepository.findBySlug).not.toHaveBeenCalled();
+    });
+
+    it('falls back to the repository on a miss and populates the cache with the TTL', async () => {
+      const template = { id: 'tpl-1', slug: 'welcome' };
+      mockRepository.findBySlug.mockResolvedValue(template);
+
+      await expect(service.findBySlug('welcome')).resolves.toBe(template);
+      expect(mockCacheService.set).toHaveBeenCalledWith('cache:email-template:welcome', template, 900_000);
+    });
+
+    it('caches a miss so repeated unknown slugs skip the database', async () => {
+      mockRepository.findBySlug.mockResolvedValue(null);
+
+      await expectDomainError(service.findBySlug('missing'), 'TEMPLATE_NOT_FOUND');
+      expect(mockCacheService.set).toHaveBeenCalledWith('cache:email-template:missing', null, 900_000);
+    });
+
+    it('falls back to the repository when the cache read fails', async () => {
+      const template = { id: 'tpl-1', slug: 'welcome' };
+      mockCacheService.get.mockRejectedValue(new Error('redis down'));
+      mockRepository.findBySlug.mockResolvedValue(template);
+
+      await expect(service.findBySlug('welcome')).resolves.toBe(template);
+      expect(mockRepository.findBySlug).toHaveBeenCalledWith('welcome');
+    });
+
+    it('resolve serves the cached DB template for the default language', async () => {
+      const template = { id: 'tpl-1', slug: 'welcome', subject: 's', content: 'c' };
+      mockCacheService.get.mockResolvedValue(template);
+
+      await expect(service.resolve('welcome')).resolves.toBe(template);
+      expect(mockRepository.findBySlug).not.toHaveBeenCalled();
+    });
+  });
+
   describe('update', () => {
     it('should throw DomainError TEMPLATE_NOT_FOUND when template does not exist', async () => {
       mockRepository.updateBySlug.mockResolvedValue(null);
@@ -332,6 +383,44 @@ describe(EmailTemplateService.name, () => {
         subject: 'Hi Jane',
         html: '<p>{{missing}}</p>',
       });
+    });
+  });
+
+  describe('warmCache (PERF-14)', () => {
+    it('populates the slug cache for every active template in one repository read', async () => {
+      const templates = [
+        { id: 'tpl-1', slug: 'welcome' },
+        { id: 'tpl-2', slug: 'password-reset' },
+      ];
+      mockRepository.findActive.mockResolvedValue(templates);
+
+      await expect(service.warmCache()).resolves.toBe(2);
+      expect(mockRepository.findActive).toHaveBeenCalledTimes(1);
+      expect(mockCacheService.set).toHaveBeenCalledWith(
+        'cache:email-template:welcome',
+        templates[0],
+        900_000,
+      );
+      expect(mockCacheService.set).toHaveBeenCalledWith(
+        'cache:email-template:password-reset',
+        templates[1],
+        900_000,
+      );
+    });
+
+    it('keeps warming the remaining templates when one cache write fails', async () => {
+      mockRepository.findActive.mockResolvedValue([{ id: 'tpl-1', slug: 'a' }, { id: 'tpl-2', slug: 'b' }]);
+      mockCacheService.set.mockRejectedValueOnce(new Error('redis down'));
+
+      await expect(service.warmCache()).resolves.toBe(1);
+      expect(mockCacheService.set).toHaveBeenCalledTimes(2);
+    });
+
+    it('counts only the cache writes that succeeded', async () => {
+      mockRepository.findActive.mockResolvedValue([{ id: 'tpl-1', slug: 'a' }, { id: 'tpl-2', slug: 'b' }]);
+      mockCacheService.set.mockRejectedValueOnce(new Error('redis down'));
+
+      await expect(service.warmCache()).resolves.toBe(1);
     });
   });
 

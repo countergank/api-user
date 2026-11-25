@@ -11,6 +11,10 @@ export class EmailTemplateRepository {
     return this.templateModel.findOne({ slug, isActive: true }).exec();
   }
 
+  async findActive(): Promise<EmailTemplate[]> {
+    return this.templateModel.find({ isActive: true }).exec();
+  }
+
   /**
    * One page of templates plus the total of the filtered set (COU-260).
    * `active === undefined` lists every template, matching the old `findAll`.
