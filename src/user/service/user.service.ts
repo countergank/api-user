@@ -212,7 +212,10 @@ export class UserService {
     return mergeEffectivePermissions(rolePermissions, user.permissions ?? []);
   }
 
-  async findById(id: string, opts?: { includePassword?: boolean }): Promise<User> {
+  async findById(
+    id: string,
+    opts?: { includePassword?: boolean; includeTwoFactorSecret?: boolean },
+  ): Promise<User> {
     const user: User = await this.userRepository.findById(id, opts);
     if (!user) {
       throw DomainError.fromKind('USER_NOT_FOUND');

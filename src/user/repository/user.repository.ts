@@ -90,10 +90,16 @@ export class UserRepository implements OnApplicationBootstrap {
     return user.save();
   }
 
-  async findById(id: string, opts?: { includePassword?: boolean }): Promise<User | null> {
+  async findById(
+    id: string,
+    opts?: { includePassword?: boolean; includeTwoFactorSecret?: boolean },
+  ): Promise<User | null> {
     const query = this.userModel.findById(id);
     if (opts?.includePassword) {
       query.select('+password');
+    }
+    if (opts?.includeTwoFactorSecret) {
+      query.select('+twoFactorSecret');
     }
     return query.exec();
   }
