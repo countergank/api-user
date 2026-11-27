@@ -3,7 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { authenticator } from 'otplib';
 import { DomainError } from '../../common/errors/domain.error';
-import { CacheService } from '../../config/cache';
+import { RedisService } from '../../config/redis';
 import { User } from '../../user/entities/user.entity';
 import { UserService } from '../../user/service/user.service';
 import { decryptTotpSecret } from './totp-cipher';
@@ -11,28 +11,49 @@ import { decryptTotpSecret } from './totp-cipher';
 /** Wrong codes allowed against one challenge, the valid attempt included. */
 export const TWO_FACTOR_CHALLENGE_ATTEMPTS = 5;
 
-/** Lifetime of a pending challenge. */
-export const TWO_FACTOR_CHALLENGE_TTL_MS = 5 * 60 * 1000;
+/** Lifetime of a pending challenge, in seconds. */
+export const TWO_FACTOR_CHALLENGE_TTL_SECONDS = 300;
 
 const CHALLENGE_KEY_PREFIX = '2fa:challenge:';
 
 /** Symmetric TOTP time tolerance in time steps (one step of 30 s each side). */
 const TOTP_WINDOW_STEPS = 1;
 
-interface ChallengeEntry {
-  userId: string;
-  attempts: number;
-}
+// challenge:consume — burns one budget unit atomically: nil for a missing
+// challenge, -1 once the budget is spent (the key dies with it), otherwise
+// {userId, remaining}. HINCRBY mutates the hash in place, so the TTL set by
+// startChallenge is never refreshed by retries.
+const CONSUME_ATTEMPT_SCRIPT = `
+-- challenge:consume
+if redis.call('EXISTS', KEYS[1]) == 0 then
+  return nil
+end
+local remaining = redis.call('HINCRBY', KEYS[1], 'attempts', -1)
+if remaining < 0 then
+  redis.call('DEL', KEYS[1])
+  return -1
+end
+return { redis.call('HGET', KEYS[1], 'userId'), remaining }
+`;
+
+// challenge:claim — deletes the key and hands out the userId to exactly one
+// caller; the losers of a concurrent race get nil.
+const CLAIM_CHALLENGE_SCRIPT = `
+-- challenge:claim
+local userId = redis.call('HGET', KEYS[1], 'userId')
+if redis.call('DEL', KEYS[1]) == 1 then
+  return userId
+end
+return nil
+`;
 
 /**
  * Pending login challenges for the second factor. The plaintext token is
  * handed to the client exactly once; Redis keeps only its sha256 as key, so
- * the store never holds a value an attacker could replay elsewhere. TTL-based
- * expiry needs no cron, and the attempt budget bounds brute force per
- * challenge.
- *
- * Reads fail closed through CacheService: a missing or unreadable entry is an
- * unknown challenge, never an accepted one.
+ * the store never holds a value an attacker could replay elsewhere. Both the
+ * attempt budget and the single-use success claim run as atomic Lua scripts,
+ * so concurrent submissions cannot share one budget unit or one success, and
+ * wrong codes never refresh the challenge TTL.
  */
 @Injectable()
 export class TwoFactorChallengeService {
@@ -43,7 +64,7 @@ export class TwoFactorChallengeService {
   constructor(
     private readonly userService: UserService,
     private readonly configService: ConfigService,
-    private readonly cacheService: CacheService,
+    private readonly redisService: RedisService,
   ) {}
 
   /**
@@ -55,36 +76,40 @@ export class TwoFactorChallengeService {
    */
   async startChallenge(userId: string): Promise<string> {
     const token = randomBytes(32).toString('base64url');
-    await this.cacheService.set(
-      this.challengeKey(token),
-      { userId, attempts: TWO_FACTOR_CHALLENGE_ATTEMPTS },
-      TWO_FACTOR_CHALLENGE_TTL_MS,
-    );
+    const key = this.challengeKey(token);
+    const client = this.redisService.getClient();
+    await client.hset(key, 'userId', userId, 'attempts', TWO_FACTOR_CHALLENGE_ATTEMPTS);
+    await client.expire(key, TWO_FACTOR_CHALLENGE_TTL_SECONDS);
     return token;
   }
 
   /**
-   * Settles a pending challenge with a TOTP code.
+   * Settles a pending challenge with a TOTP code. One budget unit is burned
+   * atomically up front, before the code is even checked.
    *
    * @param {string} token - Plaintext challenge token issued by startChallenge.
    * @param {string} code - TOTP code from the authenticator app.
    * @returns {Promise<string>} userId of the challenge owner, for token minting.
    * @throws {DomainError} INVALID_TWO_FACTOR_CHALLENGE when the challenge is
-   * unknown, expired, exhausted, or its factor was disabled while pending.
+   * unknown, expired, exhausted, claimed by a concurrent submission, or its
+   * factor was disabled while pending.
    * @throws {DomainError} INVALID_TWO_FACTOR_CODE on a wrong code with budget
-   * left, and on the attempt that exhausts the budget.
+   * left, including the last budgeted attempt.
    * @throws {DomainError} TWO_FACTOR_NOT_ENROLLED when the stored secret
    * cannot be decrypted.
    */
   async verifyChallenge(token: string, code: string): Promise<string> {
-    const entry = await this.cacheService.get<ChallengeEntry>(this.challengeKey(token));
-    if (!entry) {
+    const key = this.challengeKey(token);
+    const client = this.redisService.getClient();
+    const consumed = (await client.eval(CONSUME_ATTEMPT_SCRIPT, 1, key)) as [string, number] | number | null;
+    if (consumed === null || typeof consumed === 'number') {
       throw DomainError.fromKind('INVALID_TWO_FACTOR_CHALLENGE');
     }
+    const [challengeUserId] = consumed;
 
-    const user = await this.userService.findById(entry.userId, { includeTwoFactorSecret: true });
+    const user = await this.userService.findById(challengeUserId, { includeTwoFactorSecret: true });
     if (!user || !user.twoFactorEnabled || !user.twoFactorSecret) {
-      await this.cacheService.del(this.challengeKey(token));
+      await client.del(key);
       throw DomainError.fromKind('INVALID_TWO_FACTOR_CHALLENGE');
     }
 
@@ -97,25 +122,15 @@ export class TwoFactorChallengeService {
       throw DomainError.fromKind('TWO_FACTOR_NOT_ENROLLED');
     }
 
-    if (this.totp.verify({ token: code, secret })) {
-      await this.cacheService.del(this.challengeKey(token));
-      return user.id;
-    }
-
-    const remaining = entry.attempts - 1;
-    if (remaining <= 0) {
-      await this.cacheService.del(this.challengeKey(token));
+    if (!this.totp.verify({ token: code, secret })) {
       throw DomainError.fromKind('INVALID_TWO_FACTOR_CODE');
     }
 
-    // Rewriting the entry refreshes the TTL, so a challenge can outlive its
-    // first window by at most the remaining wrong attempts.
-    await this.cacheService.set(
-      this.challengeKey(token),
-      { userId: entry.userId, attempts: remaining },
-      TWO_FACTOR_CHALLENGE_TTL_MS,
-    );
-    throw DomainError.fromKind('INVALID_TWO_FACTOR_CODE');
+    const claimed = (await client.eval(CLAIM_CHALLENGE_SCRIPT, 1, key)) as string | null;
+    if (claimed === null) {
+      throw DomainError.fromKind('INVALID_TWO_FACTOR_CHALLENGE');
+    }
+    return claimed;
   }
 
   private challengeKey(token: string): string {
