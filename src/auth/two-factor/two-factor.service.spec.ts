@@ -22,7 +22,13 @@ async function expectDomainError(promise: Promise<unknown>, kind: string): Promi
 
 describe('TwoFactorService', () => {
   let service: TwoFactorService;
-  let userService: { findById: jest.Mock; update: jest.Mock; unsetFields: jest.Mock };
+  let userService: {
+    findById: jest.Mock;
+    update: jest.Mock;
+    unsetFields: jest.Mock;
+    incrementTwoFactorAttempts: jest.Mock;
+    purgeTwoFactorEnrollment: jest.Mock;
+  };
 
   const baseUser = {
     id: 'user-1',
@@ -30,13 +36,33 @@ describe('TwoFactorService', () => {
     twoFactorEnabled: false,
   } as unknown as User;
 
+  const totp = authenticator.clone({ window: 1 });
+
+  /** A code that cannot verify against the secret in any tolerated step. */
+  function wrongCodeFor(secret: string): string {
+    const valid = authenticator.generate(secret);
+    for (let delta = 1; delta <= 10; delta++) {
+      const candidate = `${(Number(valid[0]) + delta) % 10}${valid.slice(1)}`;
+      if (!totp.verify({ token: candidate, secret })) {
+        return candidate;
+      }
+    }
+    throw new Error('no wrong code could be derived');
+  }
+
   beforeEach(async () => {
     const module = await Test.createTestingModule({
       providers: [
         TwoFactorService,
         {
           provide: UserService,
-          useValue: { findById: jest.fn(), update: jest.fn(), unsetFields: jest.fn() },
+          useValue: {
+            findById: jest.fn(),
+            update: jest.fn(),
+            unsetFields: jest.fn(),
+            incrementTwoFactorAttempts: jest.fn(),
+            purgeTwoFactorEnrollment: jest.fn(),
+          },
         },
         {
           provide: ConfigService,
@@ -92,15 +118,14 @@ describe('TwoFactorService', () => {
       expect(decryptTotpSecret(persisted, ENCRYPTION_PASSWORD)).toBe(second.secret);
     });
 
-    it('reads the user with the two-factor secret selected', async () => {
+    it('only checks the user exists, without loading the secret', async () => {
       userService.findById.mockResolvedValue(baseUser);
       userService.update.mockResolvedValue(baseUser);
 
       await service.enroll('user-1', 'user@example.com');
 
-      expect(userService.findById).toHaveBeenCalledWith('user-1', {
-        includeTwoFactorSecret: true,
-      });
+      expect(userService.findById).toHaveBeenCalledWith('user-1');
+      expect(userService.findById).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -119,21 +144,21 @@ describe('TwoFactorService', () => {
       );
     });
 
-    it('rejects an invalid code and counts the attempt', async () => {
-      const { persistedSecret } = await enrollAndPersist();
+    it('rejects an invalid code with a single atomic attempt increment', async () => {
+      const { secret, persistedSecret } = await enrollAndPersist();
       userService.findById.mockResolvedValue({ ...baseUser, twoFactorSecret: persistedSecret });
       userService.update.mockClear();
 
-      await expectDomainError(service.activate('user-1', '000000'), 'INVALID_TWO_FACTOR_CODE');
+      await expectDomainError(service.activate('user-1', wrongCodeFor(secret)), 'INVALID_TWO_FACTOR_CODE');
 
-      expect(userService.update).toHaveBeenCalledWith(
-        'user-1',
-        expect.objectContaining({ twoFactorAttempts: 1, twoFactorEnabled: false }),
-      );
+      expect(userService.incrementTwoFactorAttempts).toHaveBeenCalledTimes(1);
+      expect(userService.incrementTwoFactorAttempts).toHaveBeenCalledWith('user-1');
+      expect(userService.update).not.toHaveBeenCalled();
+      expect(userService.unsetFields).not.toHaveBeenCalled();
     });
 
-    it('purges the pending secret after the attempt budget is exhausted', async () => {
-      const { persistedSecret } = await enrollAndPersist();
+    it('purges the pending secret in a single write after the attempt budget is exhausted', async () => {
+      const { secret, persistedSecret } = await enrollAndPersist();
       userService.findById.mockResolvedValue({
         ...baseUser,
         twoFactorSecret: persistedSecret,
@@ -141,13 +166,21 @@ describe('TwoFactorService', () => {
       });
       userService.update.mockClear();
 
-      await expectDomainError(service.activate('user-1', '000000'), 'INVALID_TWO_FACTOR_CODE');
+      await expectDomainError(service.activate('user-1', wrongCodeFor(secret)), 'INVALID_TWO_FACTOR_CODE');
 
-      expect(userService.update).toHaveBeenCalledWith(
-        'user-1',
-        expect.objectContaining({ twoFactorEnabled: false, twoFactorAttempts: 0 }),
-      );
-      expect(userService.update.mock.calls[0][1].twoFactorSecret).toBeUndefined();
+      expect(userService.purgeTwoFactorEnrollment).toHaveBeenCalledTimes(1);
+      expect(userService.purgeTwoFactorEnrollment).toHaveBeenCalledWith('user-1');
+      expect(userService.unsetFields).not.toHaveBeenCalled();
+      expect(userService.update).not.toHaveBeenCalled();
+    });
+
+    it('maps an undecryptable stored secret to TWO_FACTOR_NOT_ENROLLED instead of a 500', async () => {
+      userService.findById.mockResolvedValue({ ...baseUser, twoFactorSecret: 'v1:garbage' });
+
+      await expectDomainError(service.activate('user-1', '123456'), 'TWO_FACTOR_NOT_ENROLLED');
+
+      expect(userService.update).not.toHaveBeenCalled();
+      expect(userService.incrementTwoFactorAttempts).not.toHaveBeenCalled();
     });
 
     it('rejects activation without a pending enrollment', async () => {

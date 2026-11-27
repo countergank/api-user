@@ -263,6 +263,36 @@ export class UserService {
     return updated;
   }
 
+  /**
+   * Counts one failed TOTP activation atomically (server-side `$inc`), so
+   * concurrent wrong codes cannot lose attempts.
+   *
+   * @throws DomainError USER_NOT_FOUND for an unknown id.
+   */
+  async incrementTwoFactorAttempts(id: string): Promise<User> {
+    const updated = await this.userRepository.incrementTwoFactorAttempts(id);
+    if (!updated) {
+      throw DomainError.fromKind('USER_NOT_FOUND');
+    }
+    this.invalidateUserCache(id);
+    return updated;
+  }
+
+  /**
+   * Purges a TOTP enrollment in a single write: secret unset, factor disabled
+   * and attempt counter reset together.
+   *
+   * @throws DomainError USER_NOT_FOUND for an unknown id.
+   */
+  async purgeTwoFactorEnrollment(id: string): Promise<User> {
+    const updated = await this.userRepository.purgeTwoFactorEnrollment(id);
+    if (!updated) {
+      throw DomainError.fromKind('USER_NOT_FOUND');
+    }
+    this.invalidateUserCache(id);
+    return updated;
+  }
+
   async validatePassword(password: string, hashedPassword: string): Promise<boolean> {
     return this.encodeService.compare(password, hashedPassword);
   }

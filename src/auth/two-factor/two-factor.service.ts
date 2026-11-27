@@ -38,7 +38,7 @@ export class TwoFactorService {
    * secret and leaves two-factor disabled until the new secret is activated.
    */
   async enroll(userId: string, email: string): Promise<TwoFactorEnrollment> {
-    await this.userService.findById(userId, { includeTwoFactorSecret: true });
+    await this.userService.findById(userId);
 
     const secret = authenticator.generateSecret();
     const otpauthUrl = authenticator.keyuri(
@@ -69,7 +69,14 @@ export class TwoFactorService {
       throw DomainError.fromKind('TWO_FACTOR_NOT_ENROLLED');
     }
 
-    const secret = decryptTotpSecret(user.twoFactorSecret, this.encryptionPassword);
+    let secret: string;
+    try {
+      secret = decryptTotpSecret(user.twoFactorSecret, this.encryptionPassword);
+    } catch {
+      // An undecryptable ciphertext (e.g. after an ENCRYPTION_PASSWORD
+      // rotation) is not a usable enrollment.
+      throw DomainError.fromKind('TWO_FACTOR_NOT_ENROLLED');
+    }
     if (this.totp.verify({ token: code, secret })) {
       await this.userService.update(userId, {
         twoFactorEnabled: true,
@@ -80,18 +87,13 @@ export class TwoFactorService {
 
     const attempts = (user.twoFactorAttempts ?? 0) + 1;
     if (attempts >= TWO_FACTOR_MAX_ATTEMPTS) {
-      await this.userService.unsetFields(userId, ['twoFactorSecret']);
-      await this.userService.update(userId, {
-        twoFactorEnabled: false,
-        twoFactorAttempts: 0,
-      } as Partial<User>);
+      // A residual race stays benign: two concurrent final attempts can both
+      // purge, and the second purge is a no-op on an already-purged document.
+      await this.userService.purgeTwoFactorEnrollment(userId);
       throw DomainError.fromKind('INVALID_TWO_FACTOR_CODE');
     }
 
-    await this.userService.update(userId, {
-      twoFactorEnabled: false,
-      twoFactorAttempts: attempts,
-    } as Partial<User>);
+    await this.userService.incrementTwoFactorAttempts(userId);
     throw DomainError.fromKind('INVALID_TWO_FACTOR_CODE');
   }
 

@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { authenticator } from 'otplib';
 import { createTestApp } from '../../helpers/create-test-app';
+import { seedAdminForE2E } from '../../helpers/seed-admin';
 
 /**
  * E2E del enrolamiento TOTP (#566): enroll → activate, budget de intentos y
@@ -10,6 +11,8 @@ import { createTestApp } from '../../helpers/create-test-app';
 describe('TwoFactorController (e2e)', () => {
   let app: INestApplication;
   let accessToken: string;
+  let adminToken: string;
+  let userId: string;
 
   const testUser = {
     email: `totp-${Date.now()}@example.com`,
@@ -19,11 +22,30 @@ describe('TwoFactorController (e2e)', () => {
     lastName: 'User',
   };
 
+  // A hardcoded "wrong" code can collide with the real TOTP of the moment, so
+  // every wrong code is derived from the valid one and checked against the
+  // same ±1 step window the service tolerates.
+  const totp = authenticator.clone({ window: 1 });
+
+  function wrongCodeFor(secret: string): string {
+    const valid = authenticator.generate(secret);
+    for (let delta = 1; delta <= 10; delta++) {
+      const candidate = `${(Number(valid[0]) + delta) % 10}${valid.slice(1)}`;
+      if (!totp.verify({ token: candidate, secret })) {
+        return candidate;
+      }
+    }
+    throw new Error('no wrong code could be derived');
+  }
+
   beforeAll(async () => {
     app = await createTestApp();
 
     const response = await request(app.getHttpServer()).post('/auth/register').send(testUser).expect(201);
     accessToken = response.body.accessToken;
+    userId = response.body.user.id;
+
+    ({ adminToken } = await seedAdminForE2E(app));
   });
 
   afterAll(async () => {
@@ -63,7 +85,7 @@ describe('TwoFactorController (e2e)', () => {
       const response = await request(app.getHttpServer())
         .post('/auth/2fa/activate')
         .set('Authorization', `Bearer ${accessToken}`)
-        .send({ code: '000000' })
+        .send({ code: wrongCodeFor(secret) })
         .expect(401);
 
       expect(response.body.code).toBe('UA-AUTH-013');
@@ -101,7 +123,7 @@ describe('TwoFactorController (e2e)', () => {
         await request(app.getHttpServer())
           .post('/auth/2fa/activate')
           .set('Authorization', `Bearer ${accessToken}`)
-          .send({ code: '000000' })
+          .send({ code: wrongCodeFor(secret) })
           .expect(401);
       }
 
@@ -119,10 +141,28 @@ describe('TwoFactorController (e2e)', () => {
   });
 
   describe('secret exposure', () => {
+    // The budget tests above purged the enrollment, so a fresh one is started
+    // here: the document holds a secret again while both endpoints are checked.
+    beforeAll(async () => {
+      await request(app.getHttpServer())
+        .post('/auth/2fa/enroll')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(201);
+    });
+
     it('never leaks the secret through /auth/me', async () => {
       const response = await request(app.getHttpServer())
         .get('/auth/me')
         .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+
+      expect(JSON.stringify(response.body)).not.toContain('twoFactorSecret');
+    });
+
+    it('never leaks the secret through the admin user detail', async () => {
+      const response = await request(app.getHttpServer())
+        .get(`/admin/users/${userId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
       expect(JSON.stringify(response.body)).not.toContain('twoFactorSecret');

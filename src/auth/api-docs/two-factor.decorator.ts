@@ -64,7 +64,7 @@ export function ApplyActivateTwoFactorDoc() {
     ApiBearerAuth(),
     ApiExtraModels(ActivateTwoFactorRequest, ActivateTwoFactorResponse),
     ApiResponse({
-      status: 201,
+      status: 200,
       description: 'Segundo factor habilitado',
       schema: { $ref: getSchemaPath(ActivateTwoFactorResponse) },
     }),

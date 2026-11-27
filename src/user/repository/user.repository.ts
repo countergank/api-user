@@ -209,6 +209,37 @@ export class UserRepository implements OnApplicationBootstrap {
     return this.userModel.findByIdAndUpdate(id, { $unset }, { new: true, session }).exec();
   }
 
+  /**
+   * Counts one failed TOTP activation and keeps the factor disabled in a
+   * single server-side write: `$inc` is applied by the server, so concurrent
+   * failures can never overwrite each other with a stale read-modify-write
+   * count.
+   *
+   * @returns the updated user, or `null` when the document does not exist.
+   */
+  async incrementTwoFactorAttempts(id: string): Promise<User | null> {
+    return this.userModel
+      .findByIdAndUpdate(id, { $inc: { twoFactorAttempts: 1 }, $set: { twoFactorEnabled: false } }, { new: true })
+      .exec();
+  }
+
+  /**
+   * Destroys a TOTP enrollment in one atomic write: the secret ciphertext is
+   * `$unset` together with `$set` of the disabled flag and the reset attempt
+   * counter, so a reader can never observe half a purge.
+   *
+   * @returns the updated user, or `null` when the document does not exist.
+   */
+  async purgeTwoFactorEnrollment(id: string): Promise<User | null> {
+    return this.userModel
+      .findByIdAndUpdate(
+        id,
+        { $unset: { twoFactorSecret: 1 }, $set: { twoFactorEnabled: false, twoFactorAttempts: 0 } },
+        { new: true },
+      )
+      .exec();
+  }
+
   async validatePassword(password: string, hashedPassword: string): Promise<boolean> {
     return this.encodeService.compare(password, hashedPassword);
   }
