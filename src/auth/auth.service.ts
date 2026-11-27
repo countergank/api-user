@@ -18,6 +18,7 @@ import { SessionRevocationService } from '../session/session-revocation.service'
 import { User, UserRole } from '../user/entities/user.entity';
 import { EMAIL_REVERT_WINDOW_MS } from '../user/service/email-change-code';
 import { UserService } from '../user/service/user.service';
+import { TwoFactorChallengeService } from './two-factor/totp-challenge';
 
 /**
  * Detects a MongoDB duplicate-key error (code `11000`) thrown by the unique
@@ -79,6 +80,15 @@ export interface AuthResponse {
   verificationToken?: string;
 }
 
+/**
+ * Login outcome for a user with the second factor enabled: the password
+ * already validated, but no tokens exist until the challenge is settled.
+ */
+export interface TwoFactorChallengeResponse {
+  twoFactorRequired: true;
+  challengeToken: string;
+}
+
 export interface SessionContext extends SessionContextBase {
   /** `jti` of the refresh token being rotated (refresh exchanges only). */
   rotateFromJti?: string;
@@ -98,6 +108,7 @@ export class AuthService {
     private readonly roleService: RoleService,
     private readonly sessionRevocation: SessionRevocationService,
     private readonly activeSession: ActiveSessionService,
+    private readonly twoFactorChallenge: TwoFactorChallengeService,
   ) {}
 
   @AuditAction({
@@ -154,7 +165,11 @@ export class AuthService {
     return this.generateAuthResponse(user, verificationToken, session);
   }
 
-  async login(email: string, password: string, session?: SessionContext): Promise<AuthResponse> {
+  async login(
+    email: string,
+    password: string,
+    session?: SessionContext,
+  ): Promise<AuthResponse | TwoFactorChallengeResponse> {
     const user = await this.userService.findByEmail(email, { includePassword: true });
     if (!user) {
       throw DomainError.fromKind('INVALID_CREDENTIALS');
@@ -193,6 +208,39 @@ export class AuthService {
 
     if (!user.isActive) {
       throw DomainError.fromKind('ACCOUNT_INACTIVE');
+    }
+
+    if (user.twoFactorEnabled) {
+      // The password proved the identity, but no session exists until the
+      // second factor settles: the challenge token is the only proof carried
+      // forward, and it lives minutes, not days.
+      const challengeToken = await this.twoFactorChallenge.startChallenge(user.id);
+      return { twoFactorRequired: true, challengeToken };
+    }
+
+    return this.generateAuthResponse(user, undefined, session);
+  }
+
+  /**
+   * Settles a pending second-factor challenge and issues the token pair
+   * through the same session registration path as the password login.
+   *
+   * @param {string} challengeToken - Plaintext token returned by login.
+   * @param {string} code - TOTP code from the authenticator app.
+   * @param {SessionContext} session - Request context recorded on the session.
+   * @returns {Promise<AuthResponse>} Token pair and session record.
+   * @throws {DomainError} INVALID_TWO_FACTOR_CHALLENGE when the challenge is
+   * unknown, expired or exhausted; INVALID_TWO_FACTOR_CODE on a wrong code.
+   */
+  async completeTwoFactorChallenge(
+    challengeToken: string,
+    code: string,
+    session?: SessionContext,
+  ): Promise<AuthResponse> {
+    const userId = await this.twoFactorChallenge.verifyChallenge(challengeToken, code);
+    const user = await this.userService.findById(userId);
+    if (!user) {
+      throw DomainError.fromKind('USER_NOT_FOUND');
     }
 
     return this.generateAuthResponse(user, undefined, session);

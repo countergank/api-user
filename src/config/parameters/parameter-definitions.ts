@@ -112,4 +112,20 @@ export const PARAMETER_DEFINITIONS: ParameterDefinition[] = [
     ttl: 300,
     validate: IS_INT_MIN_1,
   },
+  {
+    key: 'TWO_FACTOR_CHALLENGE_THROTTLE_LIMIT',
+    type: 'number',
+    default: 10,
+    group: 'throttle',
+    ttl: 300,
+    validate: IS_INT_MIN_1,
+  },
+  {
+    key: 'TWO_FACTOR_CHALLENGE_THROTTLE_TTL',
+    type: 'number',
+    default: 60,
+    group: 'throttle',
+    ttl: 300,
+    validate: IS_INT_MIN_1,
+  },
 ];

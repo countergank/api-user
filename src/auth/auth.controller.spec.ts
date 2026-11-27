@@ -7,6 +7,7 @@ import request from 'supertest';
 import { ProfilePhotoUrlResolver } from '../user/storage/profile-photo-url.resolver';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { ChallengeTwoFactorDTO } from './dto/challenge-two-factor.dto';
 import { PERMISSIONS_KEY } from './decorators/permissions.decorator';
 import { ROLES_KEY } from './decorators/roles.decorator';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -578,6 +579,101 @@ describe(AuthController.name, () => {
       expect(result).not.toHaveProperty('updatedAt');
       expect(result).not.toHaveProperty('_id');
       expect(result).not.toHaveProperty('__v');
+    });
+  });
+
+  describe('POST /auth/2fa/challenge (#567)', () => {
+    let app: INestApplication;
+    let controller: AuthController;
+
+    const authResponse = {
+      sessionId: 'session-1',
+      user: { id: '1', email: 'test@test.com', userName: 'test', name: 'Test', lastName: 'User' },
+      accessToken: 'fake-access-token',
+      refreshToken: 'fake-refresh-token',
+    };
+
+    const mockAuthService = {
+      login: jest.fn().mockResolvedValue({ twoFactorRequired: true, challengeToken: 'challenge-token' }),
+      completeTwoFactorChallenge: jest.fn().mockResolvedValue(authResponse),
+    };
+
+    beforeAll(async () => {
+      const moduleFixture: TestingModule = await Test.createTestingModule({
+        imports: [
+          ThrottlerModule.forRoot([
+            {
+              ttl: 60,
+              limit: 100,
+            },
+          ]),
+        ],
+        controllers: [AuthController],
+        providers: [
+          { provide: AuthService, useValue: mockAuthService },
+          { provide: I18nService, useValue: { translate: jest.fn().mockImplementation((key: string) => Promise.resolve(key)) } },
+          { provide: ActiveSessionService, useValue: {} },
+          ProfilePhotoUrlResolver,
+          { provide: ConfigService, useValue: { get: () => undefined } },
+        ],
+      })
+        .useMocker((token) => {
+          if (typeof token === 'function') return Mock(token);
+        })
+        .compile();
+
+      app = moduleFixture.createNestApplication();
+      app.useGlobalFilters(new AllExceptionsFilter());
+      await app.init();
+
+      controller = moduleFixture.get(AuthController);
+    });
+
+    afterAll(async () => {
+      await app.close();
+    });
+
+    it('forwards the challenge branch of the login response unchanged (S1)', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: 'test@test.com', password: 'password' })
+        .expect(200);
+
+      expect(response.body).toEqual({ twoFactorRequired: true, challengeToken: 'challenge-token' });
+    });
+
+    it('exchanges the challenge token and code for an AuthResponse (S3)', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/auth/2fa/challenge')
+        .send({ challengeToken: 'challenge-token', code: '123456' })
+        .expect(200);
+
+      expect(mockAuthService.completeTwoFactorChallenge).toHaveBeenCalledWith(
+        'challenge-token',
+        '123456',
+        expect.anything(),
+      );
+      expect(response.body.accessToken).toBe('fake-access-token');
+      expect(response.body.refreshToken).toBe('fake-refresh-token');
+    });
+
+    it('maps a dead or exhausted challenge to 401 UA-AUTH-014 (S4)', async () => {
+      mockAuthService.completeTwoFactorChallenge.mockRejectedValueOnce(DomainError.fromKind('INVALID_TWO_FACTOR_CHALLENGE'));
+
+      const response = await request(app.getHttpServer())
+        .post('/auth/2fa/challenge')
+        .send({ challengeToken: 'dead-token', code: '123456' })
+        .expect(401);
+
+      expect(response.body.code).toBe('UA-AUTH-014');
+    });
+
+    it('delegates to the service with the request session context (S3)', async () => {
+      await controller.challengeTwoFactor({ challengeToken: 'token-2', code: '654321' } as ChallengeTwoFactorDTO, {
+        ip: '10.0.0.1',
+      });
+
+      expect(mockAuthService.completeTwoFactorChallenge).toHaveBeenCalledWith('token-2', '654321', { ip: '10.0.0.1' });
     });
   });
 });

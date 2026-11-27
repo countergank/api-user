@@ -99,8 +99,8 @@ describe('ErrorKind registry — COU-209 new entries', () => {
     expect(entry.defaultMessage).toBe(expected.defaultMessage);
   });
 
-  it('keeps the registry at 36 kinds (34 + TWO_FACTOR_NOT_ENROLLED and INVALID_TWO_FACTOR_CODE from #566)', () => {
-    expect(Object.keys(ErrorKind)).toHaveLength(36);
+  it('keeps the registry at 37 kinds (36 + INVALID_TWO_FACTOR_CHALLENGE from #567)', () => {
+    expect(Object.keys(ErrorKind)).toHaveLength(37);
   });
 
   it('registers INVALID_EMAIL_CHANGE_CODE as UA-AUTH-010 (401) for COU-263 (S1)', () => {
@@ -121,6 +121,15 @@ describe('ErrorKind registry — COU-209 new entries', () => {
       defaultMessage: 'The email revert window has expired',
     });
     expect(DomainError.fromKind('EMAIL_REVERT_WINDOW_EXPIRED').kind.kind).toBe('EMAIL_REVERT_WINDOW_EXPIRED');
+  });
+
+  it('registers INVALID_TWO_FACTOR_CHALLENGE as UA-AUTH-014 (401) for #567 (S4)', () => {
+    expect(ErrorKind.INVALID_TWO_FACTOR_CHALLENGE).toMatchObject({
+      group: 'AUTH',
+      code: 'UA-AUTH-014',
+      statusCode: 401,
+    });
+    expect(DomainError.fromKind('INVALID_TWO_FACTOR_CHALLENGE').kind.kind).toBe('INVALID_TWO_FACTOR_CHALLENGE');
   });
 
   it('registers ROLE_IN_USE as UA-RBAC-001 (409) for COU-269 (S14)', () => {

@@ -13,6 +13,7 @@ import {
   ApplyLoginDoc,
   ApplyLogoutAllDoc,
   ApplyLogoutDoc,
+  ApplyChallengeTwoFactorDoc,
   ApplyMeDoc,
   ApplyRefreshDoc,
   ApplyRegisterDoc,
@@ -24,6 +25,7 @@ import {
   ApplyVerifyEmailDoc,
 } from './api-docs';
 import { AuthService } from './auth.service';
+import { ChallengeTwoFactorDTO } from './dto/challenge-two-factor.dto';
 import { LoginDTO } from './dto/login.dto';
 import { MeResponseDTO } from './dto/me-response.dto';
 import { RegisterUserDTO } from './dto/register-user.dto';
@@ -77,6 +79,21 @@ export class AuthController {
   })
   async login(@Body() dto: LoginDTO, @SessionContextParam() session: SessionContext) {
     return this.authService.login(dto.email, dto.password, session);
+  }
+
+  @Post('2fa/challenge')
+  @HttpCode(200)
+  @ApplyChallengeTwoFactorDoc()
+  @AuditAction({
+    action: 'auth.2fa.challenge',
+    resource: 'auth',
+    getResourceId: (result: any) => result?.user?.id,
+    // The challenge token is the proof being exchanged: it never reaches
+    // the audit trail, only the attempt event.
+    getBefore: () => ({ twoFactorChallengeAttempt: true }),
+  })
+  async challengeTwoFactor(@Body() dto: ChallengeTwoFactorDTO, @SessionContextParam() session: SessionContext) {
+    return this.authService.completeTwoFactorChallenge(dto.challengeToken, dto.code, session);
   }
 
   @Post('forgot-password')

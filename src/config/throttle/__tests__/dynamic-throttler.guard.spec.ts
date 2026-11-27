@@ -50,6 +50,8 @@ describe('DynamicThrottlerGuard', () => {
         REGISTER_THROTTLE_TTL: 60,
         FORGOT_PASSWORD_THROTTLE_LIMIT: 3,
         FORGOT_PASSWORD_THROTTLE_TTL: 300,
+        TWO_FACTOR_CHALLENGE_THROTTLE_LIMIT: 10,
+        TWO_FACTOR_CHALLENGE_THROTTLE_TTL: 60,
       };
       return values[key];
     });
@@ -65,5 +67,7 @@ describe('DynamicThrottlerGuard', () => {
     expect(mockParameterService.get).toHaveBeenCalledWith('REGISTER_THROTTLE_TTL');
     expect(mockParameterService.get).toHaveBeenCalledWith('FORGOT_PASSWORD_THROTTLE_LIMIT');
     expect(mockParameterService.get).toHaveBeenCalledWith('FORGOT_PASSWORD_THROTTLE_TTL');
+    expect(mockParameterService.get).toHaveBeenCalledWith('TWO_FACTOR_CHALLENGE_THROTTLE_LIMIT');
+    expect(mockParameterService.get).toHaveBeenCalledWith('TWO_FACTOR_CHALLENGE_THROTTLE_TTL');
   });
 });

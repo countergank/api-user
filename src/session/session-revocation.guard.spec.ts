@@ -139,6 +139,8 @@ describe('PROBE P3 — denylist-before-mint / ordering (S2, S5)', () => {
       { getPermissionsForRole: jest.fn().mockResolvedValue([]) } as any,
       rev as unknown as SessionRevocationService,
       activeSession as unknown as ActiveSessionService,
+      {} as any,
+
     );
     await expect(svc.refreshToken('tok', { ip: '1.2.3.4' })).rejects.toThrow('redis down');
     expect(jwt.sign).not.toHaveBeenCalled();
@@ -171,6 +173,8 @@ describe('PROBE P3 — denylist-before-mint / ordering (S2, S5)', () => {
       { getPermissionsForRole: jest.fn().mockResolvedValue([]) } as any,
       rev as unknown as SessionRevocationService,
       activeSession as unknown as ActiveSessionService,
+      {} as any,
+
     );
     const res = await svc.refreshToken('tok');
     expect(order[0]).toBe('deny:old');
