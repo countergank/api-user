@@ -26,6 +26,10 @@ No-objetivos: modificar el login (challenge: #567), códigos de recuperación (#
 
 Suite final (2026-11-05): unit 1187/1187 (incluye fix del error-kind.spec que pinneaba el registro en 34 kinds; ahora 36 con los dos de #566) · e2e 374/374 · lint sin diagnósticos nuevos · build limpio.
 L7 (2026-11-26): entrega en un único commit `6637e7c` (744 líneas authored con tests y locks; límite de slice ~400 registrado como excepción explícita: el feature es una unidad lógica indivisible — entity + cipher + service + controller + specs comparten el ciclo RED→GREEN y partirlo dejaría commits que no compilan ni pasan suite). Pre-commit ejecutó la suite completa en verde.
+L9 (2026-11-26): review nativo del commit de fixes `af4fd13` (lineage review-e0ffcd4b03d840c3, tier high): lens review-risk capturado y admitido; lens review-reliability quedó pendiente tras 3 fallos determinísticos de generación del provider (stopReason: length, sin texto). Decisión del usuario (opción 2): dejar el candidate con review parcial y continuar — el trabajo está cubierto por suite completa verde + el review aprobado del candidato padre (`6637e7c`, lineage review-d6e994f2818271c6). El slot de reliability puede completarse más adelante reofreciendo el binding vía STATUS; no se sustituyó ni inventó resultado alguno.
+L10 (2026-11-27): verificación manual end-to-end por el usuario — login → enroll → QR renderizado con `qrencode -t UTF8` desde el otpauthUrl → escaneado con app autenticadora real → activate con código TOTP generado por el dispositivo: «¡funciono perfecto!». El ciclo completo del segundo factor queda validado fuera de los tests automatizados. Feature #566 cerrada a nivel ODD; pendiente únicamente el merge del PR #572 por parte del usuario y el cierre del issue/board.
+
+**Estado final**: T1-T5 completos. Commits: `6637e7c` (feature, 744 líneas), `da583c2` (registro ODD), `af4fd13` (fixes post-review, 172 líneas). Verificación: unit 1187/1187 · e2e 374/374 (+8/8 del fix slice) · lint sin diagnósticos nuevos · build limpio · review nativo aprobado (padre) + parcial (fixes, decisión del usuario) · prueba manual con dispositivo real exitosa.
 
 ## Log
 
