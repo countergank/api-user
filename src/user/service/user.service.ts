@@ -212,7 +212,10 @@ export class UserService {
     return mergeEffectivePermissions(rolePermissions, user.permissions ?? []);
   }
 
-  async findById(id: string, opts?: { includePassword?: boolean }): Promise<User> {
+  async findById(
+    id: string,
+    opts?: { includePassword?: boolean; includeTwoFactorSecret?: boolean },
+  ): Promise<User> {
     const user: User = await this.userRepository.findById(id, opts);
     if (!user) {
       throw DomainError.fromKind('USER_NOT_FOUND');
@@ -256,6 +259,36 @@ export class UserService {
    */
   async unsetFields(id: string, fields: string[], session?: ClientSession): Promise<User> {
     const updated = await this.userRepository.unsetFields(id, fields, session);
+    this.invalidateUserCache(id);
+    return updated;
+  }
+
+  /**
+   * Counts one failed TOTP activation atomically (server-side `$inc`), so
+   * concurrent wrong codes cannot lose attempts.
+   *
+   * @throws DomainError USER_NOT_FOUND for an unknown id.
+   */
+  async incrementTwoFactorAttempts(id: string): Promise<User> {
+    const updated = await this.userRepository.incrementTwoFactorAttempts(id);
+    if (!updated) {
+      throw DomainError.fromKind('USER_NOT_FOUND');
+    }
+    this.invalidateUserCache(id);
+    return updated;
+  }
+
+  /**
+   * Purges a TOTP enrollment in a single write: secret unset, factor disabled
+   * and attempt counter reset together.
+   *
+   * @throws DomainError USER_NOT_FOUND for an unknown id.
+   */
+  async purgeTwoFactorEnrollment(id: string): Promise<User> {
+    const updated = await this.userRepository.purgeTwoFactorEnrollment(id);
+    if (!updated) {
+      throw DomainError.fromKind('USER_NOT_FOUND');
+    }
     this.invalidateUserCache(id);
     return updated;
   }

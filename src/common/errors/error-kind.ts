@@ -176,6 +176,20 @@ export const ErrorKind = {
     statusCode: 410,
     defaultMessage: 'The email revert window has expired',
   },
+  TWO_FACTOR_NOT_ENROLLED: {
+    kind: 'TWO_FACTOR_NOT_ENROLLED',
+    group: 'AUTH',
+    code: 'UA-AUTH-012',
+    statusCode: 400,
+    defaultMessage: 'Two-factor authentication is not enrolled for this account',
+  },
+  INVALID_TWO_FACTOR_CODE: {
+    kind: 'INVALID_TWO_FACTOR_CODE',
+    group: 'AUTH',
+    code: 'UA-AUTH-013',
+    statusCode: 401,
+    defaultMessage: 'Invalid two-factor code',
+  },
   // ── Security / Guards (SEC) ────────────────────────────
   INVALID_TOKEN: {
     kind: 'INVALID_TOKEN',

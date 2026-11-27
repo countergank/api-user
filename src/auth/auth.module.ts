@@ -8,6 +8,8 @@ import { SessionModule } from '../session/session.module';
 import { UserModule } from '../user/user.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { TwoFactorController } from './two-factor.controller';
+import { TwoFactorService } from './two-factor/two-factor.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { LocalStrategy } from './strategies/local.strategy';
 
@@ -27,8 +29,8 @@ import { LocalStrategy } from './strategies/local.strategy';
       }),
     }),
   ],
-  controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, LocalStrategy],
+  controllers: [AuthController, TwoFactorController],
+  providers: [AuthService, TwoFactorService, JwtStrategy, LocalStrategy],
   exports: [AuthService, JwtModule],
 })
 export class AuthModule {}

@@ -131,6 +131,24 @@ export class User extends Base {
   @Prop({ type: Date, default: undefined })
   emailRevertExpires?: Date;
 
+  /**
+   * TOTP second-factor state (#566). The stored value is the AES-256-GCM
+   * ciphertext of the base32 secret — never the plaintext — and the field is
+   * excluded from every default query so it cannot leak into DTOs, caches or
+   * logs; only the two-factor flow selects it explicitly.
+   *
+   * `twoFactorAttempts` counts failed activations of the pending secret. When
+   * it reaches the budget the secret is purged and the user must re-enroll.
+   */
+  @Prop({ select: false })
+  twoFactorSecret?: string;
+
+  @Prop({ default: false })
+  twoFactorEnabled: boolean;
+
+  @Prop({ default: 0 })
+  twoFactorAttempts?: number;
+
   @Prop({ default: 0 })
   failedLoginAttempts: number;
 
