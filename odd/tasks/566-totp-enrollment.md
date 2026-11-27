@@ -18,13 +18,14 @@ No-objetivos: modificar el login (challenge: #567), códigos de recuperación (#
 
 | ID | Spec | Route | Commit |
 |----|------|-------|--------|
-| T1 | S1-S4 | inline: entity fields + AES-256-GCM cipher + TwoFactorService (enroll/activate) | |
-| T2 | S1, S3 | inline: `/auth/2fa` controller + DTOs + Swagger docs | |
-| T3 | S6 | inline: unit specs (service) | |
-| T4 | S6 | inline: e2e specs (enroll → activate, budget exhausted, secret no expuesto) | |
-| T5 | S6 | inline: suite completa + lint + build | |
+| T1 | S1-S4 | inline: entity fields + AES-256-GCM cipher + TwoFactorService (enroll/activate) | 6637e7c |
+| T2 | S1, S3 | inline: `/auth/2fa` controller + DTOs + Swagger docs | 6637e7c |
+| T3 | S6 | inline: unit specs (service) | 6637e7c |
+| T4 | S6 | inline: e2e specs (enroll → activate, budget exhausted, secret no expuesto) | 6637e7c |
+| T5 | S6 | inline: suite completa + lint + build | 6637e7c |
 
 Suite final (2026-11-05): unit 1187/1187 (incluye fix del error-kind.spec que pinneaba el registro en 34 kinds; ahora 36 con los dos de #566) · e2e 374/374 · lint sin diagnósticos nuevos · build limpio.
+L7 (2026-11-26): entrega en un único commit `6637e7c` (744 líneas authored con tests y locks; límite de slice ~400 registrado como excepción explícita: el feature es una unidad lógica indivisible — entity + cipher + service + controller + specs comparten el ciclo RED→GREEN y partirlo dejaría commits que no compilan ni pasan suite). Pre-commit ejecutó la suite completa en verde.
 
 ## Log
 
