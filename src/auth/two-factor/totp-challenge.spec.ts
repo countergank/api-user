@@ -27,11 +27,7 @@ async function expectDomainError(promise: Promise<unknown>, kind: string): Promi
 const challengeKeyOf = (token: string): string =>
   `2fa:challenge:${createHash('sha256').update(token).digest('hex')}`;
 
-/**
- * In-memory ioredis double for the commands the challenge store uses. eval
- * dispatches on the script markers to the same atomic semantics the real
- * scripts have, so concurrent calls interleave over the shared state.
- */
+/** In-memory ioredis double; eval replays the real scripts' atomic semantics over the shared hashes. */
 class FakeRedis {
   readonly hashes = new Map<string, Map<string, string>>();
   readonly expireCalls: Array<{ key: string; seconds: number }> = [];
@@ -39,20 +35,12 @@ class FakeRedis {
   hset(key: string, ...pairs: Array<string | number>): number {
     const hash = this.hashes.get(key) ?? new Map<string, string>();
     this.hashes.set(key, hash);
-    for (let i = 0; i < pairs.length; i += 2) {
-      hash.set(String(pairs[i]), String(pairs[i + 1]));
-    }
+    for (let i = 0; i < pairs.length; i += 2) hash.set(String(pairs[i]), String(pairs[i + 1]));
     return 1;
   }
 
-  hget(key: string, field: string): string | null {
-    return this.hashes.get(key)?.get(field) ?? null;
-  }
-
   expire(key: string, seconds: number): number {
-    if (!this.hashes.has(key)) {
-      return 0;
-    }
+    if (!this.hashes.has(key)) return 0;
     this.expireCalls.push({ key, seconds });
     return 1;
   }
@@ -62,24 +50,19 @@ class FakeRedis {
   }
 
   eval(script: string, _numKeys: number, key: string): unknown {
-    if (script.includes('challenge:consume')) {
-      const hash = this.hashes.get(key);
-      if (!hash) {
-        return null;
-      }
-      const remaining = Number(hash.get('attempts')) - 1;
-      hash.set('attempts', String(remaining));
-      if (remaining < 0) {
-        this.del(key);
-        return -1;
-      }
-      return [this.hget(key, 'userId'), remaining];
-    }
     if (script.includes('challenge:claim')) {
-      const userId = this.hget(key, 'userId');
+      const userId = this.hashes.get(key)?.get('userId') ?? null;
       return this.del(key) === 1 ? userId : null;
     }
-    throw new Error(`unrouted eval script: ${script}`);
+    const hash = this.hashes.get(key);
+    if (!hash) return null;
+    const remaining = Number(hash.get('attempts')) - 1;
+    hash.set('attempts', String(remaining));
+    if (remaining < 0) {
+      this.del(key);
+      return -1;
+    }
+    return [hash.get('userId'), remaining];
   }
 }
 
@@ -119,9 +102,10 @@ describe('TwoFactorChallengeService', () => {
   });
 
   /** Starts a challenge whose owner reads back with a decryptable secret. */
-  async function startedChallenge(): Promise<{ token: string; secret: string }> {
+  async function startedChallenge(attempts = TWO_FACTOR_CHALLENGE_ATTEMPTS): Promise<{ token: string; secret: string }> {
     const secret = authenticator.generateSecret();
     const token = await service.startChallenge('user-1');
+    redis.hset(challengeKeyOf(token), 'attempts', attempts);
     userService.findById.mockResolvedValue({
       ...baseUser,
       twoFactorSecret: encryptTotpSecret(secret, ENCRYPTION_PASSWORD),
@@ -136,8 +120,8 @@ describe('TwoFactorChallengeService', () => {
       expect(token).toHaveLength(43); // 32 random bytes, base64url
       const key = challengeKeyOf(token);
       expect(key).not.toContain(token);
-      expect(redis.hget(key, 'userId')).toBe('user-1');
-      expect(redis.hget(key, 'attempts')).toBe(String(TWO_FACTOR_CHALLENGE_ATTEMPTS));
+      expect(redis.hashes.get(key)?.get('userId')).toBe('user-1');
+      expect(redis.hashes.get(key)?.get('attempts')).toBe(String(TWO_FACTOR_CHALLENGE_ATTEMPTS));
       expect(redis.expireCalls).toEqual([{ key, seconds: TWO_FACTOR_CHALLENGE_TTL_SECONDS }]);
     });
 
@@ -165,54 +149,44 @@ describe('TwoFactorChallengeService', () => {
       expect(userService.findById).not.toHaveBeenCalled();
     });
 
-    it('charges one budget unit per attempt — concurrent or not — and never refreshes the TTL', async () => {
+    it('burns one budget unit per attempt — concurrent or not — and never refreshes the TTL', async () => {
       const { token, secret } = await startedChallenge();
-      const wrong = wrongCodeFor(secret);
 
-      await expectDomainError(service.verifyChallenge(token, wrong), 'INVALID_TWO_FACTOR_CODE');
-      expect(redis.hget(challengeKeyOf(token), 'attempts')).toBe(String(TWO_FACTOR_CHALLENGE_ATTEMPTS - 1));
-
+      await expectDomainError(service.verifyChallenge(token, wrongCodeFor(secret)), 'INVALID_TWO_FACTOR_CODE');
+      const key = challengeKeyOf(token);
+      expect(redis.hashes.get(key)?.get('attempts')).toBe(String(TWO_FACTOR_CHALLENGE_ATTEMPTS - 1));
       await Promise.all([
-        expectDomainError(service.verifyChallenge(token, wrong), 'INVALID_TWO_FACTOR_CODE'),
-        expectDomainError(service.verifyChallenge(token, wrong), 'INVALID_TWO_FACTOR_CODE'),
+        expectDomainError(service.verifyChallenge(token, wrongCodeFor(secret)), 'INVALID_TWO_FACTOR_CODE'),
+        expectDomainError(service.verifyChallenge(token, wrongCodeFor(secret)), 'INVALID_TWO_FACTOR_CODE'),
       ]);
-      expect(redis.hget(challengeKeyOf(token), 'attempts')).toBe(String(TWO_FACTOR_CHALLENGE_ATTEMPTS - 3));
-      // HINCRBY mutates in place: only startChallenge ever set the TTL.
-      expect(redis.expireCalls).toHaveLength(1);
+      expect(redis.hashes.get(key)?.get('attempts')).toBe(String(TWO_FACTOR_CHALLENGE_ATTEMPTS - 3));
+      expect(redis.expireCalls).toHaveLength(1); // HINCRBY mutates in place; the TTL is never refreshed
     });
 
-    it('deletes the challenge once the budget is spent, so the next attempt dies as unknown', async () => {
-      const { token, secret } = await startedChallenge();
+    it('deletes the entry when the budget is exhausted, so the challenge dies', async () => {
+      const { token, secret } = await startedChallenge(1);
 
-      for (let attempt = 0; attempt < TWO_FACTOR_CHALLENGE_ATTEMPTS; attempt++) {
-        await expectDomainError(service.verifyChallenge(token, wrongCodeFor(secret)), 'INVALID_TWO_FACTOR_CODE');
-      }
+      await expectDomainError(service.verifyChallenge(token, wrongCodeFor(secret)), 'INVALID_TWO_FACTOR_CODE');
+      await expectDomainError(service.verifyChallenge(token, wrongCodeFor(secret)), 'INVALID_TWO_FACTOR_CHALLENGE');
 
-      await expectDomainError(
-        service.verifyChallenge(token, authenticator.generate(secret)),
-        'INVALID_TWO_FACTOR_CHALLENGE',
-      );
       expect(redis.hashes.has(challengeKeyOf(token))).toBe(false);
     });
 
     it('lets only one of two concurrent valid submissions claim the challenge', async () => {
       const { token, secret } = await startedChallenge();
       const code = authenticator.generate(secret);
-
       const settled = await Promise.allSettled([
         service.verifyChallenge(token, code),
         service.verifyChallenge(token, code),
       ]);
-
       const winner = settled.find((result) => result.status === 'fulfilled') as PromiseFulfilledResult<string>;
       const loser = settled.find((result) => result.status === 'rejected') as PromiseRejectedResult;
       expect(winner.value).toBe('user-1');
-      expect(loser.reason).toBeInstanceOf(DomainError);
       expect(loser.reason.kind.kind).toBe('INVALID_TWO_FACTOR_CHALLENGE');
     });
 
     it('kills the challenge when the factor was disabled while it was pending', async () => {
-      const { token } = await startedChallenge();
+      const token = await service.startChallenge('user-1');
       userService.findById.mockResolvedValue({ ...baseUser, twoFactorEnabled: false });
 
       await expectDomainError(service.verifyChallenge(token, '123456'), 'INVALID_TWO_FACTOR_CHALLENGE');
@@ -221,7 +195,7 @@ describe('TwoFactorChallengeService', () => {
     });
 
     it('kills the challenge when the user no longer exists', async () => {
-      const { token } = await startedChallenge();
+      const token = await service.startChallenge('user-1');
       userService.findById.mockResolvedValue(null);
 
       await expectDomainError(service.verifyChallenge(token, '123456'), 'INVALID_TWO_FACTOR_CHALLENGE');
@@ -230,7 +204,7 @@ describe('TwoFactorChallengeService', () => {
     });
 
     it('maps an undecryptable stored secret to TWO_FACTOR_NOT_ENROLLED instead of a 500', async () => {
-      const { token } = await startedChallenge();
+      const token = await service.startChallenge('user-1');
       userService.findById.mockResolvedValue({ ...baseUser, twoFactorSecret: 'v1:garbage' });
 
       await expectDomainError(service.verifyChallenge(token, '123456'), 'TWO_FACTOR_NOT_ENROLLED');

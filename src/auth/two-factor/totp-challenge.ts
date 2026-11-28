@@ -11,7 +11,7 @@ import { decryptTotpSecret } from './totp-cipher';
 /** Wrong codes allowed against one challenge, the valid attempt included. */
 export const TWO_FACTOR_CHALLENGE_ATTEMPTS = 5;
 
-/** Lifetime of a pending challenge, in seconds. */
+/** Lifetime of a pending challenge. */
 export const TWO_FACTOR_CHALLENGE_TTL_SECONDS = 300;
 
 const CHALLENGE_KEY_PREFIX = '2fa:challenge:';
@@ -21,8 +21,7 @@ const TOTP_WINDOW_STEPS = 1;
 
 // challenge:consume — burns one budget unit atomically: nil for a missing
 // challenge, -1 once the budget is spent (the key dies with it), otherwise
-// {userId, remaining}. HINCRBY mutates the hash in place, so the TTL set by
-// startChallenge is never refreshed by retries.
+// {userId, remaining}. HINCRBY mutates in place, so the TTL is never refreshed.
 const CONSUME_ATTEMPT_SCRIPT = `
 -- challenge:consume
 if redis.call('EXISTS', KEYS[1]) == 0 then
@@ -36,8 +35,7 @@ end
 return { redis.call('HGET', KEYS[1], 'userId'), remaining }
 `;
 
-// challenge:claim — deletes the key and hands out the userId to exactly one
-// caller; the losers of a concurrent race get nil.
+// challenge:claim — deletes the key and hands out the userId to exactly one caller; race losers get nil.
 const CLAIM_CHALLENGE_SCRIPT = `
 -- challenge:claim
 local userId = redis.call('HGET', KEYS[1], 'userId')
@@ -50,10 +48,12 @@ return nil
 /**
  * Pending login challenges for the second factor. The plaintext token is
  * handed to the client exactly once; Redis keeps only its sha256 as key, so
- * the store never holds a value an attacker could replay elsewhere. Both the
- * attempt budget and the single-use success claim run as atomic Lua scripts,
- * so concurrent submissions cannot share one budget unit or one success, and
- * wrong codes never refresh the challenge TTL.
+ * the store never holds a value an attacker could replay elsewhere. TTL-based
+ * expiry needs no cron, and the attempt budget bounds brute force per
+ * challenge.
+ *
+ * Budget burn and the single-use success claim run as atomic Lua scripts, so
+ * concurrent submissions share neither a budget unit nor a success.
  */
 @Injectable()
 export class TwoFactorChallengeService {
@@ -84,8 +84,7 @@ export class TwoFactorChallengeService {
   }
 
   /**
-   * Settles a pending challenge with a TOTP code. One budget unit is burned
-   * atomically up front, before the code is even checked.
+   * Settles a pending challenge with a TOTP code.
    *
    * @param {string} token - Plaintext challenge token issued by startChallenge.
    * @param {string} code - TOTP code from the authenticator app.
@@ -94,20 +93,19 @@ export class TwoFactorChallengeService {
    * unknown, expired, exhausted, claimed by a concurrent submission, or its
    * factor was disabled while pending.
    * @throws {DomainError} INVALID_TWO_FACTOR_CODE on a wrong code with budget
-   * left, including the last budgeted attempt.
+   * left, and on the attempt that exhausts the budget.
    * @throws {DomainError} TWO_FACTOR_NOT_ENROLLED when the stored secret
    * cannot be decrypted.
    */
   async verifyChallenge(token: string, code: string): Promise<string> {
     const key = this.challengeKey(token);
     const client = this.redisService.getClient();
-    const consumed = (await client.eval(CONSUME_ATTEMPT_SCRIPT, 1, key)) as [string, number] | number | null;
-    if (consumed === null || typeof consumed === 'number') {
+    const consumed = await client.eval(CONSUME_ATTEMPT_SCRIPT, 1, key);
+    if (!Array.isArray(consumed)) {
       throw DomainError.fromKind('INVALID_TWO_FACTOR_CHALLENGE');
     }
-    const [challengeUserId] = consumed;
 
-    const user = await this.userService.findById(challengeUserId, { includeTwoFactorSecret: true });
+    const user = await this.userService.findById(consumed[0], { includeTwoFactorSecret: true });
     if (!user || !user.twoFactorEnabled || !user.twoFactorSecret) {
       await client.del(key);
       throw DomainError.fromKind('INVALID_TWO_FACTOR_CHALLENGE');
@@ -122,15 +120,15 @@ export class TwoFactorChallengeService {
       throw DomainError.fromKind('TWO_FACTOR_NOT_ENROLLED');
     }
 
-    if (!this.totp.verify({ token: code, secret })) {
-      throw DomainError.fromKind('INVALID_TWO_FACTOR_CODE');
+    if (this.totp.verify({ token: code, secret })) {
+      const claimed = (await client.eval(CLAIM_CHALLENGE_SCRIPT, 1, key)) as string | null;
+      if (claimed === null) {
+        throw DomainError.fromKind('INVALID_TWO_FACTOR_CHALLENGE');
+      }
+      return user.id;
     }
 
-    const claimed = (await client.eval(CLAIM_CHALLENGE_SCRIPT, 1, key)) as string | null;
-    if (claimed === null) {
-      throw DomainError.fromKind('INVALID_TWO_FACTOR_CHALLENGE');
-    }
-    return claimed;
+    throw DomainError.fromKind('INVALID_TWO_FACTOR_CODE');
   }
 
   private challengeKey(token: string): string {
