@@ -15,6 +15,8 @@ import { InternalErrorDTO } from '../../common/dto/internal-error.dto';
 import {
   ActivateTwoFactorRequest,
   ActivateTwoFactorResponse,
+  ChallengeTwoFactorRequest,
+  ChallengeTwoFactorResponse,
   EnrollTwoFactorRequest,
   EnrollTwoFactorResponse,
 } from './examples/two-factor.examples';
@@ -50,6 +52,29 @@ export function ApplyEnrollTwoFactorDoc() {
     ApiUnauthorizedResponse({ description: 'No autenticado o token inválido' }),
     ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
     ApiResponse(RateLimitResponse),
+  );
+}
+
+export function ApplyChallengeTwoFactorDoc() {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Completar el challenge del segundo factor (login con 2FA)',
+      description:
+        'Intercambia el challengeToken devuelto por POST /auth/login (usuario con 2FA habilitado) por los tokens de ' +
+        'sesión, validando el código TOTP del secreto activo. Sin Bearer token: el challengeToken es la prueba. ' +
+        'Budget de 5 códigos por challenge; agotado o expirado (TTL 5 min) hay que re-autenticarse con contraseña.',
+    }),
+    ApiExtraModels(ChallengeTwoFactorRequest, ChallengeTwoFactorResponse),
+    ApiResponse({
+      status: 200,
+      description: 'Challenge completado: AuthResponse con access y refresh tokens',
+      schema: { $ref: getSchemaPath(ChallengeTwoFactorResponse) },
+    }),
+    ApiBadRequestResponse({ description: 'Body inválido (challengeToken y code de 6 dígitos)' }),
+    ApiUnauthorizedResponse({ description: 'Código inválido, o challenge inválido/expirado/agotado' }),
+    ApiInternalServerErrorResponse({ description: 'Internal Server Error', type: InternalErrorDTO }),
+    ApiResponse(RateLimitResponse),
+    ApiBody({ schema: { $ref: getSchemaPath(ChallengeTwoFactorRequest) } }),
   );
 }
 

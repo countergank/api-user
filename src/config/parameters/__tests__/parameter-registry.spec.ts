@@ -229,8 +229,8 @@ describe('ParameterRegistry', () => {
   });
 
   describe('PARAMETER_DEFINITIONS', () => {
-    it('should have 14 entries (1 existing + 13 new)', () => {
-      expect(PARAMETER_DEFINITIONS).toHaveLength(14);
+    it('should have 16 entries (14 + the two-factor challenge throttle pair)', () => {
+      expect(PARAMETER_DEFINITIONS).toHaveLength(16);
     });
 
     it('should contain all required parameter keys', () => {
@@ -251,6 +251,8 @@ describe('ParameterRegistry', () => {
           'REGISTER_THROTTLE_TTL',
           'FORGOT_PASSWORD_THROTTLE_LIMIT',
           'FORGOT_PASSWORD_THROTTLE_TTL',
+          'TWO_FACTOR_CHALLENGE_THROTTLE_LIMIT',
+          'TWO_FACTOR_CHALLENGE_THROTTLE_TTL',
         ].sort(),
       );
     });
@@ -276,6 +278,8 @@ describe('ParameterRegistry', () => {
           'REGISTER_THROTTLE_TTL',
           'FORGOT_PASSWORD_THROTTLE_LIMIT',
           'FORGOT_PASSWORD_THROTTLE_TTL',
+          'TWO_FACTOR_CHALLENGE_THROTTLE_LIMIT',
+          'TWO_FACTOR_CHALLENGE_THROTTLE_TTL',
         ].sort(),
       );
     });
@@ -298,6 +302,8 @@ describe('ParameterRegistry', () => {
           'REGISTER_THROTTLE_TTL',
           'FORGOT_PASSWORD_THROTTLE_LIMIT',
           'FORGOT_PASSWORD_THROTTLE_TTL',
+          'TWO_FACTOR_CHALLENGE_THROTTLE_LIMIT',
+          'TWO_FACTOR_CHALLENGE_THROTTLE_TTL',
         ].sort(),
       );
     });

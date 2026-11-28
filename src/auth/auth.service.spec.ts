@@ -10,7 +10,7 @@ import { UserService } from '../user/service/user.service';
 import { Permission } from '../rbac/entities/permission.entity';
 import { Role } from '../rbac/entities/role.entity';
 import { RoleService } from '../rbac/services/role.service';
-import { AuthService } from './auth.service';
+import { AuthResponse, AuthService } from './auth.service';
 import { EmailEvents } from '../email/constants/email.events';
 import { EMAIL_REVERT_WINDOW_MS } from '../user/service/email-change-code';
 import { UserMock } from '../user/mocks/user.mock';
@@ -18,6 +18,7 @@ import { Mock } from '../test-utils';
 import { CacheService } from '../config/cache';
 import { SessionRevocationService } from '../session/session-revocation.service';
 import { ActiveSessionService } from '../session/active-session.service';
+import { TwoFactorChallengeService } from './two-factor/totp-challenge';
 
 /**
  * Assert that a promise rejects with a DomainError carrying the expected
@@ -108,6 +109,11 @@ describe(AuthService.name, () => {
     isJtiRevoked: jest.fn().mockResolvedValue(false),
   };
 
+  const mockTwoFactorChallenge = {
+    startChallenge: jest.fn(),
+    verifyChallenge: jest.fn(),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
     mockSessionRevocation.revokeJti.mockResolvedValue(undefined);
@@ -123,6 +129,7 @@ describe(AuthService.name, () => {
         if (token === getModelToken(Permission.name)) return { find: jest.fn() };
         if (token === CacheService) return mockCacheService;
         if (token === SessionRevocationService) return mockSessionRevocation;
+        if (token === TwoFactorChallengeService) return mockTwoFactorChallenge;
         if (typeof token === 'function') return Mock(token);
       })
       .compile();
@@ -727,7 +734,7 @@ describe(AuthService.name, () => {
       stubTokenSigning();
       jest.spyOn(activeSession, 'start').mockResolvedValue('session-login');
 
-      const result = await service.login(user.email, 'correct-password');
+      const result = (await service.login(user.email, 'correct-password')) as AuthResponse;
 
       expect(typeof result.sessionId).toBe('string');
       expect(result.sessionId).not.toHaveLength(0);
@@ -1162,6 +1169,84 @@ describe(AuthService.name, () => {
       const result = await service.validateUser(user.id);
 
       expect(result.permissions).toEqual([]);
+    });
+  });
+
+  describe(`${AuthService.name} login second-factor challenge (#567)`, () => {
+    /** A user whose password already validated and has the factor enabled. */
+    const twoFactorUser = (): UserMock => {
+      const user = new UserMock();
+      user.isActive = true;
+      user.twoFactorEnabled = true;
+      return user;
+    };
+
+    it('returns a pending challenge with no tokens and no session record (S1, S2)', async () => {
+      const user = twoFactorUser();
+      jest.spyOn(userService, 'findByEmail').mockResolvedValue(user);
+      jest.spyOn(userService, 'validatePassword').mockResolvedValue(true);
+      jest.spyOn(userService, 'update').mockResolvedValue(user);
+      mockTwoFactorChallenge.startChallenge.mockResolvedValue('challenge-token');
+      const signSpy = jest.spyOn(jwtService, 'sign');
+      const startSpy = jest.spyOn(activeSession, 'start');
+
+      const result = await service.login(user.email, 'correct-password');
+
+      expect(result).toEqual({ twoFactorRequired: true, challengeToken: 'challenge-token' });
+      expect(mockTwoFactorChallenge.startChallenge).toHaveBeenCalledWith(user.id);
+      expect(signSpy).not.toHaveBeenCalled();
+      expect(startSpy).not.toHaveBeenCalled();
+    });
+
+    it('keeps issuing tokens directly for a user without the second factor (S5)', async () => {
+      const user = new UserMock();
+      user.isActive = true;
+      jest.spyOn(userService, 'findByEmail').mockResolvedValue(user);
+      jest.spyOn(userService, 'validatePassword').mockResolvedValue(true);
+      jest.spyOn(userService, 'update').mockResolvedValue(user);
+      jest.spyOn(jwtService, 'sign').mockReturnValue('signed');
+      jest.spyOn(activeSession, 'start').mockResolvedValue('session-direct');
+
+      const result = await service.login(user.email, 'correct-password');
+
+      expect(result).toHaveProperty('accessToken', 'signed');
+      expect(result).not.toHaveProperty('challengeToken');
+      expect(result).not.toHaveProperty('twoFactorRequired');
+      expect(mockTwoFactorChallenge.startChallenge).not.toHaveBeenCalled();
+    });
+
+    it('completes a challenge through the same session registration path as login (S3)', async () => {
+      const user = new UserMock();
+      user.isActive = true;
+      mockTwoFactorChallenge.verifyChallenge.mockResolvedValue(user.id);
+      jest.spyOn(userService, 'findById').mockResolvedValue(user);
+      jest.spyOn(jwtService, 'sign').mockReturnValue('signed');
+      const startSpy = jest.spyOn(activeSession, 'start').mockResolvedValue('session-challenge');
+
+      const result = await service.completeTwoFactorChallenge('challenge-token', '123456', {
+        ip: '10.0.0.1',
+        userAgent: 'agent A',
+      });
+
+      expect(mockTwoFactorChallenge.verifyChallenge).toHaveBeenCalledWith('challenge-token', '123456');
+      expect(startSpy).toHaveBeenCalledWith(user.id, expect.any(String), expect.any(Date), '10.0.0.1', 'agent A');
+      expect(result.sessionId).toBe('session-challenge');
+      expect(result.accessToken).toBe('signed');
+      expect(result.refreshToken).toBe('signed');
+    });
+
+    it('mints nothing when the challenge verification rejects (S4)', async () => {
+      mockTwoFactorChallenge.verifyChallenge.mockRejectedValue(DomainError.fromKind('INVALID_TWO_FACTOR_CHALLENGE'));
+      const signSpy = jest.spyOn(jwtService, 'sign');
+      const startSpy = jest.spyOn(activeSession, 'start');
+
+      await expectDomainError(
+        service.completeTwoFactorChallenge('dead-token', '123456'),
+        'INVALID_TWO_FACTOR_CHALLENGE',
+      );
+
+      expect(signSpy).not.toHaveBeenCalled();
+      expect(startSpy).not.toHaveBeenCalled();
     });
   });
 });

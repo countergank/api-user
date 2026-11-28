@@ -190,6 +190,13 @@ export const ErrorKind = {
     statusCode: 401,
     defaultMessage: 'Invalid two-factor code',
   },
+  INVALID_TWO_FACTOR_CHALLENGE: {
+    kind: 'INVALID_TWO_FACTOR_CHALLENGE',
+    group: 'AUTH',
+    code: 'UA-AUTH-014',
+    statusCode: 401,
+    defaultMessage: 'Invalid or expired two-factor challenge',
+  },
   // ── Security / Guards (SEC) ────────────────────────────
   INVALID_TOKEN: {
     kind: 'INVALID_TOKEN',

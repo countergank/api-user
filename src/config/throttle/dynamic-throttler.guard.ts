@@ -52,6 +52,10 @@ export class DynamicThrottlerGuard extends ThrottlerGuard {
       limit: Number(await this.parameterService.get('FORGOT_PASSWORD_THROTTLE_LIMIT')),
       ttl: Number(await this.parameterService.get('FORGOT_PASSWORD_THROTTLE_TTL')),
     });
+    this.configMap.set('two-factor-challenge', {
+      limit: Number(await this.parameterService.get('TWO_FACTOR_CHALLENGE_THROTTLE_LIMIT')),
+      ttl: Number(await this.parameterService.get('TWO_FACTOR_CHALLENGE_THROTTLE_TTL')),
+    });
   }
 
   async handleRequest(
@@ -72,6 +76,8 @@ export class DynamicThrottlerGuard extends ThrottlerGuard {
       routeKey = 'register';
     } else if (url.includes('/auth/forgot-password')) {
       routeKey = 'forgot-password';
+    } else if (url.includes('/auth/2fa/challenge')) {
+      routeKey = 'two-factor-challenge';
     }
 
     const config = this.configMap.get(routeKey);

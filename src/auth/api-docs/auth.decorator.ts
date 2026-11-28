@@ -16,7 +16,7 @@ import { InternalErrorDTO } from '../../common/dto/internal-error.dto';
 import { ActiveSessionDTO } from '../../session/dto/active-session.dto';
 import { MeResponseDTO } from '../dto/me-response.dto';
 import { RegisterRequest, RegisterResponse } from './examples/register.examples';
-import { LoginRequest, LoginResponse } from './examples/login.examples';
+import { LoginRequest, LoginResponse, TwoFactorChallengeResponse } from './examples/login.examples';
 import { ForgotPasswordRequest, ResetPasswordRequest } from './examples/password.examples';
 import { RefreshRequest, RefreshResponse } from './examples/refresh.examples';
 import { LogoutRequest, LogoutResponse, LogoutAllResponse } from './examples/logout.examples';
@@ -86,14 +86,17 @@ export function ApplyLoginDoc() {
   return applyDecorators(
     ApiOperation({
       summary: 'Iniciar sesión',
-      description: 'Autentica un usuario y retorna tokens de acceso y refresh.',
+      description:
+        'Autentica un usuario y retorna tokens de acceso y refresh. Si el usuario tiene el segundo factor (TOTP) ' +
+        'habilitado, responde con twoFactorRequired: true y un challengeToken de vida corta (5 min) que se ' +
+        'intercambia por los tokens en POST /auth/2fa/challenge.',
     }),
-    ApiExtraModels(LoginRequest, LoginResponse),
+    ApiExtraModels(LoginRequest, LoginResponse, TwoFactorChallengeResponse),
     ApiResponse({
       status: 200,
-      description: 'Login exitoso',
+      description: 'Login exitoso. Con 2FA habilitado: challenge pendiente en lugar de tokens.',
       schema: {
-        $ref: getSchemaPath(LoginResponse),
+        oneOf: [{ $ref: getSchemaPath(LoginResponse) }, { $ref: getSchemaPath(TwoFactorChallengeResponse) }],
       },
     }),
     ApiUnauthorizedResponse({ description: 'Credenciales inválidas' }),
